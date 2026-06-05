@@ -142,6 +142,7 @@ export interface UserAffiliateDetail {
   aff_quota: number
   aff_frozen_quota: number
   aff_history_quota: number
+  is_custom_affiliate: boolean
   /** 当前用户作为邀请人时实际生效的返利比例（专属覆盖全局）。0-100。 */
   effective_rebate_rate_percent: number
   invitees: AffiliateInvitee[]
@@ -150,6 +151,23 @@ export interface UserAffiliateDetail {
 export interface AffiliateTransferResponse {
   transferred_quota: number
   balance: number
+}
+
+export type AffiliateWithdrawalStatus = 'pending' | 'paid'
+
+export interface AffiliateWithdrawalRecord {
+  id: number
+  user_id: number
+  user_email?: string
+  username?: string
+  amount: number
+  status: AffiliateWithdrawalStatus
+  requested_at: string
+  paid_at?: string | null
+  paid_by?: number | null
+  remark?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface SendVerifyCodeRequest {

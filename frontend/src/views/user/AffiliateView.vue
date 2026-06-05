@@ -104,6 +104,77 @@
           </p>
         </div>
 
+        <div v-if="detail.is_custom_affiliate" class="card p-6">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.withdrawal.title') }}</h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.withdrawal.description') }}</p>
+            </div>
+            <div class="flex flex-col gap-2 sm:w-72">
+              <input
+                v-model="withdrawalAmount"
+                type="number"
+                min="0"
+                step="0.00000001"
+                class="input"
+                :placeholder="t('affiliate.withdrawal.amountPlaceholder')"
+                :disabled="creatingWithdrawal || detail.aff_quota <= 0"
+              />
+              <button
+                class="btn btn-primary"
+                :disabled="creatingWithdrawal || !canCreateWithdrawal"
+                @click="createWithdrawal"
+              >
+                <Icon v-if="creatingWithdrawal" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-else name="dollar" size="sm" />
+                <span>{{ creatingWithdrawal ? t('affiliate.withdrawal.submitting') : t('affiliate.withdrawal.submit') }}</span>
+              </button>
+            </div>
+          </div>
+          <p class="mt-3 text-sm text-gray-500 dark:text-dark-400">
+            {{ t('affiliate.withdrawal.maxAmount', { amount: formatCurrency(detail.aff_quota) }) }}
+          </p>
+        </div>
+
+        <div v-if="detail.is_custom_affiliate" class="card p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.withdrawal.recordsTitle') }}</h3>
+            <button class="btn btn-secondary btn-sm" :disabled="withdrawalsLoading" @click="loadWithdrawals">
+              <Icon name="refresh" size="sm" :class="withdrawalsLoading ? 'animate-spin' : ''" />
+              <span>{{ t('common.refresh') }}</span>
+            </button>
+          </div>
+          <div v-if="withdrawals.length === 0" class="mt-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
+            {{ t('affiliate.withdrawal.empty') }}
+          </div>
+          <div v-else class="mt-4 overflow-x-auto">
+            <table class="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 text-gray-500 dark:border-dark-700 dark:text-dark-400">
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.withdrawal.columns.requestedAt') }}</th>
+                  <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.withdrawal.columns.amount') }}</th>
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.withdrawal.columns.status') }}</th>
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.withdrawal.columns.paidAt') }}</th>
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.withdrawal.columns.remark') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in withdrawals" :key="item.id" class="border-b border-gray-100 last:border-b-0 dark:border-dark-800">
+                  <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ formatDateTime(item.requested_at) }}</td>
+                  <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCurrency(item.amount) }}</td>
+                  <td class="px-3 py-3">
+                    <span :class="item.status === 'paid' ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'">
+                      {{ item.status === 'paid' ? t('affiliate.withdrawal.status.paid') : t('affiliate.withdrawal.status.pending') }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ item.paid_at ? formatDateTime(item.paid_at) : '-' }}</td>
+                  <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ item.remark || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="card p-6">
           <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.invitees.title') }}</h3>
           <div v-if="detail.invitees.length === 0" class="mt-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
@@ -145,7 +216,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import userAPI from '@/api/user'
-import type { UserAffiliateDetail } from '@/types'
+import type { AffiliateWithdrawalRecord, UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
@@ -159,7 +230,11 @@ const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
 const transferring = ref(false)
+const creatingWithdrawal = ref(false)
+const withdrawalsLoading = ref(false)
+const withdrawalAmount = ref('')
 const detail = ref<UserAffiliateDetail | null>(null)
+const withdrawals = ref<AffiliateWithdrawalRecord[]>([])
 
 const inviteLink = computed(() => {
   if (!detail.value) return ''
@@ -175,6 +250,11 @@ const formattedRebateRate = computed(() => {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toString()
 })
 
+const canCreateWithdrawal = computed(() => {
+  const amount = Number(withdrawalAmount.value)
+  return !!detail.value && detail.value.is_custom_affiliate && amount > 0 && amount <= detail.value.aff_quota
+})
+
 function formatCount(value: number): string {
   return value.toLocaleString()
 }
@@ -185,12 +265,29 @@ async function loadAffiliateDetail(silent = false): Promise<void> {
   }
   try {
     detail.value = await userAPI.getAffiliateDetail()
+    if (detail.value.is_custom_affiliate) {
+      await loadWithdrawals()
+    } else {
+      withdrawals.value = []
+    }
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.loadFailed')))
   } finally {
     if (!silent) {
       loading.value = false
     }
+  }
+}
+
+async function loadWithdrawals(): Promise<void> {
+  withdrawalsLoading.value = true
+  try {
+    const resp = await userAPI.listAffiliateWithdrawals({ page: 1, page_size: 20 })
+    withdrawals.value = resp.items
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('affiliate.withdrawal.loadFailed')))
+  } finally {
+    withdrawalsLoading.value = false
   }
 }
 
@@ -212,12 +309,32 @@ async function transferQuota(): Promise<void> {
     appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
     await Promise.all([
       loadAffiliateDetail(true),
+      loadWithdrawals(),
       authStore.refreshUser().catch(() => undefined),
     ])
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.transferFailed')))
   } finally {
     transferring.value = false
+  }
+}
+
+async function createWithdrawal(): Promise<void> {
+  if (!detail.value || creatingWithdrawal.value || !canCreateWithdrawal.value) return
+  creatingWithdrawal.value = true
+  try {
+    const amount = Number(withdrawalAmount.value)
+    await userAPI.createAffiliateWithdrawal(amount)
+    appStore.showSuccess(t('affiliate.withdrawal.success'))
+    withdrawalAmount.value = ''
+    await Promise.all([
+      loadAffiliateDetail(true),
+      loadWithdrawals(),
+    ])
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('affiliate.withdrawal.failed')))
+  } finally {
+    creatingWithdrawal.value = false
   }
 }
 

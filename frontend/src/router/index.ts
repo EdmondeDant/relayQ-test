@@ -217,6 +217,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/model-test',
+    name: 'ModelTest',
+    component: () => import('@/views/user/ModelTestView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Model Test',
+      titleKey: 'modelTest.title',
+      descriptionKey: 'modelTest.description'
+    }
+  },
+  {
     path: '/redeem',
     name: 'Redeem',
     component: () => import('@/views/user/RedeemView.vue'),
@@ -611,6 +623,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Affiliate Transfer Records',
       titleKey: 'nav.affiliateTransferRecords',
       descriptionKey: 'admin.affiliates.transfersDescription'
+    }
+  },
+  {
+    path: '/admin/affiliates/withdrawals',
+    name: 'AdminAffiliateWithdrawals',
+    component: () => import('@/views/admin/affiliates/AdminAffiliateWithdrawalsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Affiliate Withdrawals',
+      titleKey: 'nav.affiliateWithdrawalRecords',
+      descriptionKey: 'admin.affiliates.withdrawalsDescription'
     }
   },
 

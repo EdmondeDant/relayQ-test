@@ -77,6 +77,21 @@ export interface AffiliateTransferRecord {
   created_at: string
 }
 
+export interface AffiliateWithdrawalRecord {
+  id: number
+  user_id: number
+  user_email: string
+  username: string
+  amount: number
+  status: 'pending' | 'paid'
+  requested_at: string
+  paid_at?: string | null
+  paid_by?: number | null
+  remark?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface AffiliateUserOverview {
   user_id: number
   email: string
@@ -206,6 +221,27 @@ export async function listTransferRecords(
   return data
 }
 
+export async function listWithdrawalRecords(
+  params: ListAffiliateRecordsParams & { status?: string } = {},
+): Promise<PaginatedResponse<AffiliateWithdrawalRecord>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateWithdrawalRecord>>(
+    '/admin/affiliates/withdrawals',
+    { params: { ...recordParams(params), status: params.status || undefined } },
+  )
+  return data
+}
+
+export async function markWithdrawalPaid(
+  id: number,
+  payload: { remark?: string } = {},
+): Promise<AffiliateWithdrawalRecord> {
+  const { data } = await apiClient.post<AffiliateWithdrawalRecord>(
+    `/admin/affiliates/withdrawals/${id}/mark-paid`,
+    payload,
+  )
+  return data
+}
+
 export async function getUserOverview(
   userId: number,
 ): Promise<AffiliateUserOverview> {
@@ -224,6 +260,8 @@ export const affiliatesAPI = {
   listInviteRecords,
   listRebateRecords,
   listTransferRecords,
+  listWithdrawalRecords,
+  markWithdrawalPaid,
   getUserOverview,
 }
 

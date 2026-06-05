@@ -12,11 +12,13 @@ import (
 )
 
 var (
-	ErrAffiliateProfileNotFound = infraerrors.NotFound("AFFILIATE_PROFILE_NOT_FOUND", "affiliate profile not found")
-	ErrAffiliateCodeInvalid     = infraerrors.BadRequest("AFFILIATE_CODE_INVALID", "invalid affiliate code")
-	ErrAffiliateCodeTaken       = infraerrors.Conflict("AFFILIATE_CODE_TAKEN", "affiliate code already in use")
-	ErrAffiliateAlreadyBound    = infraerrors.Conflict("AFFILIATE_ALREADY_BOUND", "affiliate inviter already bound")
-	ErrAffiliateQuotaEmpty      = infraerrors.BadRequest("AFFILIATE_QUOTA_EMPTY", "no affiliate quota available to transfer")
+	ErrAffiliateProfileNotFound   = infraerrors.NotFound("AFFILIATE_PROFILE_NOT_FOUND", "affiliate profile not found")
+	ErrAffiliateCodeInvalid       = infraerrors.BadRequest("AFFILIATE_CODE_INVALID", "invalid affiliate code")
+	ErrAffiliateCodeTaken         = infraerrors.Conflict("AFFILIATE_CODE_TAKEN", "affiliate code already in use")
+	ErrAffiliateAlreadyBound      = infraerrors.Conflict("AFFILIATE_ALREADY_BOUND", "affiliate inviter already bound")
+	ErrAffiliateQuotaEmpty        = infraerrors.BadRequest("AFFILIATE_QUOTA_EMPTY", "no affiliate quota available to transfer")
+	ErrAffiliateQuotaInsufficient = infraerrors.BadRequest("AFFILIATE_QUOTA_INSUFFICIENT", "insufficient affiliate quota")
+	ErrAffiliateWithdrawalPaid    = infraerrors.Conflict("AFFILIATE_WITHDRAWAL_ALREADY_PAID", "affiliate withdrawal already paid")
 )
 
 const (
@@ -80,13 +82,14 @@ type AffiliateInvitee struct {
 }
 
 type AffiliateDetail struct {
-	UserID          int64   `json:"user_id"`
-	AffCode         string  `json:"aff_code"`
-	InviterID       *int64  `json:"inviter_id,omitempty"`
-	AffCount        int     `json:"aff_count"`
-	AffQuota        float64 `json:"aff_quota"`
-	AffFrozenQuota  float64 `json:"aff_frozen_quota"`
-	AffHistoryQuota float64 `json:"aff_history_quota"`
+	UserID            int64   `json:"user_id"`
+	AffCode           string  `json:"aff_code"`
+	InviterID         *int64  `json:"inviter_id,omitempty"`
+	AffCount          int     `json:"aff_count"`
+	AffQuota          float64 `json:"aff_quota"`
+	AffFrozenQuota    float64 `json:"aff_frozen_quota"`
+	AffHistoryQuota   float64 `json:"aff_history_quota"`
+	IsCustomAffiliate bool    `json:"is_custom_affiliate"`
 	// EffectiveRebateRatePercent 是当前用户作为邀请人时实际生效的返利比例：
 	// 优先用户自己的专属比例（aff_rebate_rate_percent），否则回退到全局比例。
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
@@ -113,6 +116,10 @@ type AffiliateRepository interface {
 	ListAffiliateInviteRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateInviteRecord, int64, error)
 	ListAffiliateRebateRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error)
 	ListAffiliateTransferRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateTransferRecord, int64, error)
+	CreateAffiliateWithdrawal(ctx context.Context, userID int64, amount float64) (*AffiliateWithdrawalRecord, error)
+	ListUserAffiliateWithdrawals(ctx context.Context, userID int64, page, pageSize int) ([]AffiliateWithdrawalRecord, int64, error)
+	ListAffiliateWithdrawalRecords(ctx context.Context, filter AffiliateRecordFilter, status string) ([]AffiliateWithdrawalRecord, int64, error)
+	MarkAffiliateWithdrawalPaid(ctx context.Context, id int64, operatorID int64, remark string) (*AffiliateWithdrawalRecord, error)
 	GetAffiliateUserOverview(ctx context.Context, userID int64) (*AffiliateUserOverview, error)
 }
 
@@ -191,6 +198,21 @@ type AffiliateTransferRecord struct {
 	CreatedAt           time.Time `json:"created_at"`
 }
 
+type AffiliateWithdrawalRecord struct {
+	ID          int64      `json:"id"`
+	UserID      int64      `json:"user_id"`
+	UserEmail   string     `json:"user_email,omitempty"`
+	Username    string     `json:"username,omitempty"`
+	Amount      float64    `json:"amount"`
+	Status      string     `json:"status"`
+	RequestedAt time.Time  `json:"requested_at"`
+	PaidAt      *time.Time `json:"paid_at,omitempty"`
+	PaidBy      *int64     `json:"paid_by,omitempty"`
+	Remark      string     `json:"remark,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
 type AffiliateUserOverview struct {
 	UserID              int64   `json:"user_id"`
 	Email               string  `json:"email"`
@@ -261,6 +283,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffQuota:                   summary.AffQuota,
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
+		IsCustomAffiliate:          summary.AffCodeCustom || summary.AffRebateRatePercent != nil,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
 		Invitees:                   invitees,
 	}, nil
@@ -421,6 +444,53 @@ func (s *AffiliateService) TransferAffiliateQuota(ctx context.Context, userID in
 		s.invalidateAffiliateCaches(ctx, userID)
 	}
 	return transferred, balance, nil
+}
+
+func (s *AffiliateService) CreateAffiliateWithdrawal(ctx context.Context, userID int64, amount float64) (*AffiliateWithdrawalRecord, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	if userID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_USER", "invalid user")
+	}
+	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return nil, infraerrors.BadRequest("INVALID_WITHDRAWAL_AMOUNT", "invalid withdrawal amount")
+	}
+	record, err := s.repo.CreateAffiliateWithdrawal(ctx, userID, roundTo(amount, 8))
+	if err != nil {
+		return nil, err
+	}
+	s.invalidateAffiliateCaches(ctx, userID)
+	return record, nil
+}
+
+func (s *AffiliateService) ListUserAffiliateWithdrawals(ctx context.Context, userID int64, page, pageSize int) ([]AffiliateWithdrawalRecord, int64, error) {
+	if s == nil || s.repo == nil {
+		return nil, 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	if userID <= 0 {
+		return nil, 0, infraerrors.BadRequest("INVALID_USER", "invalid user")
+	}
+	return s.repo.ListUserAffiliateWithdrawals(ctx, userID, page, pageSize)
+}
+
+func (s *AffiliateService) AdminListWithdrawalRecords(ctx context.Context, filter AffiliateRecordFilter, status string) ([]AffiliateWithdrawalRecord, int64, error) {
+	if s == nil || s.repo == nil {
+		return nil, 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	filter = normalizeAffiliateRecordFilter(filter)
+	status = strings.TrimSpace(status)
+	return s.repo.ListAffiliateWithdrawalRecords(ctx, filter, status)
+}
+
+func (s *AffiliateService) AdminMarkWithdrawalPaid(ctx context.Context, id int64, operatorID int64, remark string) (*AffiliateWithdrawalRecord, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	if id <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_WITHDRAWAL", "invalid withdrawal")
+	}
+	return s.repo.MarkAffiliateWithdrawalPaid(ctx, id, operatorID, strings.TrimSpace(remark))
 }
 
 func (s *AffiliateService) listInvitees(ctx context.Context, inviterID int64) ([]AffiliateInvitee, error) {

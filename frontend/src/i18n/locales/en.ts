@@ -350,12 +350,14 @@ export default {
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     usage: 'Usage',
+    modelTest: 'Model Test',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
     affiliateInviteRecords: 'Invite Records',
     affiliateRebateRecords: 'Rebate Records',
     affiliateTransferRecords: 'Transfer Records',
+    affiliateWithdrawalRecords: 'Withdrawal Records',
     profile: 'Profile',
     users: 'Users',
     groups: 'Groups',
@@ -388,6 +390,12 @@ export default {
     channelMonitor: 'Channel Monitor',
     channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
+  },
+
+  // Model Test
+  modelTest: {
+    title: 'Model Test',
+    description: 'Test streaming chat with your API key and selected model'
   },
 
   // Auth
@@ -1077,6 +1085,30 @@ export default {
       empty: 'No available rebate quota',
       success: '{amount} has been transferred to your balance'
     },
+    withdrawal: {
+      title: 'Withdrawal Request',
+      description: 'Enter the affiliate commission amount to withdraw. Admins will mark it as paid after offline payout.',
+      amountPlaceholder: 'Enter withdrawal amount',
+      maxAmount: 'Maximum withdrawable amount: {amount}',
+      submit: 'Submit Withdrawal Request',
+      submitting: 'Submitting...',
+      success: 'Withdrawal request submitted',
+      failed: 'Failed to submit withdrawal request',
+      loadFailed: 'Failed to load withdrawal records',
+      recordsTitle: 'Withdrawal Records',
+      empty: 'No withdrawal records yet',
+      status: {
+        pending: 'Pending Payout',
+        paid: 'Paid'
+      },
+      columns: {
+        requestedAt: 'Requested At',
+        amount: 'Withdrawal Amount',
+        status: 'Status',
+        paidAt: 'Paid At',
+        remark: 'Remark'
+      }
+    },
     invitees: {
       title: 'Invited Users',
       empty: 'No invited users yet',
@@ -1717,6 +1749,7 @@ export default {
       invitesDescription: 'View site-wide inviter and invitee relationships',
       rebatesDescription: 'View recharge orders that generated affiliate rebates',
       transfersDescription: 'View affiliate quota transfers into account balance',
+      withdrawalsDescription: 'View and process affiliate withdrawal requests',
       errors: {
         loadFailed: 'Failed to load affiliate records'
       },
@@ -1744,6 +1777,25 @@ export default {
         invitedAt: 'Invited At',
         rebatedAt: 'Rebated At',
         transferredAt: 'Transferred At'
+      },
+      withdrawals: {
+        allStatuses: 'All Statuses',
+        amount: 'Withdrawal Amount',
+        statusLabel: 'Status',
+        requestedAt: 'Requested At',
+        paidAt: 'Paid At',
+        remark: 'Remark',
+        markPaid: 'Mark Paid',
+        marking: 'Processing...',
+        markPaidHint: 'Confirm that the offline payout has been completed. After confirmation, the affiliate user will see this request as paid.',
+        remarkPlaceholder: 'Enter payout remark (optional)',
+        confirmPaid: 'Confirm Paid',
+        markPaidSuccess: 'Marked as paid',
+        markPaidFailed: 'Failed to mark as paid',
+        status: {
+          pending: 'Pending Payout',
+          paid: 'Paid'
+        }
       },
       overview: {
         title: 'Affiliate User Overview',

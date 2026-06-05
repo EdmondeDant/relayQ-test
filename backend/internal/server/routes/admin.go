@@ -636,6 +636,8 @@ func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		affiliates.GET("/invites", h.Admin.Affiliate.ListInviteRecords)
 		affiliates.GET("/rebates", h.Admin.Affiliate.ListRebateRecords)
 		affiliates.GET("/transfers", h.Admin.Affiliate.ListTransferRecords)
+		affiliates.GET("/withdrawals", h.Admin.Affiliate.ListWithdrawalRecords)
+		affiliates.POST("/withdrawals/:id/mark-paid", h.Admin.Affiliate.MarkWithdrawalPaid)
 
 		users := affiliates.Group("/users")
 		{

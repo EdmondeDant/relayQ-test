@@ -630,6 +630,256 @@ LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 	return items, total, nil
 }
 
+func (r *affiliateRepository) CreateAffiliateWithdrawal(ctx context.Context, userID int64, amount float64) (*service.AffiliateWithdrawalRecord, error) {
+	var record *service.AffiliateWithdrawalRecord
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		if _, err := ensureUserAffiliateWithClient(txCtx, txClient, userID); err != nil {
+			return err
+		}
+		if _, err := thawFrozenQuotaTx(txCtx, txClient, userID); err != nil {
+			return fmt.Errorf("thaw before withdrawal: %w", err)
+		}
+
+		rows, err := txClient.QueryContext(txCtx, `
+SELECT aff_quota::double precision
+FROM user_affiliates
+WHERE user_id = $1
+FOR UPDATE`, userID)
+		if err != nil {
+			return fmt.Errorf("lock affiliate quota: %w", err)
+		}
+		if !rows.Next() {
+			_ = rows.Close()
+			return service.ErrAffiliateProfileNotFound
+		}
+		var available float64
+		if err := rows.Scan(&available); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if amount <= 0 {
+			return service.ErrAffiliateQuotaEmpty
+		}
+		if amount > available {
+			return service.ErrAffiliateQuotaInsufficient
+		}
+
+		if _, err = txClient.ExecContext(txCtx, `
+UPDATE user_affiliates
+SET aff_quota = aff_quota - $1,
+    updated_at = NOW()
+WHERE user_id = $2`, amount, userID); err != nil {
+			return fmt.Errorf("deduct affiliate quota for withdrawal: %w", err)
+		}
+
+		rows, err = txClient.QueryContext(txCtx, `
+INSERT INTO user_affiliate_withdrawals (user_id, amount, status, requested_at, created_at, updated_at)
+VALUES ($1, $2, 'pending', NOW(), NOW(), NOW())
+RETURNING id, user_id, amount::double precision, status, requested_at, paid_at, paid_by, remark, created_at, updated_at`, userID, amount)
+		if err != nil {
+			return fmt.Errorf("insert affiliate withdrawal: %w", err)
+		}
+		defer func() { _ = rows.Close() }()
+		if !rows.Next() {
+			return fmt.Errorf("insert affiliate withdrawal: no row returned")
+		}
+		item, err := scanAffiliateWithdrawalRecord(rows, false)
+		if err != nil {
+			return err
+		}
+		record = item
+
+		snapshot, err := queryAffiliateTransferSnapshot(txCtx, txClient, userID)
+		if err != nil {
+			return err
+		}
+		if _, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (
+    user_id,
+    action,
+    amount,
+    source_user_id,
+    balance_after,
+    aff_quota_after,
+    aff_frozen_quota_after,
+    aff_history_quota_after,
+    created_at,
+    updated_at
+)
+VALUES ($1, 'withdraw_request', $2, NULL, $3, $4, $5, $6, NOW(), NOW())`,
+			userID,
+			amount,
+			snapshot.BalanceAfter,
+			snapshot.AvailableQuotaAfter,
+			snapshot.FrozenQuotaAfter,
+			snapshot.HistoryQuotaAfter,
+		); err != nil {
+			return fmt.Errorf("insert affiliate withdrawal request ledger: %w", err)
+		}
+		return nil
+	})
+	return record, err
+}
+
+func (r *affiliateRepository) ListUserAffiliateWithdrawals(ctx context.Context, userID int64, page, pageSize int) ([]service.AffiliateWithdrawalRecord, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	client := clientFromContext(ctx, r.client)
+	total, err := queryAffiliateRecordCount(ctx, client, `SELECT COUNT(*) FROM user_affiliate_withdrawals WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := client.QueryContext(ctx, `
+SELECT id, user_id, amount::double precision, status, requested_at, paid_at, paid_by, remark, created_at, updated_at
+FROM user_affiliate_withdrawals
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3`, userID, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	items := make([]service.AffiliateWithdrawalRecord, 0)
+	for rows.Next() {
+		item, err := scanAffiliateWithdrawalRecord(rows, false)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, *item)
+	}
+	return items, total, rows.Err()
+}
+
+func (r *affiliateRepository) ListAffiliateWithdrawalRecords(ctx context.Context, filter service.AffiliateRecordFilter, status string) ([]service.AffiliateWithdrawalRecord, int64, error) {
+	client := clientFromContext(ctx, r.client)
+	where, args := buildAffiliateRecordWhere(filter, "w.created_at", []string{"u.email", "u.username", "u.id::text", "w.id::text"})
+	status = strings.TrimSpace(status)
+	if status != "" {
+		args = append(args, status)
+		condition := fmt.Sprintf("w.status = $%d", len(args))
+		if where == "" {
+			where = "WHERE " + condition
+		} else {
+			where += " AND " + condition
+		}
+	}
+	baseJoin := `
+FROM user_affiliate_withdrawals w
+JOIN users u ON u.id = w.user_id`
+	total, err := queryAffiliateRecordCount(ctx, client, "SELECT COUNT(*) "+baseJoin+where, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	orderBy := buildAffiliateRecordOrderBy(filter, map[string]string{
+		"user":         "u.email",
+		"amount":       "w.amount",
+		"status":       "w.status",
+		"requested_at": "w.requested_at",
+		"paid_at":      "w.paid_at",
+		"created_at":   "w.created_at",
+	}, "w.created_at")
+	args = append(args, filter.PageSize, (filter.Page-1)*filter.PageSize)
+	rows, err := client.QueryContext(ctx, `
+SELECT w.id,
+       w.user_id,
+       COALESCE(u.email, ''),
+       COALESCE(u.username, ''),
+       w.amount::double precision,
+       w.status,
+       w.requested_at,
+       w.paid_at,
+       w.paid_by,
+       w.remark,
+       w.created_at,
+       w.updated_at
+`+baseJoin+where+`
+`+orderBy+`
+LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	items := make([]service.AffiliateWithdrawalRecord, 0)
+	for rows.Next() {
+		item, err := scanAffiliateWithdrawalRecord(rows, true)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, *item)
+	}
+	return items, total, rows.Err()
+}
+
+func (r *affiliateRepository) MarkAffiliateWithdrawalPaid(ctx context.Context, id int64, operatorID int64, remark string) (*service.AffiliateWithdrawalRecord, error) {
+	var record *service.AffiliateWithdrawalRecord
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		rows, err := txClient.QueryContext(txCtx, `
+SELECT id, user_id, amount::double precision, status, requested_at, paid_at, paid_by, remark, created_at, updated_at
+FROM user_affiliate_withdrawals
+WHERE id = $1
+FOR UPDATE`, id)
+		if err != nil {
+			return fmt.Errorf("lock affiliate withdrawal: %w", err)
+		}
+		if !rows.Next() {
+			_ = rows.Close()
+			return service.ErrAffiliateProfileNotFound
+		}
+		current, err := scanAffiliateWithdrawalRecord(rows, false)
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return err
+		}
+		if current.Status == "paid" {
+			return service.ErrAffiliateWithdrawalPaid
+		}
+		if current.Status != "pending" {
+			return service.ErrAffiliateWithdrawalPaid
+		}
+
+		paidBy := any(nil)
+		if operatorID > 0 {
+			paidBy = operatorID
+		}
+		rows, err = txClient.QueryContext(txCtx, `
+UPDATE user_affiliate_withdrawals
+SET status = 'paid',
+    paid_at = NOW(),
+    paid_by = $2,
+    remark = $3,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, user_id, amount::double precision, status, requested_at, paid_at, paid_by, remark, created_at, updated_at`, id, paidBy, remark)
+		if err != nil {
+			return fmt.Errorf("mark affiliate withdrawal paid: %w", err)
+		}
+		defer func() { _ = rows.Close() }()
+		if !rows.Next() {
+			return fmt.Errorf("mark affiliate withdrawal paid: no row returned")
+		}
+		record, err = scanAffiliateWithdrawalRecord(rows, false)
+		if err != nil {
+			return err
+		}
+		if _, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, created_at, updated_at)
+VALUES ($1, 'withdraw_paid', $2, NULL, NOW(), NOW())`, record.UserID, record.Amount); err != nil {
+			return fmt.Errorf("insert affiliate withdrawal paid ledger: %w", err)
+		}
+		return nil
+	})
+	return record, err
+}
+
 func (r *affiliateRepository) GetAffiliateUserOverview(ctx context.Context, userID int64) (*service.AffiliateUserOverview, error) {
 	if userID <= 0 {
 		return nil, service.ErrUserNotFound
@@ -949,6 +1199,52 @@ LIMIT 1`, userID)
 		return nil, err
 	}
 	return &snapshot, rows.Err()
+}
+
+func scanAffiliateWithdrawalRecord(rows interface{ Scan(dest ...any) error }, withUser bool) (*service.AffiliateWithdrawalRecord, error) {
+	var item service.AffiliateWithdrawalRecord
+	var paidAt sql.NullTime
+	var paidBy sql.NullInt64
+	if withUser {
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserID,
+			&item.UserEmail,
+			&item.Username,
+			&item.Amount,
+			&item.Status,
+			&item.RequestedAt,
+			&paidAt,
+			&paidBy,
+			&item.Remark,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := rows.Scan(
+			&item.ID,
+			&item.UserID,
+			&item.Amount,
+			&item.Status,
+			&item.RequestedAt,
+			&paidAt,
+			&paidBy,
+			&item.Remark,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+	}
+	if paidAt.Valid {
+		item.PaidAt = &paidAt.Time
+	}
+	if paidBy.Valid {
+		item.PaidBy = &paidBy.Int64
+	}
+	return &item, nil
 }
 
 func nullableFloat64Ptr(v sql.NullFloat64) *float64 {

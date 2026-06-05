@@ -350,17 +350,19 @@ export default {
     announcements: '公告',
     apiKeys: 'API 密钥',
     usage: '使用记录',
+    modelTest: '模型测试',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
     affiliateInviteRecords: '邀请记录',
     affiliateRebateRecords: '返利记录',
     affiliateTransferRecords: '提取记录',
+    affiliateWithdrawalRecords: '提现记录',
     profile: '个人资料',
     users: '用户管理',
     groups: '分组管理',
     channels: '渠道管理',
-    availableChannels: '可用渠道',
+    availableChannels: '模型价格',
     subscriptions: '订阅管理',
     accounts: '账号管理',
     proxies: 'IP管理',
@@ -388,6 +390,12 @@ export default {
     channelMonitor: '渠道监控',
     channelStatus: '渠道状态',
     riskControl: '风控中心',
+  },
+
+  // Model Test
+  modelTest: {
+    title: '模型测试',
+    description: '选择自己的 API Key 和模型进行流式对话测试'
   },
 
   // Auth
@@ -1081,6 +1089,30 @@ export default {
       empty: '当前没有可转入额度',
       success: '已转入余额：{amount}'
     },
+    withdrawal: {
+      title: '提现申请',
+      description: '输入要提现的返佣金额，管理员线下打款后会标记为已打款。',
+      amountPlaceholder: '请输入提现金额',
+      maxAmount: '最大可提现金额：{amount}',
+      submit: '提交提现申请',
+      submitting: '提交中...',
+      success: '提现申请已提交',
+      failed: '提现申请失败',
+      loadFailed: '加载提现记录失败',
+      recordsTitle: '提现记录',
+      empty: '暂无提现记录',
+      status: {
+        pending: '待打款',
+        paid: '已打款'
+      },
+      columns: {
+        requestedAt: '申请时间',
+        amount: '提现金额',
+        status: '状态',
+        paidAt: '打款时间',
+        remark: '备注'
+      }
+    },
     invitees: {
       title: '已邀请用户',
       empty: '暂无邀请记录',
@@ -1738,6 +1770,7 @@ export default {
       invitesDescription: '查看全站邀请关系和被邀请用户累计返利',
       rebatesDescription: '查看每一笔产生返利的充值订单',
       transfersDescription: '查看返利额度转入账户余额的提取流水',
+      withdrawalsDescription: '查看并处理业务员提现申请',
       errors: {
         loadFailed: '加载邀请返利记录失败'
       },
@@ -1765,6 +1798,25 @@ export default {
         invitedAt: '邀请时间',
         rebatedAt: '返利时间',
         transferredAt: '提取时间'
+      },
+      withdrawals: {
+        allStatuses: '全部状态',
+        amount: '提现金额',
+        statusLabel: '状态',
+        requestedAt: '申请时间',
+        paidAt: '打款时间',
+        remark: '备注',
+        markPaid: '标记已打款',
+        marking: '处理中...',
+        markPaidHint: '请确认已经在线下完成打款，确认后业务员端会显示已打款。',
+        remarkPlaceholder: '请输入打款备注（选填）',
+        confirmPaid: '确认已打款',
+        markPaidSuccess: '已标记为已打款',
+        markPaidFailed: '标记已打款失败',
+        status: {
+          pending: '待打款',
+          paid: '已打款'
+        }
       },
       overview: {
         title: '用户返利概览',

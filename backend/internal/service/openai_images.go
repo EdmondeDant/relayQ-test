@@ -584,7 +584,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		parsed.Endpoint,
 		account.Type,
 	)
-	forwardBody, forwardContentType, err := rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
+	forwardBody, forwardContentType, err := buildOpenAIImagesForwardBody(body, parsed, upstreamModel)
 	if err != nil {
 		return nil, err
 	}
@@ -715,6 +715,34 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			ImageOutputSizes: nonStreamSizes,
 		}, nil
 	}
+}
+
+func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upstreamModel string) ([]byte, string, error) {
+	if parsed == nil || parsed.Multipart {
+		return rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
+	}
+	payload := map[string]any{}
+	if gjson.ValidBytes(body) {
+		var raw map[string]any
+		if err := json.Unmarshal(body, &raw); err == nil {
+			payload = raw
+		}
+	}
+	payload["model"] = upstreamModel
+	if prompt := strings.TrimSpace(parsed.Prompt); prompt != "" {
+		payload["prompt"] = prompt
+	}
+	if parsed.N > 0 {
+		payload["n"] = parsed.N
+	}
+	if strings.TrimSpace(parsed.ResponseFormat) == "" {
+		payload["response_format"] = "b64_json"
+	}
+	forwardBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, "", err
+	}
+	return forwardBody, "application/json", nil
 }
 
 func (s *OpenAIGatewayService) buildOpenAIImagesRequest(

@@ -400,6 +400,22 @@ func (r *oauthEmailAffiliateRepoStub) ListAffiliateTransferRecords(context.Conte
 	panic("unexpected ListAffiliateTransferRecords call")
 }
 
+func (r *oauthEmailAffiliateRepoStub) CreateAffiliateWithdrawal(context.Context, int64, float64) (*service.AffiliateWithdrawalRecord, error) {
+	panic("unexpected CreateAffiliateWithdrawal call")
+}
+
+func (r *oauthEmailAffiliateRepoStub) ListUserAffiliateWithdrawals(context.Context, int64, int, int) ([]service.AffiliateWithdrawalRecord, int64, error) {
+	panic("unexpected ListUserAffiliateWithdrawals call")
+}
+
+func (r *oauthEmailAffiliateRepoStub) ListAffiliateWithdrawalRecords(context.Context, service.AffiliateRecordFilter, string) ([]service.AffiliateWithdrawalRecord, int64, error) {
+	panic("unexpected ListAffiliateWithdrawalRecords call")
+}
+
+func (r *oauthEmailAffiliateRepoStub) MarkAffiliateWithdrawalPaid(context.Context, int64, int64, string) (*service.AffiliateWithdrawalRecord, error) {
+	panic("unexpected MarkAffiliateWithdrawalPaid call")
+}
+
 func (r *oauthEmailAffiliateRepoStub) GetAffiliateUserOverview(context.Context, int64) (*service.AffiliateUserOverview, error) {
 	panic("unexpected GetAffiliateUserOverview call")
 }

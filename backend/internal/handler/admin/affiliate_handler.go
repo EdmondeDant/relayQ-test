@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -238,6 +239,44 @@ func (h *AffiliateHandler) ListTransferRecords(c *gin.Context) {
 		return
 	}
 	response.Paginated(c, items, total, filter.Page, filter.PageSize)
+}
+
+func (h *AffiliateHandler) ListWithdrawalRecords(c *gin.Context) {
+	page, pageSize := response.ParsePagination(c)
+	filter := parseAffiliateRecordFilter(c, page, pageSize)
+	items, total, err := h.affiliateService.AdminListWithdrawalRecords(c.Request.Context(), filter, c.Query("status"))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, filter.Page, filter.PageSize)
+}
+
+type MarkWithdrawalPaidRequest struct {
+	Remark string `json:"remark"`
+}
+
+func (h *AffiliateHandler) MarkWithdrawalPaid(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid withdrawal id")
+		return
+	}
+	var req MarkWithdrawalPaidRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	var operatorID int64
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		operatorID = subject.UserID
+	}
+	record, err := h.affiliateService.AdminMarkWithdrawalPaid(c.Request.Context(), id, operatorID, req.Remark)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, record)
 }
 
 func parseAffiliateRecordFilter(c *gin.Context, page, pageSize int) service.AffiliateRecordFilter {

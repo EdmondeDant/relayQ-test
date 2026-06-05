@@ -16,6 +16,8 @@ import type {
   UserAuthProvider,
   UserAffiliateDetail,
   AffiliateTransferResponse,
+  AffiliateWithdrawalRecord,
+  PaginatedResponse,
   PlatformQuotasResponse,
 } from '@/types'
 
@@ -186,6 +188,21 @@ export async function transferAffiliateQuota(): Promise<AffiliateTransferRespons
   return data
 }
 
+export async function createAffiliateWithdrawal(amount: number): Promise<AffiliateWithdrawalRecord> {
+  const { data } = await apiClient.post<AffiliateWithdrawalRecord>('/user/aff/withdrawals', { amount })
+  return data
+}
+
+export async function listAffiliateWithdrawals(params: { page?: number; page_size?: number } = {}): Promise<PaginatedResponse<AffiliateWithdrawalRecord>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateWithdrawalRecord>>('/user/aff/withdrawals', {
+    params: {
+      page: params.page ?? 1,
+      page_size: params.page_size ?? 20,
+    },
+  })
+  return data
+}
+
 /**
  * 获取当前用户的平台限额 + 用量。
  */
@@ -209,6 +226,8 @@ export const userAPI = {
   startOAuthBinding,
   getAffiliateDetail,
   transferAffiliateQuota,
+  createAffiliateWithdrawal,
+  listAffiliateWithdrawals,
   getMyPlatformQuotas,
 }
 

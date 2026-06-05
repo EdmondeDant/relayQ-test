@@ -232,6 +232,44 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 	})
 }
 
+type CreateAffiliateWithdrawalRequest struct {
+	Amount float64 `json:"amount" binding:"required"`
+}
+
+func (h *UserHandler) CreateAffiliateWithdrawal(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req CreateAffiliateWithdrawalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	record, err := h.affiliateService.CreateAffiliateWithdrawal(c.Request.Context(), subject.UserID, req.Amount)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, record)
+}
+
+func (h *UserHandler) ListAffiliateWithdrawals(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, total, err := h.affiliateService.ListUserAffiliateWithdrawals(c.Request.Context(), subject.UserID, page, pageSize)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}
+
 type StartIdentityBindingRequest struct {
 	Provider   string `json:"provider" binding:"required"`
 	RedirectTo string `json:"redirect_to"`
