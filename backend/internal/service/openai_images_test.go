@@ -26,6 +26,37 @@ type failingOpenAIImageWriter struct {
 	writes    int
 }
 
+func TestConvertOpenAIImagesB64JSONToDataURL(t *testing.T) {
+	body := []byte(`{"created":123,"data":[{"b64_json":"iVBORw0KGgo=","revised_prompt":"cat"}]}`)
+
+	converted := convertOpenAIImagesB64JSONToDataURL(body)
+
+	data := gjson.GetBytes(converted, "data.0")
+	require.False(t, data.Get("b64_json").Exists())
+	require.Equal(t, "data:image/png;base64,iVBORw0KGgo=", data.Get("url").String())
+	require.Equal(t, "cat", data.Get("revised_prompt").String())
+}
+
+func TestBuildOpenAIImagesForwardBodyNormalizesURLToB64JSON(t *testing.T) {
+	parsed := &OpenAIImagesRequest{Model: "gpt-image-2", Prompt: "cat", N: 1, ResponseFormat: "url"}
+
+	body, contentType, err := buildOpenAIImagesForwardBody([]byte(`{"model":"gpt-image-2","prompt":"cat","response_format":"url"}`), parsed, "gpt-image-2")
+
+	require.NoError(t, err)
+	require.Equal(t, "application/json", contentType)
+	require.Equal(t, "b64_json", gjson.GetBytes(body, "response_format").String())
+}
+
+func TestBuildOpenAIImagesForwardBodyDefaultsToB64JSON(t *testing.T) {
+	parsed := &OpenAIImagesRequest{Model: "gpt-image-2", Prompt: "cat", N: 1}
+
+	body, contentType, err := buildOpenAIImagesForwardBody([]byte(`{"model":"gpt-image-2","prompt":"cat"}`), parsed, "gpt-image-2")
+
+	require.NoError(t, err)
+	require.Equal(t, "application/json", contentType)
+	require.Equal(t, "b64_json", gjson.GetBytes(body, "response_format").String())
+}
+
 func (w *failingOpenAIImageWriter) Write(p []byte) (int, error) {
 	if w.writes >= w.failAfter {
 		return 0, errors.New("write failed: client disconnected")

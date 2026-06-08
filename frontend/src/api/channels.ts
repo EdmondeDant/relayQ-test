@@ -40,10 +40,17 @@ export interface UserSupportedModelPricing {
   intervals: UserPricingInterval[]
 }
 
+export interface UserSupportedModelImagePricing {
+  price_1k: number | null
+  price_2k: number | null
+  price_4k: number | null
+}
+
 export interface UserSupportedModel {
   name: string
   platform: string
   pricing: UserSupportedModelPricing | null
+  image_pricing?: UserSupportedModelImagePricing | null
 }
 
 /**

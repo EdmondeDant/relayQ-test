@@ -692,7 +692,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			ImageOutputSizes: imageOutputSizes,
 		}, nil
 	} else {
-		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c)
+		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c, parsed)
 		if err != nil {
 			return nil, err
 		}
@@ -735,8 +735,10 @@ func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upst
 	if parsed.N > 0 {
 		payload["n"] = parsed.N
 	}
-	if strings.TrimSpace(parsed.ResponseFormat) == "" {
+	if desired := strings.TrimSpace(parsed.ResponseFormat); desired == "" || strings.EqualFold(desired, "url") {
 		payload["response_format"] = "b64_json"
+	} else {
+		payload["response_format"] = desired
 	}
 	forwardBody, err := json.Marshal(payload)
 	if err != nil {
@@ -881,10 +883,13 @@ func cloneMultipartHeader(src textproto.MIMEHeader) textproto.MIMEHeader {
 	return dst
 }
 
-func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context) (OpenAIUsage, int, []string, error) {
+func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context, parsed *OpenAIImagesRequest) (OpenAIUsage, int, []string, error) {
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
+	}
+	if shouldReturnOpenAIImagesURLResponse(parsed) {
+		body = convertOpenAIImagesB64JSONToDataURL(body)
 	}
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"
@@ -897,6 +902,75 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 
 	usage, _ := extractOpenAIUsageFromJSONBytes(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+}
+
+func shouldReturnOpenAIImagesURLResponse(parsed *OpenAIImagesRequest) bool {
+	if parsed == nil {
+		return false
+	}
+	format := strings.ToLower(strings.TrimSpace(parsed.ResponseFormat))
+	return format == "" || format == "url"
+}
+
+func convertOpenAIImagesB64JSONToDataURL(body []byte) []byte {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return body
+	}
+	data := gjson.GetBytes(body, "data")
+	if !data.IsArray() {
+		return body
+	}
+
+	out := body
+	changed := false
+	for i, item := range data.Array() {
+		raw := item.Get("b64_json").String()
+		b64 := cleanOpenAIImageBase64ForDataURL(raw)
+		if b64 == "" {
+			continue
+		}
+		urlPath := fmt.Sprintf("data.%d.url", i)
+		b64Path := fmt.Sprintf("data.%d.b64_json", i)
+		updated, err := sjson.SetBytes(out, urlPath, fmt.Sprintf("data:%s;base64,%s", detectOpenAIImageBase64MimeType(b64), b64))
+		if err != nil {
+			continue
+		}
+		updated, err = sjson.DeleteBytes(updated, b64Path)
+		if err != nil {
+			continue
+		}
+		out = updated
+		changed = true
+	}
+	if !changed {
+		return body
+	}
+	return out
+}
+
+func cleanOpenAIImageBase64ForDataURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(raw), "data:") {
+		if idx := strings.Index(raw, ","); idx >= 0 && idx+1 < len(raw) {
+			raw = raw[idx+1:]
+		}
+	}
+	return strings.TrimSpace(raw)
+}
+
+func detectOpenAIImageBase64MimeType(b64 string) string {
+	decoded, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil || len(decoded) == 0 {
+		return "image/png"
+	}
+	contentType := http.DetectContentType(decoded)
+	if strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		return contentType
+	}
+	return "image/png"
 }
 
 func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(

@@ -53,12 +53,16 @@ func (h *AvailableChannelHandler) featureEnabled(c *gin.Context) bool {
 // 订阅视觉加深），并用 RateMultiplier 作为默认倍率；用户专属倍率前端走
 // /groups/rates，和 API 密钥页面保持一致。
 type userAvailableGroup struct {
-	ID               int64   `json:"id"`
-	Name             string  `json:"name"`
-	Platform         string  `json:"platform"`
-	SubscriptionType string  `json:"subscription_type"`
-	RateMultiplier   float64 `json:"rate_multiplier"`
-	IsExclusive      bool    `json:"is_exclusive"`
+	ID                   int64    `json:"id"`
+	Name                 string   `json:"name"`
+	Platform             string   `json:"platform"`
+	SubscriptionType     string   `json:"subscription_type"`
+	RateMultiplier       float64  `json:"rate_multiplier"`
+	IsExclusive          bool     `json:"is_exclusive"`
+	AllowImageGeneration bool     `json:"allow_image_generation"`
+	ImagePrice1K         *float64 `json:"image_price_1k,omitempty"`
+	ImagePrice2K         *float64 `json:"image_price_2k,omitempty"`
+	ImagePrice4K         *float64 `json:"image_price_4k,omitempty"`
 }
 
 // userSupportedModelPricing 用户可见的定价字段白名单。
@@ -85,11 +89,18 @@ type userPricingIntervalDTO struct {
 	PerRequestPrice *float64 `json:"per_request_price"`
 }
 
+type userSupportedModelImagePricing struct {
+	Price1K *float64 `json:"price_1k"`
+	Price2K *float64 `json:"price_2k"`
+	Price4K *float64 `json:"price_4k"`
+}
+
 // userSupportedModel 用户可见的支持模型条目。
 type userSupportedModel struct {
-	Name     string                     `json:"name"`
-	Platform string                     `json:"platform"`
-	Pricing  *userSupportedModelPricing `json:"pricing"`
+	Name         string                          `json:"name"`
+	Platform     string                          `json:"platform"`
+	Pricing      *userSupportedModelPricing      `json:"pricing"`
+	ImagePricing *userSupportedModelImagePricing `json:"image_pricing,omitempty"`
 }
 
 // userChannelPlatformSection 单渠道内某个平台的子视图：用户可见的分组 + 该平台
@@ -196,7 +207,7 @@ func buildPlatformSections(
 		sections = append(sections, userChannelPlatformSection{
 			Platform:        platform,
 			Groups:          groupsByPlatform[platform],
-			SupportedModels: toUserSupportedModels(ch.SupportedModels, platformSet),
+			SupportedModels: toUserSupportedModels(ch.SupportedModels, platformSet, groupsByPlatform[platform]),
 		})
 	}
 	return sections
@@ -213,12 +224,16 @@ func filterUserVisibleGroups(
 			continue
 		}
 		visible = append(visible, userAvailableGroup{
-			ID:               g.ID,
-			Name:             g.Name,
-			Platform:         g.Platform,
-			SubscriptionType: g.SubscriptionType,
-			RateMultiplier:   g.RateMultiplier,
-			IsExclusive:      g.IsExclusive,
+			ID:                   g.ID,
+			Name:                 g.Name,
+			Platform:             g.Platform,
+			SubscriptionType:     g.SubscriptionType,
+			RateMultiplier:       g.RateMultiplier,
+			IsExclusive:          g.IsExclusive,
+			AllowImageGeneration: g.AllowImageGeneration,
+			ImagePrice1K:         g.ImagePrice1K,
+			ImagePrice2K:         g.ImagePrice2K,
+			ImagePrice4K:         g.ImagePrice4K,
 		})
 	}
 	return visible
@@ -230,6 +245,7 @@ func filterUserVisibleGroups(
 func toUserSupportedModels(
 	src []service.SupportedModel,
 	allowedPlatforms map[string]struct{},
+	visibleGroups []userAvailableGroup,
 ) []userSupportedModel {
 	out := make([]userSupportedModel, 0, len(src))
 	for i := range src {
@@ -240,15 +256,45 @@ func toUserSupportedModels(
 			}
 		}
 		out = append(out, userSupportedModel{
-			Name:     m.Name,
-			Platform: m.Platform,
-			Pricing:  toUserPricing(m.Pricing),
+			Name:         m.Name,
+			Platform:     m.Platform,
+			Pricing:      toUserPricing(m.Pricing),
+			ImagePricing: toUserImagePricingForModel(m.Pricing, visibleGroups),
 		})
 	}
 	return out
 }
 
 // toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
+func toUserImagePricingForModel(p *service.ChannelModelPricing, groups []userAvailableGroup) *userSupportedModelImagePricing {
+	if p == nil || p.BillingMode != service.BillingModeImage {
+		return nil
+	}
+	var pricing userSupportedModelImagePricing
+	for _, group := range groups {
+		if !group.AllowImageGeneration {
+			continue
+		}
+		pricing.Price1K = lowerVisiblePrice(pricing.Price1K, group.ImagePrice1K)
+		pricing.Price2K = lowerVisiblePrice(pricing.Price2K, group.ImagePrice2K)
+		pricing.Price4K = lowerVisiblePrice(pricing.Price4K, group.ImagePrice4K)
+	}
+	if pricing.Price1K == nil && pricing.Price2K == nil && pricing.Price4K == nil {
+		return nil
+	}
+	return &pricing
+}
+
+func lowerVisiblePrice(current, candidate *float64) *float64 {
+	if candidate == nil {
+		return current
+	}
+	if current == nil || *candidate < *current {
+		return candidate
+	}
+	return current
+}
+
 func toUserPricing(p *service.ChannelModelPricing) *userSupportedModelPricing {
 	if p == nil {
 		return nil

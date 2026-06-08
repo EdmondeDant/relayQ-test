@@ -87,10 +87,11 @@
           </p>
         </div>
 
-        <!-- Invitation Code Input (Required when enabled) -->
+        <!-- Invitation Code Input (Optional when enabled) -->
         <div v-if="invitationCodeEnabled">
           <label for="invitation_code" class="input-label">
             {{ t('auth.invitationCodeLabel') }}
+            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-dark-500">({{ t('common.optional') }})</span>
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
@@ -787,14 +788,6 @@ function validateForm(): boolean {
     isValid = false
   }
 
-  // Invitation code validation (required when enabled)
-  if (invitationCodeEnabled.value) {
-    if (!formData.invitation_code.trim()) {
-      errors.invitation_code = t('auth.invitationCodeRequired')
-      isValid = false
-    }
-  }
-
   // Turnstile validation
   if (turnstileEnabled.value && !turnstileToken.value) {
     errors.turnstile = t('auth.completeVerification')
@@ -856,7 +849,8 @@ async function handleRegister(): Promise<void> {
   isLoading.value = true
 
   try {
-    const affCode = formData.aff_code.trim() || loadAffiliateReferralCode()
+    const invitationCode = formData.invitation_code.trim()
+    const affCode = formData.aff_code.trim() || loadAffiliateReferralCode() || invitationCode
     if (affCode) {
       formData.aff_code = affCode
     }
@@ -871,7 +865,7 @@ async function handleRegister(): Promise<void> {
           password: formData.password,
           turnstile_token: turnstileToken.value,
           promo_code: formData.promo_code || undefined,
-          invitation_code: formData.invitation_code || undefined,
+          invitation_code: invitationCode || undefined,
           ...(affCode ? { aff_code: affCode } : {})
         })
       )
@@ -887,7 +881,7 @@ async function handleRegister(): Promise<void> {
       password: formData.password,
       turnstile_token: turnstileEnabled.value ? turnstileToken.value : undefined,
       promo_code: formData.promo_code || undefined,
-      invitation_code: formData.invitation_code || undefined,
+      invitation_code: invitationCode || undefined,
       ...(affCode ? { aff_code: affCode } : {})
     })
     clearAffiliateReferralCode()

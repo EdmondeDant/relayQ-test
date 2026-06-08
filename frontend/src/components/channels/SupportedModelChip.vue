@@ -35,9 +35,17 @@
         <span class="font-semibold">{{ formatScaled(model.pricing.per_request_price, 1) }}{{ t(prefixKey('unitPerRequest')) }}</span>
       </div>
 
-      <div v-else-if="model.pricing.billing_mode === BILLING_MODE_IMAGE" class="flex items-center justify-between gap-2">
-        <span class="text-gray-500 dark:text-gray-400">{{ t(prefixKey('imageOutputPrice')) }}</span>
-        <span class="font-semibold">{{ formatScaled(model.pricing.image_output_price, 1) }}{{ t(prefixKey('unitPerRequest')) }}</span>
+      <div v-else-if="model.pricing.billing_mode === BILLING_MODE_IMAGE" class="space-y-1">
+        <template v-if="hasGroupImagePricing">
+          <div v-for="item in groupImagePriceItems" :key="item.label" class="flex items-center justify-between gap-2">
+            <span class="text-gray-500 dark:text-gray-400">{{ item.label }}</span>
+            <span class="font-semibold">{{ formatScaled(item.value, 1) }}{{ t(prefixKey('unitPerRequest')) }}</span>
+          </div>
+        </template>
+        <div v-else class="flex items-center justify-between gap-2">
+          <span class="text-gray-500 dark:text-gray-400">{{ t(prefixKey('perRequestPrice')) }}</span>
+          <span class="font-semibold">{{ formatScaled(model.pricing.per_request_price, 1) }}{{ t(prefixKey('unitPerRequest')) }}</span>
+        </div>
       </div>
 
       <div v-if="model.pricing.intervals && model.pricing.intervals.length > 0" class="border-t border-current/15 pt-1">
@@ -59,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, type PropType } from 'vue'
+import { defineComponent, h, computed, type PropType } from 'vue'
 import { formatScaled } from '@/utils/pricing'
 import {
   BILLING_MODE_TOKEN,
@@ -92,6 +100,18 @@ const props = withDefaults(
 const { t } = useI18n()
 const perMillionScale = 1_000_000
 const effectivePlatform = props.model.platform || props.platformHint || ''
+
+const groupImagePriceItems = computed(() => {
+  const pricing = props.model.image_pricing
+  if (!pricing) return []
+  return [
+    { label: '1K', value: pricing.price_1k },
+    { label: '2K', value: pricing.price_2k },
+    { label: '4K', value: pricing.price_4k },
+  ].filter((item): item is { label: string; value: number } => item.value != null)
+})
+
+const hasGroupImagePricing = computed(() => groupImagePriceItems.value.length > 0)
 
 function prefixKey(k: string): string {
   return `${props.pricingKeyPrefix}.${k}`
