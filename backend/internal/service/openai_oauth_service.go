@@ -37,8 +37,9 @@ func (s *OpenAIOAuthService) SetPrivacyClientFactory(factory PrivacyClientFactor
 
 // OpenAIAuthURLResult contains the authorization URL and session info
 type OpenAIAuthURLResult struct {
-	AuthURL   string `json:"auth_url"`
-	SessionID string `json:"session_id"`
+	AuthURL      string `json:"auth_url"`
+	SessionID    string `json:"session_id"`
+	CodeVerifier string `json:"code_verifier"`
 }
 
 // GenerateAuthURL generates an OpenAI OAuth authorization URL
@@ -96,8 +97,9 @@ func (s *OpenAIOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 	authURL := openai.BuildAuthorizationURLForPlatform(state, codeChallenge, redirectURI, normalizedPlatform)
 
 	return &OpenAIAuthURLResult{
-		AuthURL:   authURL,
-		SessionID: sessionID,
+		AuthURL:      authURL,
+		SessionID:    sessionID,
+		CodeVerifier: codeVerifier,
 	}, nil
 }
 
