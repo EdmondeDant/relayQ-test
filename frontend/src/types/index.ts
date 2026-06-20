@@ -224,6 +224,7 @@ export interface PublicSettings {
   site_subtitle: string
   api_base_url: string
   contact_info: string
+  contact_group_qr: string
   doc_url: string
   home_content: string
   hide_ccs_import_button: boolean
@@ -375,6 +376,34 @@ export interface AnnouncementUserReadStatus {
   balance: number
   eligible: boolean
   read_at?: string
+}
+
+export interface IdeaMessage {
+  id: number
+  author_id: number
+  author_name: string
+  title: string
+  content: string
+  admin_reply?: string | null
+  admin_reply_at?: string | null
+  created_at: string
+  updated_at: string
+  is_mine: boolean
+  can_delete: boolean
+  can_reply: boolean
+}
+
+export interface IdeaMessageListParams {
+  mine_only?: boolean
+}
+
+export interface CreateIdeaMessageRequest {
+  title: string
+  content: string
+}
+
+export interface AdminReplyIdeaMessageRequest {
+  admin_reply: string
 }
 
 // ==================== Proxy Node Types ====================

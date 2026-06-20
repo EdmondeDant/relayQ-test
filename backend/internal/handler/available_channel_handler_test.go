@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func float64Ptr(v float64) *float64 { return &v }
+
 func TestUserAvailableChannel_Unauthenticated401(t *testing.T) {
 	// 没有 AuthSubject 注入时，handler 应返回 401 且不触达 service 依赖。
 	gin.SetMode(gin.TestMode)
@@ -49,7 +51,7 @@ func TestToUserSupportedModels_FiltersByAllowedPlatforms(t *testing.T) {
 		{Name: "gpt-4o", Platform: "openai", Pricing: nil},
 	}
 	allowed := map[string]struct{}{"anthropic": {}}
-	out := toUserSupportedModels(src, allowed)
+	out := toUserSupportedModels(src, allowed, nil)
 	require.Len(t, out, 1)
 	require.Equal(t, "claude-sonnet-4-6", out[0].Name)
 }
@@ -60,7 +62,27 @@ func TestToUserSupportedModels_NilAllowedPlatformsKeepsAll(t *testing.T) {
 		{Name: "a", Platform: "anthropic"},
 		{Name: "b", Platform: "openai"},
 	}
-	require.Len(t, toUserSupportedModels(src, nil), 2)
+	require.Len(t, toUserSupportedModels(src, nil, nil), 2)
+}
+
+func TestToUserImagePricingForModel_UsesConfiguredTierPricesWithoutImageToggle(t *testing.T) {
+	pricing := toUserImagePricingForModel(&service.ChannelModelPricing{
+		BillingMode: service.BillingModePerRequest,
+	}, []userAvailableGroup{
+		{
+			Name:                 "g-openai",
+			Platform:             "openai",
+			AllowImageGeneration: false,
+			ImagePrice1K:         float64Ptr(0.11),
+			ImagePrice2K:         float64Ptr(0.22),
+			ImagePrice4K:         float64Ptr(0.33),
+		},
+	})
+
+	require.NotNil(t, pricing)
+	require.Equal(t, float64Ptr(0.11), pricing.Price1K)
+	require.Equal(t, float64Ptr(0.22), pricing.Price2K)
+	require.Equal(t, float64Ptr(0.33), pricing.Price4K)
 }
 
 func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {

@@ -1,6 +1,6 @@
 <template>
-  <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50">
-    <div class="flex h-16 items-center justify-between px-4 md:px-6">
+  <header class="sticky top-0 z-30 px-3 pt-3 md:px-4 lg:px-6">
+    <div class="header-shell flex min-h-[74px] items-center justify-between gap-4 px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex items-center gap-4">
         <button
@@ -12,10 +12,10 @@
         </button>
 
         <div class="hidden lg:block">
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <h1 class="header-page-title text-lg font-semibold">
             {{ pageTitle }}
           </h1>
-          <p v-if="pageDescription" class="text-xs text-gray-500 dark:text-dark-400">
+          <p v-if="pageDescription" class="header-page-description text-xs">
             {{ pageDescription }}
           </p>
         </div>
@@ -23,6 +23,28 @@
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex items-center gap-3">
+        <!-- Starter Install -->
+        <router-link
+          v-if="user"
+          to="/starter-install"
+          :title="t('nav.newUserMustInstall')"
+          class="group header-pill-link header-pill-link-primary"
+        >
+          <Icon name="sparkles" size="sm" />
+          <span>{{ t('nav.newUserMustInstall') }}</span>
+        </router-link>
+
+        <!-- Contact Us -->
+        <router-link
+          v-if="user"
+          to="/contact-support"
+          :title="contactInfo || t('common.contactSupport')"
+          class="group header-pill-link header-pill-link-secondary"
+        >
+          <Icon name="chat" size="sm" />
+          <span>{{ t('nav.contactUs') }}</span>
+        </router-link>
+
         <!-- Announcement Bell -->
         <AnnouncementBell v-if="user" />
 
@@ -330,6 +352,242 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.header-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 9999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(244, 247, 255, 0.66)),
+    rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 24px 60px rgba(99, 102, 241, 0.14),
+    0 14px 30px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -12px 24px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+.header-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 14% 50%, rgba(255, 255, 255, 0.56) 0%, rgba(255, 255, 255, 0) 28%),
+    radial-gradient(circle at 86% 40%, rgba(191, 219, 254, 0.18) 0%, rgba(191, 219, 254, 0) 24%);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(115deg, transparent 28%, rgba(255, 255, 255, 0.02) 38%, rgba(255, 255, 255, 0.28) 50%, rgba(255, 255, 255, 0.02) 62%, transparent 72%);
+  background-size: 220% 100%;
+  background-position: -140% 0;
+  animation: header-shell-shimmer 9s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header-page-title {
+  position: relative;
+  z-index: 1;
+  color: #4338ca;
+  letter-spacing: -0.015em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+.header-page-description {
+  position: relative;
+  z-index: 1;
+  color: #7c3aed;
+  opacity: 0.72;
+}
+
+.header-pill-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  padding: 0.45rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    0 10px 24px rgba(99, 102, 241, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(16px);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.header-pill-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.96;
+  transition: opacity 0.2s ease;
+}
+
+.header-pill-link::after {
+  content: '';
+  position: absolute;
+  inset: -60% auto -60% -25%;
+  width: 5rem;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: rotate(20deg) translateX(-160%);
+  transition: transform 0.55s ease;
+}
+
+.header-pill-link:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 30px rgba(99, 102, 241, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.header-pill-link:hover::after {
+  transform: rotate(20deg) translateX(280%);
+}
+
+.header-pill-link :deep(svg),
+.header-pill-link span {
+  position: relative;
+  z-index: 1;
+}
+
+.header-pill-link-primary {
+  color: #5b21b6;
+}
+
+.header-pill-link-primary::before {
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(168, 85, 247, 0.18) 55%, rgba(251, 146, 60, 0.2)),
+    rgba(255, 255, 255, 0.78);
+}
+
+.header-pill-link-primary:hover {
+  border-color: rgba(168, 85, 247, 0.34);
+  color: #4c1d95;
+}
+
+.header-pill-link-secondary {
+  color: #1e293b;
+}
+
+.header-pill-link-secondary::before {
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(217, 70, 239, 0.12)),
+    rgba(255, 255, 255, 0.76);
+}
+
+.header-pill-link-secondary:hover {
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #0f172a;
+}
+
+:deep(.dark) .header-pill-link,
+.dark .header-pill-link {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 12px 26px rgba(15, 23, 42, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:deep(.dark) .header-pill-link-primary,
+.dark .header-pill-link-primary {
+  color: #e9d5ff;
+}
+
+:deep(.dark) .header-pill-link-primary::before,
+.dark .header-pill-link-primary::before {
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(168, 85, 247, 0.24) 55%, rgba(251, 146, 60, 0.16)),
+    rgba(15, 23, 42, 0.82);
+}
+
+:deep(.dark) .header-pill-link-secondary,
+.dark .header-pill-link-secondary {
+  color: #e2e8f0;
+}
+
+:deep(.dark) .header-pill-link-secondary::before,
+.dark .header-pill-link-secondary::before {
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(217, 70, 239, 0.14)),
+    rgba(15, 23, 42, 0.78);
+}
+
+:deep(.dark) .header-shell,
+.dark .header-shell {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.72)),
+    rgba(15, 23, 42, 0.82);
+  box-shadow:
+    0 28px 64px rgba(2, 6, 23, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -12px 26px rgba(59, 130, 246, 0.08);
+}
+
+:deep(.dark) .header-shell::before,
+.dark .header-shell::before {
+  background:
+    radial-gradient(circle at 14% 50%, rgba(96, 165, 250, 0.18) 0%, rgba(96, 165, 250, 0) 28%),
+    radial-gradient(circle at 86% 38%, rgba(167, 139, 250, 0.16) 0%, rgba(167, 139, 250, 0) 24%);
+  opacity: 0.92;
+}
+
+:deep(.dark) .header-shell::after,
+.dark .header-shell::after {
+  background:
+    linear-gradient(115deg, transparent 28%, rgba(255, 255, 255, 0.01) 38%, rgba(255, 255, 255, 0.14) 50%, rgba(255, 255, 255, 0.01) 62%, transparent 72%);
+  background-size: 220% 100%;
+  background-position: -140% 0;
+}
+
+:deep(.dark) .header-page-title,
+.dark .header-page-title {
+  color: #d8b4fe;
+}
+
+:deep(.dark) .header-page-description,
+.dark .header-page-description {
+  color: #c4b5fd;
+  opacity: 0.78;
+}
+
+@keyframes header-shell-shimmer {
+  0% {
+    opacity: 0;
+    background-position: -140% 0;
+  }
+  12% {
+    opacity: 0.78;
+  }
+  24% {
+    opacity: 0;
+    background-position: 140% 0;
+  }
+  100% {
+    opacity: 0;
+    background-position: 140% 0;
+  }
+}
+
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;

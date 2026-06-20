@@ -1,11 +1,15 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // RegisterUserRoutes 注册用户相关路由（需要认证）
@@ -14,7 +18,9 @@ func RegisterUserRoutes(
 	h *handler.Handlers,
 	jwtAuth middleware.JWTAuthMiddleware,
 	settingService *service.SettingService,
+	redisClient *redis.Client,
 ) {
+	rateLimiter := middleware2.NewRateLimiter(redisClient)
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -98,6 +104,17 @@ func RegisterUserRoutes(
 		{
 			announcements.GET("", h.Announcement.List)
 			announcements.POST("/:id/read", h.Announcement.MarkRead)
+		}
+
+		ideaMessages := authenticated.Group("/idea-messages")
+		{
+			ideaMessages.GET("", h.IdeaMessage.List)
+			ideaMessages.POST("", rateLimiter.LimitWithOptions("idea-message-create", 5, time.Minute, middleware2.RateLimitOptions{
+				FailureMode: middleware2.RateLimitFailClose,
+			}), h.IdeaMessage.Create)
+			ideaMessages.DELETE("/:id", rateLimiter.LimitWithOptions("idea-message-delete", 20, time.Minute, middleware2.RateLimitOptions{
+				FailureMode: middleware2.RateLimitFailClose,
+			}), h.IdeaMessage.Delete)
 		}
 
 		// 卡密兑换

@@ -25,6 +25,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -73,6 +74,7 @@ const (
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
 	TypeGroup                         = "Group"
+	TypeIdeaMessage                   = "IdeaMessage"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
 	TypePaymentAuditLog               = "PaymentAuditLog"
@@ -18185,6 +18187,1021 @@ func (m *GroupMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Group edge %s", name)
+}
+
+// IdeaMessageMutation represents an operation that mutates the IdeaMessage nodes in the graph.
+type IdeaMessageMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	created_at        *time.Time
+	updated_at        *time.Time
+	deleted_at        *time.Time
+	author_id         *int64
+	addauthor_id      *int64
+	author_name       *string
+	title             *string
+	content           *string
+	admin_reply       *string
+	admin_reply_by    *int64
+	addadmin_reply_by *int64
+	admin_reply_at    *time.Time
+	status            *string
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*IdeaMessage, error)
+	predicates        []predicate.IdeaMessage
+}
+
+var _ ent.Mutation = (*IdeaMessageMutation)(nil)
+
+// ideamessageOption allows management of the mutation configuration using functional options.
+type ideamessageOption func(*IdeaMessageMutation)
+
+// newIdeaMessageMutation creates new mutation for the IdeaMessage entity.
+func newIdeaMessageMutation(c config, op Op, opts ...ideamessageOption) *IdeaMessageMutation {
+	m := &IdeaMessageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeIdeaMessage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withIdeaMessageID sets the ID field of the mutation.
+func withIdeaMessageID(id int64) ideamessageOption {
+	return func(m *IdeaMessageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *IdeaMessage
+		)
+		m.oldValue = func(ctx context.Context) (*IdeaMessage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().IdeaMessage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withIdeaMessage sets the old IdeaMessage of the mutation.
+func withIdeaMessage(node *IdeaMessage) ideamessageOption {
+	return func(m *IdeaMessageMutation) {
+		m.oldValue = func(context.Context) (*IdeaMessage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m IdeaMessageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m IdeaMessageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *IdeaMessageMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *IdeaMessageMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().IdeaMessage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *IdeaMessageMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *IdeaMessageMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *IdeaMessageMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *IdeaMessageMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *IdeaMessageMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *IdeaMessageMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *IdeaMessageMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *IdeaMessageMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *IdeaMessageMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[ideamessage.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *IdeaMessageMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[ideamessage.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *IdeaMessageMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, ideamessage.FieldDeletedAt)
+}
+
+// SetAuthorID sets the "author_id" field.
+func (m *IdeaMessageMutation) SetAuthorID(i int64) {
+	m.author_id = &i
+	m.addauthor_id = nil
+}
+
+// AuthorID returns the value of the "author_id" field in the mutation.
+func (m *IdeaMessageMutation) AuthorID() (r int64, exists bool) {
+	v := m.author_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAuthorID returns the old "author_id" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldAuthorID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAuthorID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAuthorID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAuthorID: %w", err)
+	}
+	return oldValue.AuthorID, nil
+}
+
+// AddAuthorID adds i to the "author_id" field.
+func (m *IdeaMessageMutation) AddAuthorID(i int64) {
+	if m.addauthor_id != nil {
+		*m.addauthor_id += i
+	} else {
+		m.addauthor_id = &i
+	}
+}
+
+// AddedAuthorID returns the value that was added to the "author_id" field in this mutation.
+func (m *IdeaMessageMutation) AddedAuthorID() (r int64, exists bool) {
+	v := m.addauthor_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAuthorID resets all changes to the "author_id" field.
+func (m *IdeaMessageMutation) ResetAuthorID() {
+	m.author_id = nil
+	m.addauthor_id = nil
+}
+
+// SetAuthorName sets the "author_name" field.
+func (m *IdeaMessageMutation) SetAuthorName(s string) {
+	m.author_name = &s
+}
+
+// AuthorName returns the value of the "author_name" field in the mutation.
+func (m *IdeaMessageMutation) AuthorName() (r string, exists bool) {
+	v := m.author_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAuthorName returns the old "author_name" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldAuthorName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAuthorName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAuthorName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAuthorName: %w", err)
+	}
+	return oldValue.AuthorName, nil
+}
+
+// ResetAuthorName resets all changes to the "author_name" field.
+func (m *IdeaMessageMutation) ResetAuthorName() {
+	m.author_name = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *IdeaMessageMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *IdeaMessageMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *IdeaMessageMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetContent sets the "content" field.
+func (m *IdeaMessageMutation) SetContent(s string) {
+	m.content = &s
+}
+
+// Content returns the value of the "content" field in the mutation.
+func (m *IdeaMessageMutation) Content() (r string, exists bool) {
+	v := m.content
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContent returns the old "content" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldContent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContent: %w", err)
+	}
+	return oldValue.Content, nil
+}
+
+// ResetContent resets all changes to the "content" field.
+func (m *IdeaMessageMutation) ResetContent() {
+	m.content = nil
+}
+
+// SetAdminReply sets the "admin_reply" field.
+func (m *IdeaMessageMutation) SetAdminReply(s string) {
+	m.admin_reply = &s
+}
+
+// AdminReply returns the value of the "admin_reply" field in the mutation.
+func (m *IdeaMessageMutation) AdminReply() (r string, exists bool) {
+	v := m.admin_reply
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAdminReply returns the old "admin_reply" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldAdminReply(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAdminReply is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAdminReply requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAdminReply: %w", err)
+	}
+	return oldValue.AdminReply, nil
+}
+
+// ClearAdminReply clears the value of the "admin_reply" field.
+func (m *IdeaMessageMutation) ClearAdminReply() {
+	m.admin_reply = nil
+	m.clearedFields[ideamessage.FieldAdminReply] = struct{}{}
+}
+
+// AdminReplyCleared returns if the "admin_reply" field was cleared in this mutation.
+func (m *IdeaMessageMutation) AdminReplyCleared() bool {
+	_, ok := m.clearedFields[ideamessage.FieldAdminReply]
+	return ok
+}
+
+// ResetAdminReply resets all changes to the "admin_reply" field.
+func (m *IdeaMessageMutation) ResetAdminReply() {
+	m.admin_reply = nil
+	delete(m.clearedFields, ideamessage.FieldAdminReply)
+}
+
+// SetAdminReplyBy sets the "admin_reply_by" field.
+func (m *IdeaMessageMutation) SetAdminReplyBy(i int64) {
+	m.admin_reply_by = &i
+	m.addadmin_reply_by = nil
+}
+
+// AdminReplyBy returns the value of the "admin_reply_by" field in the mutation.
+func (m *IdeaMessageMutation) AdminReplyBy() (r int64, exists bool) {
+	v := m.admin_reply_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAdminReplyBy returns the old "admin_reply_by" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldAdminReplyBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAdminReplyBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAdminReplyBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAdminReplyBy: %w", err)
+	}
+	return oldValue.AdminReplyBy, nil
+}
+
+// AddAdminReplyBy adds i to the "admin_reply_by" field.
+func (m *IdeaMessageMutation) AddAdminReplyBy(i int64) {
+	if m.addadmin_reply_by != nil {
+		*m.addadmin_reply_by += i
+	} else {
+		m.addadmin_reply_by = &i
+	}
+}
+
+// AddedAdminReplyBy returns the value that was added to the "admin_reply_by" field in this mutation.
+func (m *IdeaMessageMutation) AddedAdminReplyBy() (r int64, exists bool) {
+	v := m.addadmin_reply_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAdminReplyBy clears the value of the "admin_reply_by" field.
+func (m *IdeaMessageMutation) ClearAdminReplyBy() {
+	m.admin_reply_by = nil
+	m.addadmin_reply_by = nil
+	m.clearedFields[ideamessage.FieldAdminReplyBy] = struct{}{}
+}
+
+// AdminReplyByCleared returns if the "admin_reply_by" field was cleared in this mutation.
+func (m *IdeaMessageMutation) AdminReplyByCleared() bool {
+	_, ok := m.clearedFields[ideamessage.FieldAdminReplyBy]
+	return ok
+}
+
+// ResetAdminReplyBy resets all changes to the "admin_reply_by" field.
+func (m *IdeaMessageMutation) ResetAdminReplyBy() {
+	m.admin_reply_by = nil
+	m.addadmin_reply_by = nil
+	delete(m.clearedFields, ideamessage.FieldAdminReplyBy)
+}
+
+// SetAdminReplyAt sets the "admin_reply_at" field.
+func (m *IdeaMessageMutation) SetAdminReplyAt(t time.Time) {
+	m.admin_reply_at = &t
+}
+
+// AdminReplyAt returns the value of the "admin_reply_at" field in the mutation.
+func (m *IdeaMessageMutation) AdminReplyAt() (r time.Time, exists bool) {
+	v := m.admin_reply_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAdminReplyAt returns the old "admin_reply_at" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldAdminReplyAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAdminReplyAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAdminReplyAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAdminReplyAt: %w", err)
+	}
+	return oldValue.AdminReplyAt, nil
+}
+
+// ClearAdminReplyAt clears the value of the "admin_reply_at" field.
+func (m *IdeaMessageMutation) ClearAdminReplyAt() {
+	m.admin_reply_at = nil
+	m.clearedFields[ideamessage.FieldAdminReplyAt] = struct{}{}
+}
+
+// AdminReplyAtCleared returns if the "admin_reply_at" field was cleared in this mutation.
+func (m *IdeaMessageMutation) AdminReplyAtCleared() bool {
+	_, ok := m.clearedFields[ideamessage.FieldAdminReplyAt]
+	return ok
+}
+
+// ResetAdminReplyAt resets all changes to the "admin_reply_at" field.
+func (m *IdeaMessageMutation) ResetAdminReplyAt() {
+	m.admin_reply_at = nil
+	delete(m.clearedFields, ideamessage.FieldAdminReplyAt)
+}
+
+// SetStatus sets the "status" field.
+func (m *IdeaMessageMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *IdeaMessageMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the IdeaMessage entity.
+// If the IdeaMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IdeaMessageMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *IdeaMessageMutation) ResetStatus() {
+	m.status = nil
+}
+
+// Where appends a list predicates to the IdeaMessageMutation builder.
+func (m *IdeaMessageMutation) Where(ps ...predicate.IdeaMessage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the IdeaMessageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *IdeaMessageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.IdeaMessage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *IdeaMessageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *IdeaMessageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (IdeaMessage).
+func (m *IdeaMessageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *IdeaMessageMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.created_at != nil {
+		fields = append(fields, ideamessage.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, ideamessage.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, ideamessage.FieldDeletedAt)
+	}
+	if m.author_id != nil {
+		fields = append(fields, ideamessage.FieldAuthorID)
+	}
+	if m.author_name != nil {
+		fields = append(fields, ideamessage.FieldAuthorName)
+	}
+	if m.title != nil {
+		fields = append(fields, ideamessage.FieldTitle)
+	}
+	if m.content != nil {
+		fields = append(fields, ideamessage.FieldContent)
+	}
+	if m.admin_reply != nil {
+		fields = append(fields, ideamessage.FieldAdminReply)
+	}
+	if m.admin_reply_by != nil {
+		fields = append(fields, ideamessage.FieldAdminReplyBy)
+	}
+	if m.admin_reply_at != nil {
+		fields = append(fields, ideamessage.FieldAdminReplyAt)
+	}
+	if m.status != nil {
+		fields = append(fields, ideamessage.FieldStatus)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *IdeaMessageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case ideamessage.FieldCreatedAt:
+		return m.CreatedAt()
+	case ideamessage.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case ideamessage.FieldDeletedAt:
+		return m.DeletedAt()
+	case ideamessage.FieldAuthorID:
+		return m.AuthorID()
+	case ideamessage.FieldAuthorName:
+		return m.AuthorName()
+	case ideamessage.FieldTitle:
+		return m.Title()
+	case ideamessage.FieldContent:
+		return m.Content()
+	case ideamessage.FieldAdminReply:
+		return m.AdminReply()
+	case ideamessage.FieldAdminReplyBy:
+		return m.AdminReplyBy()
+	case ideamessage.FieldAdminReplyAt:
+		return m.AdminReplyAt()
+	case ideamessage.FieldStatus:
+		return m.Status()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *IdeaMessageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case ideamessage.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case ideamessage.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case ideamessage.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case ideamessage.FieldAuthorID:
+		return m.OldAuthorID(ctx)
+	case ideamessage.FieldAuthorName:
+		return m.OldAuthorName(ctx)
+	case ideamessage.FieldTitle:
+		return m.OldTitle(ctx)
+	case ideamessage.FieldContent:
+		return m.OldContent(ctx)
+	case ideamessage.FieldAdminReply:
+		return m.OldAdminReply(ctx)
+	case ideamessage.FieldAdminReplyBy:
+		return m.OldAdminReplyBy(ctx)
+	case ideamessage.FieldAdminReplyAt:
+		return m.OldAdminReplyAt(ctx)
+	case ideamessage.FieldStatus:
+		return m.OldStatus(ctx)
+	}
+	return nil, fmt.Errorf("unknown IdeaMessage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *IdeaMessageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case ideamessage.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case ideamessage.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case ideamessage.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case ideamessage.FieldAuthorID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAuthorID(v)
+		return nil
+	case ideamessage.FieldAuthorName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAuthorName(v)
+		return nil
+	case ideamessage.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case ideamessage.FieldContent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContent(v)
+		return nil
+	case ideamessage.FieldAdminReply:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAdminReply(v)
+		return nil
+	case ideamessage.FieldAdminReplyBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAdminReplyBy(v)
+		return nil
+	case ideamessage.FieldAdminReplyAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAdminReplyAt(v)
+		return nil
+	case ideamessage.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	}
+	return fmt.Errorf("unknown IdeaMessage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *IdeaMessageMutation) AddedFields() []string {
+	var fields []string
+	if m.addauthor_id != nil {
+		fields = append(fields, ideamessage.FieldAuthorID)
+	}
+	if m.addadmin_reply_by != nil {
+		fields = append(fields, ideamessage.FieldAdminReplyBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *IdeaMessageMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case ideamessage.FieldAuthorID:
+		return m.AddedAuthorID()
+	case ideamessage.FieldAdminReplyBy:
+		return m.AddedAdminReplyBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *IdeaMessageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case ideamessage.FieldAuthorID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAuthorID(v)
+		return nil
+	case ideamessage.FieldAdminReplyBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAdminReplyBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown IdeaMessage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *IdeaMessageMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(ideamessage.FieldDeletedAt) {
+		fields = append(fields, ideamessage.FieldDeletedAt)
+	}
+	if m.FieldCleared(ideamessage.FieldAdminReply) {
+		fields = append(fields, ideamessage.FieldAdminReply)
+	}
+	if m.FieldCleared(ideamessage.FieldAdminReplyBy) {
+		fields = append(fields, ideamessage.FieldAdminReplyBy)
+	}
+	if m.FieldCleared(ideamessage.FieldAdminReplyAt) {
+		fields = append(fields, ideamessage.FieldAdminReplyAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *IdeaMessageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *IdeaMessageMutation) ClearField(name string) error {
+	switch name {
+	case ideamessage.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case ideamessage.FieldAdminReply:
+		m.ClearAdminReply()
+		return nil
+	case ideamessage.FieldAdminReplyBy:
+		m.ClearAdminReplyBy()
+		return nil
+	case ideamessage.FieldAdminReplyAt:
+		m.ClearAdminReplyAt()
+		return nil
+	}
+	return fmt.Errorf("unknown IdeaMessage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *IdeaMessageMutation) ResetField(name string) error {
+	switch name {
+	case ideamessage.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case ideamessage.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case ideamessage.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case ideamessage.FieldAuthorID:
+		m.ResetAuthorID()
+		return nil
+	case ideamessage.FieldAuthorName:
+		m.ResetAuthorName()
+		return nil
+	case ideamessage.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case ideamessage.FieldContent:
+		m.ResetContent()
+		return nil
+	case ideamessage.FieldAdminReply:
+		m.ResetAdminReply()
+		return nil
+	case ideamessage.FieldAdminReplyBy:
+		m.ResetAdminReplyBy()
+		return nil
+	case ideamessage.FieldAdminReplyAt:
+		m.ResetAdminReplyAt()
+		return nil
+	case ideamessage.FieldStatus:
+		m.ResetStatus()
+		return nil
+	}
+	return fmt.Errorf("unknown IdeaMessage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *IdeaMessageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *IdeaMessageMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *IdeaMessageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *IdeaMessageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *IdeaMessageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *IdeaMessageMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *IdeaMessageMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown IdeaMessage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *IdeaMessageMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown IdeaMessage edge %s", name)
 }
 
 // IdempotencyRecordMutation represents an operation that mutates the IdempotencyRecord nodes in the graph.

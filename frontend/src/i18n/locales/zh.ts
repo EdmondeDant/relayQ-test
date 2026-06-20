@@ -377,6 +377,8 @@ export default {
     expand: '展开',
     logout: '退出登录',
     github: 'GitHub',
+    newUserMustInstall: '新人必装程序',
+    contactUs: '联系我们',
     mySubscriptions: '我的订阅',
     buySubscription: '充值/订阅',
     docs: '文档',

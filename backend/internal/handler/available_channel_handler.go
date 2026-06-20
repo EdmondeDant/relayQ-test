@@ -267,12 +267,18 @@ func toUserSupportedModels(
 
 // toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
 func toUserImagePricingForModel(p *service.ChannelModelPricing, groups []userAvailableGroup) *userSupportedModelImagePricing {
-	if p == nil || p.BillingMode != service.BillingModeImage {
+	if p == nil {
+		return nil
+	}
+	if p.BillingMode != service.BillingModeImage && p.BillingMode != service.BillingModePerRequest {
 		return nil
 	}
 	var pricing userSupportedModelImagePricing
 	for _, group := range groups {
-		if !group.AllowImageGeneration {
+		if !group.AllowImageGeneration &&
+			group.ImagePrice1K == nil &&
+			group.ImagePrice2K == nil &&
+			group.ImagePrice4K == nil {
 			continue
 		}
 		pricing.Price1K = lowerVisiblePrice(pricing.Price1K, group.ImagePrice1K)

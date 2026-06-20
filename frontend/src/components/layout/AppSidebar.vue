@@ -38,7 +38,9 @@
                 :title="sidebarCollapsed ? item.label : undefined"
                 @click="handleGroupClick(item)"
               >
-                <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+                <span class="sidebar-icon-shell">
+                  <component :is="item.icon" class="sidebar-icon h-5 w-5 flex-shrink-0" />
+                </span>
                 <span
                   class="sidebar-label sidebar-label-flex"
                   :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
@@ -61,7 +63,9 @@
                   :class="{ 'sidebar-link-active': route.path === child.path }"
                   @click="handleMenuItemClick(child.path)"
                 >
-                  <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
+                  <span class="sidebar-icon-shell sidebar-icon-shell-sm">
+                    <component :is="child.icon" class="sidebar-icon h-4 w-4 flex-shrink-0" />
+                  </span>
                   <span>{{ child.label }}</span>
                 </router-link>
               </div>
@@ -84,8 +88,12 @@
               "
               @click="handleMenuItemClick(item.path)"
             >
-              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <span v-if="item.iconSvg" class="sidebar-icon-shell">
+                <span class="h-5 w-5 flex-shrink-0 sidebar-svg-icon sidebar-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              </span>
+              <span v-else class="sidebar-icon-shell">
+                <component :is="item.icon" class="sidebar-icon h-5 w-5 flex-shrink-0" />
+              </span>
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
             </router-link>
           </template>
@@ -109,8 +117,12 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span v-if="item.iconSvg" class="sidebar-icon-shell">
+              <span class="h-5 w-5 flex-shrink-0 sidebar-svg-icon sidebar-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            </span>
+            <span v-else class="sidebar-icon-shell">
+              <component :is="item.icon" class="sidebar-icon h-5 w-5 flex-shrink-0" />
+            </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
           </router-link>
         </div>
@@ -129,8 +141,12 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span v-if="item.iconSvg" class="sidebar-icon-shell">
+              <span class="h-5 w-5 flex-shrink-0 sidebar-svg-icon sidebar-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            </span>
+            <span v-else class="sidebar-icon-shell">
+              <component :is="item.icon" class="sidebar-icon h-5 w-5 flex-shrink-0" />
+            </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
           </router-link>
         </div>
@@ -146,8 +162,10 @@
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
       >
-        <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
-        <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
+        <span class="sidebar-icon-shell">
+          <SunIcon v-if="isDark" class="sidebar-icon h-5 w-5 flex-shrink-0 text-amber-500" />
+          <MoonIcon v-else class="sidebar-icon h-5 w-5 flex-shrink-0" />
+        </span>
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{
           isDark ? t('nav.lightMode') : t('nav.darkMode')
         }}</span>
@@ -160,8 +178,10 @@
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
       >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
+        <span class="sidebar-icon-shell">
+          <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="sidebar-icon h-5 w-5 flex-shrink-0" />
+          <ChevronDoubleRightIcon v-else class="sidebar-icon h-5 w-5 flex-shrink-0" />
+        </span>
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
       </button>
     </div>
@@ -894,6 +914,13 @@ onMounted(() => {
 .sidebar-logo {
   flex: 0 0 2.25rem;
   min-width: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(238, 242, 255, 0.74)),
+    rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 12px 26px -18px rgba(99, 102, 241, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .sidebar-header-collapsed {
@@ -926,6 +953,50 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #4f46e5;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-icon-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  min-width: 2rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(168, 85, 247, 0.22) 55%, rgba(251, 146, 60, 0.2)),
+    rgba(255, 255, 255, 0.76);
+  box-shadow:
+    0 14px 30px -22px rgba(99, 102, 241, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.sidebar-icon-shell::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.sidebar-icon-shell-sm {
+  width: 1.7rem;
+  height: 1.7rem;
+  flex-basis: 1.7rem;
+  min-width: 1.7rem;
+}
+
+.sidebar-icon {
+  position: relative;
+  z-index: 1;
+  color: #6d28d9;
+  filter: drop-shadow(0 3px 8px rgba(99, 102, 241, 0.18));
 }
 
 .sidebar-link-collapsed {
@@ -960,14 +1031,14 @@ onMounted(() => {
   right: 0.75rem;
   top: 50%;
   height: 1px;
-  background: rgb(229 231 235);
+  background: linear-gradient(90deg, rgba(192, 132, 252, 0.1), rgba(129, 140, 248, 0.42), rgba(96, 165, 250, 0.1));
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 0.18s ease;
 }
 
 .dark .sidebar-section-title::after {
-  background: rgb(55 65 81);
+  background: linear-gradient(90deg, rgba(192, 132, 252, 0.08), rgba(167, 139, 250, 0.32), rgba(96, 165, 250, 0.08));
 }
 
 .sidebar-section-title-text-collapsed {
@@ -1016,5 +1087,50 @@ onMounted(() => {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.sidebar-link:hover .sidebar-icon-shell,
+.sidebar-link-active .sidebar-icon-shell {
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow:
+    0 18px 34px -24px rgba(99, 102, 241, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.sidebar-link:hover .sidebar-icon,
+.sidebar-link-active .sidebar-icon {
+  color: #5b21b6;
+}
+
+.dark .sidebar-logo {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(49, 46, 129, 0.74)),
+    rgba(15, 23, 42, 0.82);
+  box-shadow:
+    0 12px 26px -18px rgba(30, 41, 59, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dark .sidebar-brand-title {
+  color: #ddd6fe;
+}
+
+.dark .sidebar-icon-shell {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(168, 85, 247, 0.24) 58%, rgba(251, 146, 60, 0.16)),
+    rgba(30, 41, 59, 0.88);
+  box-shadow:
+    0 16px 32px -22px rgba(15, 23, 42, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dark .sidebar-icon-shell::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+}
+
+.dark .sidebar-icon {
+  color: #f5d0fe;
 }
 </style>

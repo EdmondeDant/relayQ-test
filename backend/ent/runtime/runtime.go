@@ -18,6 +18,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
@@ -878,6 +879,75 @@ func init() {
 	groupDescRpmLimit := groupFields[31].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+	ideamessageMixin := schema.IdeaMessage{}.Mixin()
+	ideamessageMixinHooks1 := ideamessageMixin[1].Hooks()
+	ideamessage.Hooks[0] = ideamessageMixinHooks1[0]
+	ideamessageMixinInters1 := ideamessageMixin[1].Interceptors()
+	ideamessage.Interceptors[0] = ideamessageMixinInters1[0]
+	ideamessageMixinFields0 := ideamessageMixin[0].Fields()
+	_ = ideamessageMixinFields0
+	ideamessageFields := schema.IdeaMessage{}.Fields()
+	_ = ideamessageFields
+	// ideamessageDescCreatedAt is the schema descriptor for created_at field.
+	ideamessageDescCreatedAt := ideamessageMixinFields0[0].Descriptor()
+	// ideamessage.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ideamessage.DefaultCreatedAt = ideamessageDescCreatedAt.Default.(func() time.Time)
+	// ideamessageDescUpdatedAt is the schema descriptor for updated_at field.
+	ideamessageDescUpdatedAt := ideamessageMixinFields0[1].Descriptor()
+	// ideamessage.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	ideamessage.DefaultUpdatedAt = ideamessageDescUpdatedAt.Default.(func() time.Time)
+	// ideamessage.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	ideamessage.UpdateDefaultUpdatedAt = ideamessageDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// ideamessageDescAuthorID is the schema descriptor for author_id field.
+	ideamessageDescAuthorID := ideamessageFields[0].Descriptor()
+	// ideamessage.AuthorIDValidator is a validator for the "author_id" field. It is called by the builders before save.
+	ideamessage.AuthorIDValidator = ideamessageDescAuthorID.Validators[0].(func(int64) error)
+	// ideamessageDescAuthorName is the schema descriptor for author_name field.
+	ideamessageDescAuthorName := ideamessageFields[1].Descriptor()
+	// ideamessage.AuthorNameValidator is a validator for the "author_name" field. It is called by the builders before save.
+	ideamessage.AuthorNameValidator = func() func(string) error {
+		validators := ideamessageDescAuthorName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(author_name string) error {
+			for _, fn := range fns {
+				if err := fn(author_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// ideamessageDescTitle is the schema descriptor for title field.
+	ideamessageDescTitle := ideamessageFields[2].Descriptor()
+	// ideamessage.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	ideamessage.TitleValidator = func() func(string) error {
+		validators := ideamessageDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// ideamessageDescContent is the schema descriptor for content field.
+	ideamessageDescContent := ideamessageFields[3].Descriptor()
+	// ideamessage.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	ideamessage.ContentValidator = ideamessageDescContent.Validators[0].(func(string) error)
+	// ideamessageDescStatus is the schema descriptor for status field.
+	ideamessageDescStatus := ideamessageFields[7].Descriptor()
+	// ideamessage.DefaultStatus holds the default value on creation for the status field.
+	ideamessage.DefaultStatus = ideamessageDescStatus.Default.(string)
+	// ideamessage.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	ideamessage.StatusValidator = ideamessageDescStatus.Validators[0].(func(string) error)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0

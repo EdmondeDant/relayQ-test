@@ -377,6 +377,8 @@ export default {
     expand: 'Expand',
     logout: 'Logout',
     github: 'GitHub',
+    newUserMustInstall: 'Starter Install',
+    contactUs: 'Contact Us',
     mySubscriptions: 'My Subscriptions',
     buySubscription: 'Recharge / Subscription',
     docs: 'Docs',

@@ -76,8 +76,9 @@
             <ModelTagInput
               :models="entry.models"
               :platform="props.platform"
+              :model-options="props.modelOptions"
               @update:models="onModelsUpdate($event)"
-              :placeholder="t('admin.channels.form.modelsPlaceholder', '输入模型名后按回车添加，支持通配符 *')"
+              :placeholder="t('admin.channels.form.modelsPlaceholder', '选择关联分组模型，或输入完整模型名后按回车添加')"
               class="mt-1"
             />
           </div>
@@ -140,7 +141,7 @@
                 + {{ t('admin.channels.form.addInterval', '添加区间') }}
               </button>
             </div>
-            <div v-if="entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
+            <div v-if="entry.intervals && entry.intervals.length > 0" class="pricing-interval-scroll mt-2 space-y-2">
               <IntervalRow
                 v-for="(iv, idx) in entry.intervals"
                 :key="idx"
@@ -174,7 +175,7 @@
               + {{ t('admin.channels.form.addTier', '添加层级') }}
             </button>
           </div>
-          <div v-if="entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
+          <div v-if="entry.intervals && entry.intervals.length > 0" class="pricing-interval-scroll mt-2 space-y-2">
             <IntervalRow
               v-for="(iv, idx) in entry.intervals"
               :key="idx"
@@ -243,6 +244,7 @@ const { t } = useI18n()
 const props = defineProps<{
   entry: PricingFormEntry
   platform?: string
+  modelOptions?: string[]
 }>()
 
 const emit = defineEmits<{

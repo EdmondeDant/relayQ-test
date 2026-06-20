@@ -3,11 +3,16 @@ package routes
 import (
 	"net/http"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterCommonRoutes 注册通用路由（健康检查、状态等）
-func RegisterCommonRoutes(r *gin.Engine) {
+func RegisterCommonRoutes(r *gin.Engine, settingService *service.SettingService) {
+	installHandler := handler.NewInstallScriptHandler(settingService)
+	downloadHandler := handler.NewDownloadHandler()
+
 	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -29,4 +34,11 @@ func RegisterCommonRoutes(r *gin.Engine) {
 			},
 		})
 	})
+
+	r.GET("/install/openclaw-windows", installHandler.OpenClawWindows)
+	r.GET("/install/openclaw-linux", installHandler.OpenClawLinux)
+	r.GET("/install/hermes-windows", installHandler.HermesWindows)
+	r.GET("/install/hermes-linux", installHandler.HermesLinux)
+	r.GET("/downloads", downloadHandler.Index)
+	r.GET("/downloads/:slug", downloadHandler.Redirect)
 }

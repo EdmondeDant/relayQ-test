@@ -452,6 +452,109 @@ nano config.yaml
 
 > **注意：** `-tags embed` 参数会将前端嵌入到二进制文件中。不使用此参数编译的程序将不包含前端界面。
 
+#### Windows 本地开发启动
+
+适用于不使用 Docker、直接在 Windows 本机运行前后端的开发场景。
+
+**前置条件：**
+
+- Go 1.25+（或项目 `go.mod` 指定版本）
+- Node.js 18+
+- pnpm
+- PostgreSQL 15+，并确保服务已启动
+- Redis 7+，并确保服务已启动
+
+**1. 安装前端依赖**
+
+```powershell
+cd frontend
+pnpm install
+```
+
+**2. 准备后端本地数据目录**
+
+```powershell
+cd ..
+New-Item -ItemType Directory -Force -Path ".localdata_clean"
+```
+
+**3. 编译后端**
+
+```powershell
+cd backend
+go build -o "..\.localdata_clean\server.exe" ./cmd/server
+```
+
+**4. 首次启动后端并自动初始化数据库**
+
+下面示例使用本机 PostgreSQL 的 `postgres` 用户、无密码连接，并创建本地开发数据库 `sub2api_relayq_clean_20260614`。如果你的 PostgreSQL 设置了密码，请修改 `DATABASE_PASSWORD`。
+
+```powershell
+$env:AUTO_SETUP='true'
+$env:DATA_DIR='c:\work\RelayQ-test\.localdata_clean'
+$env:SERVER_HOST='0.0.0.0'
+$env:SERVER_PORT='8080'
+$env:SERVER_MODE='release'
+$env:TZ='Asia/Shanghai'
+$env:DATABASE_HOST='localhost'
+$env:DATABASE_PORT='5432'
+$env:DATABASE_USER='postgres'
+$env:DATABASE_PASSWORD=''
+$env:DATABASE_DBNAME='sub2api_relayq_clean_20260614'
+$env:DATABASE_SSLMODE='disable'
+$env:REDIS_HOST='localhost'
+$env:REDIS_PORT='6379'
+$env:REDIS_PASSWORD=''
+$env:REDIS_DB='0'
+$env:REDIS_ENABLE_TLS='false'
+$env:ADMIN_EMAIL='admin@sub2api.local'
+$env:ADMIN_PASSWORD='admin123456'
+$env:JWT_SECRET='relayq_local_jwt_secret_2026_minimum_32_bytes_ok'
+& '..\.localdata_clean\server.exe'
+```
+
+首次启动成功后会在 `.localdata_clean` 下生成 `config.yaml` 和 `.installed`。后续再次启动后端只需要：
+
+```powershell
+cd backend
+$env:DATA_DIR='c:\work\RelayQ-test\.localdata_clean'
+& '..\.localdata_clean\server.exe'
+```
+
+如遇 `jwt.secret must be at least 32 bytes`，请编辑 `.localdata_clean/config.yaml`，确保 `jwt.secret` 长度不少于 32 字节。
+
+**5. 启动前端开发服务**
+
+另开一个 PowerShell 窗口：
+
+```powershell
+cd frontend
+$env:VITE_DEV_PROXY_TARGET='http://localhost:8080'
+pnpm run dev --host 0.0.0.0 --port 3000
+```
+
+如果 `3000` 端口被占用，Vite 会自动切换到 `3001` 等其他端口。
+
+**6. 访问地址**
+
+- 前端：`http://localhost:3000` 或 Vite 输出的实际端口，例如 `http://localhost:3001`
+- 后端：`http://localhost:8080`
+- 健康检查：`http://localhost:8080/health`
+
+**7. 关闭本地服务**
+
+在运行前端/后端的终端中按 `Ctrl + C`。如果需要按端口强制关闭：
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080,3000,3001 -ErrorAction SilentlyContinue |
+  Select-Object -ExpandProperty OwningProcess -Unique |
+  ForEach-Object { Stop-Process -Id $_ -Force }
+```
+
+**8. 迁移兼容说明**
+
+项目会在启动时校验已执行迁移文件的 checksum。对于历史上已知的早期迁移 checksum 差异，后端在 `migrations_runner.go` 中使用精确白名单兼容；后续开发不要修改已经执行过的旧 migration，数据库结构变更应新增新的 `NNN_xxx.sql` 文件。
+
 **`config.yaml` 关键配置：**
 
 ```yaml

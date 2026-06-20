@@ -710,6 +710,39 @@ var (
 			},
 		},
 	}
+	// AiIdeaMessagesColumns holds the columns for the "ai_idea_messages" table.
+	AiIdeaMessagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "author_id", Type: field.TypeInt64},
+		{Name: "author_name", Type: field.TypeString, Size: 120},
+		{Name: "title", Type: field.TypeString, Size: 120},
+		{Name: "content", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "admin_reply", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "admin_reply_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "admin_reply_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+	}
+	// AiIdeaMessagesTable holds the schema information for the "ai_idea_messages" table.
+	AiIdeaMessagesTable = &schema.Table{
+		Name:       "ai_idea_messages",
+		Columns:    AiIdeaMessagesColumns,
+		PrimaryKey: []*schema.Column{AiIdeaMessagesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ideamessage_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiIdeaMessagesColumns[11], AiIdeaMessagesColumns[1]},
+			},
+			{
+				Name:    "ideamessage_author_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiIdeaMessagesColumns[4], AiIdeaMessagesColumns[1]},
+			},
+		},
+	}
 	// IdempotencyRecordsColumns holds the columns for the "idempotency_records" table.
 	IdempotencyRecordsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1764,6 +1797,7 @@ var (
 		ChannelMonitorRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
+		AiIdeaMessagesTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		PaymentAuditLogsTable,
@@ -1840,6 +1874,9 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	AiIdeaMessagesTable.Annotation = &entsql.Annotation{
+		Table: "ai_idea_messages",
 	}
 	IdempotencyRecordsTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_records",

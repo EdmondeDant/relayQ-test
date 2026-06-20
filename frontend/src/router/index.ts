@@ -277,6 +277,28 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/starter-install',
+    name: 'StarterInstall',
+    component: () => import('@/views/user/StarterInstallView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: '新人必装程序',
+      description: '在后台面板内选择 API Key、切换线路并完成 CC Switch 一键导入与常用工具配置导出'
+    }
+  },
+  {
+    path: '/contact-support',
+    name: 'ContactSupport',
+    component: () => import('@/views/user/ContactSupportView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: '联系我们',
+      description: '联系站长，提出你的想法和建议。一起交流。'
+    }
+  },
+  {
     path: '/subscriptions',
     name: 'Subscriptions',
     component: () => import('@/views/user/SubscriptionsView.vue'),
@@ -694,10 +716,17 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
-  scrollBehavior(_to, _from, savedPosition) {
+  scrollBehavior(to, _from, savedPosition) {
     // Scroll to saved position when using browser back/forward
     if (savedPosition) {
       return savedPosition
+    }
+    if (to.hash) {
+      return {
+        el: to.hash,
+        top: 96,
+        behavior: 'smooth'
+      }
     }
     // Scroll to top for new routes
     return { top: 0 }

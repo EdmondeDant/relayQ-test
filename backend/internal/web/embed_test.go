@@ -421,6 +421,18 @@ func TestFrontendServer_InvalidateCache(t *testing.T) {
 	})
 }
 
+func TestShouldBypassEmbeddedFrontend(t *testing.T) {
+	t.Run("bypasses_install_scripts", func(t *testing.T) {
+		assert.True(t, shouldBypassEmbeddedFrontend("/install/openclaw-linux"))
+		assert.True(t, shouldBypassEmbeddedFrontend("/install/hermes-windows"))
+	})
+
+	t.Run("bypasses_download_routes", func(t *testing.T) {
+		assert.True(t, shouldBypassEmbeddedFrontend("/downloads"))
+		assert.True(t, shouldBypassEmbeddedFrontend("/downloads/cc-switch-windows-x64-msi"))
+	})
+}
+
 func TestFrontendServer_Middleware(t *testing.T) {
 	t.Run("skips_api_routes", func(t *testing.T) {
 		provider := &mockSettingsProvider{
@@ -437,6 +449,7 @@ func TestFrontendServer_Middleware(t *testing.T) {
 			"/backend-api/codex/responses",
 			"/backend-api/codex/responses/compact",
 			"/antigravity/test",
+			"/downloads/cc-switch-windows-x64-msi",
 			"/setup/init",
 			"/health",
 			"/responses",

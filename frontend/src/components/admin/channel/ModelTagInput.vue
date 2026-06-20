@@ -17,18 +17,36 @@
           <Icon name="x" size="xs" />
         </button>
       </span>
-      <input
-        ref="inputRef"
-        v-model="inputValue"
-        type="text"
-        class="flex-1 min-w-[120px] border-none bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-white"
-        :placeholder="models.length === 0 ? placeholder : ''"
-        @keydown.enter.prevent="addModel"
-        @keydown.tab.prevent="addModel"
-        @keydown.delete="handleBackspace"
-        @paste="handlePaste"
-        @blur="addModel"
-      />
+      <div class="relative flex-1 min-w-[120px]">
+        <input
+          ref="inputRef"
+          v-model="inputValue"
+          type="text"
+          class="w-full border-none bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-white"
+          :placeholder="models.length === 0 ? placeholder : ''"
+          @focus="showSuggestions = true"
+          @input="showSuggestions = true"
+          @keydown.enter.prevent="addModel"
+          @keydown.tab.prevent="addModel"
+          @keydown.delete="handleBackspace"
+          @paste="handlePaste"
+          @blur="handleBlur"
+        />
+        <div
+          v-if="showSuggestions && availableOptions.length > 0"
+          class="absolute left-0 right-0 z-50 mt-2 max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+        >
+          <button
+            v-for="option in availableOptions"
+            :key="option"
+            type="button"
+            class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
+            @mousedown.prevent="selectModel(option)"
+          >
+            {{ option }}
+          </button>
+        </div>
+      </div>
     </div>
     <p class="mt-1 text-xs text-gray-400">
       {{ t('admin.channels.form.modelInputHint', 'Press Enter to add, supports paste for batch import.') }}
@@ -37,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { getPlatformTagClass } from './types'
@@ -48,6 +66,7 @@ const props = defineProps<{
   models: string[]
   placeholder?: string
   platform?: string
+  modelOptions?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -56,6 +75,15 @@ const emit = defineEmits<{
 
 const inputValue = ref('')
 const inputRef = ref<HTMLInputElement>()
+const showSuggestions = ref(false)
+
+const availableOptions = computed(() => {
+  const keyword = inputValue.value.trim().toLowerCase()
+  return [...new Set(props.modelOptions || [])]
+    .filter(option => !props.models.includes(option))
+    .filter(option => !keyword || option.toLowerCase().includes(keyword))
+    .slice(0, 50)
+})
 
 function addModel() {
   const val = inputValue.value.trim()
@@ -64,6 +92,23 @@ function addModel() {
     emit('update:models', [...props.models, val])
   }
   inputValue.value = ''
+  showSuggestions.value = false
+}
+
+function selectModel(model: string) {
+  if (!props.models.includes(model)) {
+    emit('update:models', [...props.models, model])
+  }
+  inputValue.value = ''
+  showSuggestions.value = false
+  inputRef.value?.focus()
+}
+
+function handleBlur() {
+  setTimeout(() => {
+    showSuggestions.value = false
+    addModel()
+  }, 120)
 }
 
 function removeModel(idx: number) {
@@ -86,5 +131,6 @@ function handlePaste(e: ClipboardEvent) {
   const unique = [...new Set([...props.models, ...items])]
   emit('update:models', unique)
   inputValue.value = ''
+  showSuggestions.value = false
 }
 </script>

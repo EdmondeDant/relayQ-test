@@ -172,7 +172,7 @@
         </div>
 
         <!-- Tab Content -->
-        <form id="channel-form" @submit.prevent="handleSubmit" class="flex-1 overflow-y-auto pt-4">
+        <form id="channel-form" @submit.prevent="handleSubmit" class="flex-1 min-h-0 overflow-y-auto pt-4">
           <!-- Basic Settings Tab -->
           <div v-show="activeTab === 'basic'" class="space-y-5">
             <!-- Name -->
@@ -441,12 +441,13 @@
               >
                 {{ t('admin.channels.form.noPricingRules', 'No pricing rules yet. Click "Add" to create one.') }}
               </div>
-              <div v-else class="space-y-2">
+              <div v-else class="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
                 <PricingEntryCard
                   v-for="(entry, idx) in section.model_pricing"
                   :key="idx"
                   :entry="entry"
                   :platform="section.platform"
+                  :model-options="getModelOptionsForGroupIds(section.group_ids)"
                   @update="updatePricingEntry(sIdx, idx, $event)"
                   @remove="removePricingEntry(sIdx, idx)"
                 />
@@ -571,12 +572,13 @@
                   <div v-if="rule.pricing.length === 0" class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500">
                     {{ t('admin.channels.form.noPricingRules') }}
                   </div>
-                  <div v-else class="space-y-2">
+                  <div v-else class="max-h-72 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-gray-100 pr-1 dark:border-dark-700">
                     <PricingEntryCard
                       v-for="(entry, pIdx) in rule.pricing"
                       :key="pIdx"
                       :entry="entry"
                       :platform="section.platform"
+                      :model-options="getModelOptionsForGroupIds(rule.group_ids.length > 0 ? rule.group_ids : section.group_ids, section.platform)"
                       @update="rule.pricing.splice(pIdx, 1, $event)"
                       @remove="removeRulePricingEntry(sIdx, ruleIndex, pIdx)"
                     />
@@ -742,6 +744,7 @@ const activeTab = ref<string>('basic')
 // Groups
 const allGroups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
+const groupModelOptionsMap = ref<Record<string, string[]>>({})
 
 // All channels for group-conflict detection (independent of current page)
 const allChannelsForConflict = ref<Channel[]>([])
@@ -802,7 +805,49 @@ function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
   return allGroups.value.filter(g => g.platform === platform)
 }
 
-// ── Group helpers ──
+function getModelOptionsForGroupIds(groupIds: number[], platform?: GroupPlatform): string[] {
+  const options = new Set<string>()
+  const sourceIds = groupIds.length > 0 ? groupIds : platform ? [0] : []
+  for (const groupId of sourceIds) {
+    const key = getGroupModelOptionsKey(groupId, platform)
+    const models = groupModelOptionsMap.value[key] || []
+    for (const model of models) {
+      if (model) options.add(model)
+    }
+  }
+  return [...options].sort((a, b) => a.localeCompare(b))
+}
+
+function getGroupModelOptionsKey(groupId: number, platform?: GroupPlatform): string {
+  return groupId === 0 ? `0:${platform || ''}` : String(groupId)
+}
+
+async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatform) {
+  if (groupIds.length === 0 && platform) {
+    const key = getGroupModelOptionsKey(0, platform)
+    if (groupModelOptionsMap.value[key]) return
+    try {
+      const models = await adminAPI.groups.getModelsListCandidates(0, platform)
+      groupModelOptionsMap.value[key] = models || []
+    } catch {
+      groupModelOptionsMap.value[key] = []
+    }
+    return
+  }
+
+  const targetGroups = allGroups.value.filter(group => groupIds.includes(group.id))
+  await Promise.all(targetGroups.map(async group => {
+    const key = getGroupModelOptionsKey(group.id)
+    if (groupModelOptionsMap.value[key]) return
+    try {
+      const models = await adminAPI.groups.getModelsListCandidates(group.id, group.platform)
+      groupModelOptionsMap.value[key] = models || []
+    } catch {
+      groupModelOptionsMap.value[key] = []
+    }
+  }))
+}
+
 const groupToChannelMap = computed(() => {
   const map = new Map<number, Channel>()
   for (const ch of allChannelsForConflict.value) {
@@ -843,6 +888,7 @@ function toggleGroupInSection(sectionIdx: number, groupId: number) {
     section.group_ids.splice(idx, 1)
   } else {
     section.group_ids.push(groupId)
+    void ensureGroupModelOptions([groupId])
   }
 }
 
@@ -1322,6 +1368,7 @@ async function openCreateDialog() {
   editingChannel.value = null
   resetForm()
   await Promise.all([loadGroups(), loadAllChannelsForConflict()])
+  await Promise.all(platformOrder.map(platform => ensureGroupModelOptions([], platform)))
   showDialog.value = true
 }
 

@@ -2,10 +2,14 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // RegisterAdminRoutes 注册管理员路由
@@ -13,7 +17,9 @@ func RegisterAdminRoutes(
 	v1 *gin.RouterGroup,
 	h *handler.Handlers,
 	adminAuth middleware.AdminAuthMiddleware,
+	redisClient *redis.Client,
 ) {
+	rateLimiter := middleware2.NewRateLimiter(redisClient)
 	admin := v1.Group("/admin")
 	admin.Use(gin.HandlerFunc(adminAuth))
 	{
@@ -31,6 +37,9 @@ func RegisterAdminRoutes(
 
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
+
+		// 留言板管理
+		registerIdeaMessageRoutes(admin, h, rateLimiter)
 
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
@@ -97,6 +106,15 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+	}
+}
+
+func registerIdeaMessageRoutes(admin *gin.RouterGroup, h *handler.Handlers, rateLimiter *middleware2.RateLimiter) {
+	ideaMessages := admin.Group("/idea-messages")
+	{
+		ideaMessages.PUT("/:id/reply", rateLimiter.LimitWithOptions("admin-idea-message-reply", 20, time.Minute, middleware2.RateLimitOptions{
+			FailureMode: middleware2.RateLimitFailClose,
+		}), h.Admin.IdeaMessage.Reply)
 	}
 }
 
