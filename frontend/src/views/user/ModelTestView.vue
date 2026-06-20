@@ -175,6 +175,13 @@ const apiKeyOptions = computed(() =>
 const modelOptions = computed(() => models.value.map((model) => ({ value: model, label: model })))
 const isImageModel = computed(() => selectedModel.value ? /(^|[-_/])(image|img)([-_/]|$)/i.test(selectedModel.value) : false)
 
+function sanitizeHistoryMessages(items: ModelTestMessage[]): ModelTestMessage[] {
+  return items.map((message) => ({
+    role: message.role,
+    content: message.content,
+  }))
+}
+
 function historyKey(): string | null {
   if (!selectedKeyId.value || !selectedModel.value) return null
   return `model-test:${selectedKeyId.value}:${selectedModel.value}`
@@ -197,7 +204,12 @@ function loadHistory(): void {
 function saveHistory(): void {
   const key = historyKey()
   if (!key) return
-  localStorage.setItem(key, JSON.stringify(messages.value.slice(-100)))
+
+  try {
+    localStorage.setItem(key, JSON.stringify(sanitizeHistoryMessages(messages.value.slice(-100))))
+  } catch {
+    // Ignore browser storage quota failures. Generated images can be large and should remain in-memory only.
+  }
 }
 
 function scrollToBottom(): void {
