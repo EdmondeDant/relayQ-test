@@ -42,6 +42,10 @@ const (
 	openAIImagesResponsesMainModel = "gpt-5.4-mini"
 )
 
+func openAIResponsesImageMainModel(toolModel string) string {
+	return openAIImagesResponsesMainModel
+}
+
 type OpenAIImagesCapability string
 
 const (
@@ -584,6 +588,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		parsed.Endpoint,
 		account.Type,
 	)
+	if parsed.IsEdits() {
+		return s.forwardOpenAIImagesResponses(ctx, c, account, parsed, requestModel, upstreamModel)
+	}
 	forwardBody, forwardContentType, err := buildOpenAIImagesForwardBody(body, parsed, upstreamModel)
 	if err != nil {
 		return nil, err
@@ -718,7 +725,17 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 }
 
 func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upstreamModel string) ([]byte, string, error) {
-	if parsed == nil || parsed.Multipart {
+	if parsed == nil {
+		return nil, "", fmt.Errorf("parsed images request is required")
+	}
+	if parsed.IsEdits() {
+		responsesBody, err := buildOpenAIImagesResponsesRequest(parsed, upstreamModel)
+		if err != nil {
+			return nil, "", err
+		}
+		return responsesBody, "application/json", nil
+	}
+	if parsed.Multipart {
 		return rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
 	}
 	payload := map[string]any{}
