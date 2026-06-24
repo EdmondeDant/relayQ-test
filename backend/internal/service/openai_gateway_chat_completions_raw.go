@@ -87,6 +87,11 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if upstreamModel != originalModel {
 		upstreamBody = ReplaceModelInBody(body, upstreamModel)
 	}
+	if normalizedBody, changed, err := normalizeMiMoASRInputAudioData(upstreamBody, upstreamModel); err != nil {
+		return nil, fmt.Errorf("normalize mimo asr input_audio data: %w", err)
+	} else if changed {
+		upstreamBody = normalizedBody
+	}
 
 	// 4. Apply OpenAI fast policy on the CC body
 	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, upstreamBody)
@@ -486,4 +491,69 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 // 与 buildOpenAIResponsesURL 是姐妹函数。
 func buildOpenAIChatCompletionsURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/chat/completions")
+}
+
+func normalizeMiMoASRInputAudioData(body []byte, model string) ([]byte, bool, error) {
+	if strings.ToLower(strings.TrimSpace(model)) != "mimo-v2.5-asr" {
+		return body, false, nil
+	}
+
+	messageResults := gjson.GetBytes(body, "messages").Array()
+	if len(messageResults) == 0 {
+		return body, false, nil
+	}
+
+	updatedBody := body
+	changed := false
+	for mi, message := range messageResults {
+		contentResults := message.Get("content").Array()
+		if len(contentResults) == 0 {
+			continue
+		}
+		for ci, content := range contentResults {
+			if content.Get("type").String() != "input_audio" {
+				continue
+			}
+			data := strings.TrimSpace(content.Get("input_audio.data").String())
+			if data == "" || shouldKeepMiMoAudioDataAsIs(data) {
+				continue
+			}
+
+			format := strings.TrimSpace(content.Get("input_audio.format").String())
+			mimeType := mimoAudioFormatToMimeType(format)
+			if mimeType == "" {
+				continue
+			}
+
+			path := fmt.Sprintf("messages.%d.content.%d.input_audio.data", mi, ci)
+			nextBody, err := sjson.SetBytes(updatedBody, path, "data:"+mimeType+";base64,"+data)
+			if err != nil {
+				return body, false, err
+			}
+			updatedBody = nextBody
+			changed = true
+		}
+	}
+
+	return updatedBody, changed, nil
+}
+
+func shouldKeepMiMoAudioDataAsIs(data string) bool {
+	lower := strings.ToLower(strings.TrimSpace(data))
+	return strings.HasPrefix(lower, "data:") ||
+		strings.HasPrefix(lower, "http://") ||
+		strings.HasPrefix(lower, "https://")
+}
+
+func mimoAudioFormatToMimeType(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "wav", "wave", "x-wav":
+		return "audio/wav"
+	case "mp3", "mpeg":
+		return "audio/mpeg"
+	case "pcm", "pcm16":
+		return "audio/pcm"
+	default:
+		return ""
+	}
 }

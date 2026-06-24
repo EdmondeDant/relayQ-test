@@ -14,6 +14,10 @@ const openaiModels = [
   // GPT-5.3 / Codex 系列
   'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'codex-auto-review',
   'gpt-4o-audio-preview', 'gpt-4o-realtime-preview',
+  // MiMo 系列
+  'mimo-v2.5-pro', 'mimo-v2.5', 'mimo-v2-pro', 'mimo-v2-omni',
+  'mimo-v2.5-asr', 'mimo-v2.5-tts', 'mimo-v2.5-tts-voiceclone',
+  'mimo-v2.5-tts-voicedesign', 'mimo-v2-tts',
   // GPT Image 系列
   'gpt-image-1', 'gpt-image-1.5', 'gpt-image-2'
 ]

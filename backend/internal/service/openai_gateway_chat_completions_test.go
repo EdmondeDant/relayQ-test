@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -95,6 +96,110 @@ func TestNormalizeResponsesBodyServiceTier(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, tier)
 	require.False(t, gjson.GetBytes(body, "service_tier").Exists())
+}
+
+func TestShouldForceRawChatCompletions(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, shouldForceRawChatCompletions("mimo-v2.5-asr"))
+	require.True(t, shouldForceRawChatCompletions(" MiMo-V2.5-TTS "))
+	require.True(t, shouldForceRawChatCompletions("mimo-v2.5-tts-voiceclone"))
+	require.False(t, shouldForceRawChatCompletions("mimo-v2.5"))
+	require.False(t, shouldForceRawChatCompletions("gpt-5.4"))
+}
+
+func TestNormalizeMiMoASRInputAudioData(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{
+		"model":"mimo-v2.5-asr",
+		"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"UklGRg==","format":"wav"}}]}]
+	}`)
+
+	normalized, changed, err := normalizeMiMoASRInputAudioData(body, "mimo-v2.5-asr")
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "data:audio/wav;base64,UklGRg==", gjson.GetBytes(normalized, "messages.0.content.0.input_audio.data").String())
+}
+
+func TestNormalizeMiMoASRInputAudioData_LeavesURLsAndDataURLsUntouched(t *testing.T) {
+	t.Parallel()
+
+	urlBody := []byte(`{
+		"model":"mimo-v2.5-asr",
+		"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"https://example.com/audio.wav","format":"wav"}}]}]
+	}`)
+	normalizedURLBody, changed, err := normalizeMiMoASRInputAudioData(urlBody, "mimo-v2.5-asr")
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.JSONEq(t, string(urlBody), string(normalizedURLBody))
+
+	dataURLBody := []byte(`{
+		"model":"mimo-v2.5-asr",
+		"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"data:audio/wav;base64,UklGRg==","format":"wav"}}]}]
+	}`)
+	normalizedDataURLBody, changed, err := normalizeMiMoASRInputAudioData(dataURLBody, "mimo-v2.5-asr")
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.JSONEq(t, string(dataURLBody), string(normalizedDataURLBody))
+}
+
+func TestForwardAsChatCompletions_MiMoAudioModelUsesRawChatCompletions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := []byte(`{
+		"model":"mimo-v2.5-asr",
+		"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"UklGRg==","format":"wav"}}]}],
+		"asr_options":{"language":"zh"},
+		"stream":false
+	}`)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_mimo_asr_raw"}},
+		Body: io.NopCloser(strings.NewReader(
+			`{"id":"chatcmpl_mimo","object":"chat.completion","model":"mimo-v2.5-asr","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`,
+		)),
+	}}
+
+	svc := &OpenAIGatewayService{
+		cfg: &config.Config{
+			Security: config.SecurityConfig{
+				URLAllowlist: config.URLAllowlistConfig{
+					Enabled:           false,
+					AllowInsecureHTTP: true,
+				},
+			},
+		},
+		httpUpstream: upstream,
+	}
+	account := &Account{
+		ID:          101,
+		Name:        "raw-openai-apikey",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://token-plan-cn.xiaomimimo.com/v1",
+		},
+	}
+	account.Extra = map[string]any{"use_responses_api": true}
+
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.lastReq)
+	require.Equal(t, "https://token-plan-cn.xiaomimimo.com/v1/chat/completions", upstream.lastReq.URL.String())
+	require.Equal(t, "mimo-v2.5-asr", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "data:audio/wav;base64,UklGRg==", gjson.GetBytes(upstream.lastBody, "messages.0.content.0.input_audio.data").String())
+	require.Equal(t, "wav", gjson.GetBytes(upstream.lastBody, "messages.0.content.0.input_audio.format").String())
+	require.Equal(t, "zh", gjson.GetBytes(upstream.lastBody, "asr_options.language").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
 }
 
 func TestForwardAsChatCompletions_UnknownModelDoesNotUseDefaultMappedModel(t *testing.T) {
