@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/mail"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -60,12 +62,24 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+// signupBonusIPLimit is the number of signups per client IP per Asia/Shanghai day that may receive the signup balance gift.
+const signupBonusIPLimit = 2
+
+var signupBonusIPCounterScript = redis.NewScript(`
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+return current
+`)
+
 // AuthService 认证服务
 type AuthService struct {
 	entClient             *dbent.Client
 	userRepo              UserRepository
 	redeemRepo            RedeemCodeRepository
 	refreshTokenCache     RefreshTokenCache
+	redisClient           *redis.Client
 	cfg                   *config.Config
 	settingService        *SettingService
 	emailService          *EmailService
@@ -103,12 +117,18 @@ func NewAuthService(
 	defaultSubAssigner DefaultSubscriptionAssigner,
 	affiliateService *AffiliateService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	redisClients ...*redis.Client,
 ) *AuthService {
+	var redisClient *redis.Client
+	if len(redisClients) > 0 {
+		redisClient = redisClients[0]
+	}
 	return &AuthService{
 		entClient:             entClient,
 		userRepo:              userRepo,
 		redeemRepo:            redeemRepo,
 		refreshTokenCache:     refreshTokenCache,
+		redisClient:           redisClient,
 		cfg:                   cfg,
 		settingService:        settingService,
 		emailService:          emailService,
@@ -128,13 +148,73 @@ func (s *AuthService) EntClient() *dbent.Client {
 	return s.entClient
 }
 
+func (s *AuthService) allowSignupBalanceGiftForIP(ctx context.Context, clientIP string) bool {
+	clientIP = normalizeSignupIP(clientIP)
+	if s == nil || s.redisClient == nil || clientIP == "" {
+		// Fail open: registration gifts should not be blocked because IP/Redis is unavailable.
+		return true
+	}
+
+	now := time.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60))
+	key := fmt.Sprintf("signup_bonus_ip:%s:%s", now.Format("20060102"), clientIP)
+	expire := time.Until(time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()))
+	if expire <= 0 {
+		expire = 24 * time.Hour
+	}
+
+	count, err := signupBonusIPCounterScript.Run(ctx, s.redisClient, []string{key}, expire.Milliseconds()).Int64()
+	if err != nil {
+		logger.LegacyPrintf("service.auth", "[Auth] Signup balance gift IP limiter failed: ip=%s error=%v", maskSignupIPForLog(clientIP), err)
+		return true
+	}
+	return count <= signupBonusIPLimit
+}
+
+func normalizeSignupIP(clientIP string) string {
+	clientIP = strings.TrimSpace(clientIP)
+	if clientIP == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
+	}
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
+}
+
+func maskSignupIPForLog(clientIP string) string {
+	clientIP = normalizeSignupIP(clientIP)
+	if clientIP == "" {
+		return ""
+	}
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		return ""
+	}
+	if v4 := ip.To4(); v4 != nil {
+		return fmt.Sprintf("%d.%d.%d.x", v4[0], v4[1], v4[2])
+	}
+	parts := strings.Split(ip.String(), ":")
+	if len(parts) <= 2 {
+		return ip.String()
+	}
+	return strings.Join(parts[:2], ":") + ":..."
+}
+
 // Register 用户注册，返回token和用户
 func (s *AuthService) Register(ctx context.Context, email, password string) (string, *User, error) {
 	return s.RegisterWithVerification(ctx, email, password, "", "", "", "")
 }
 
 // RegisterWithVerification 用户注册（支持邮件验证、优惠码、邀请码和邀请返利码），返回token和用户。
-func (s *AuthService) RegisterWithVerification(ctx context.Context, email, password, verifyCode, promoCode, invitationCode, affiliateCode string) (string, *User, error) {
+func (s *AuthService) RegisterWithVerification(ctx context.Context, email, password, verifyCode, promoCode, invitationCode, affiliateCode string, clientIPOpt ...string) (string, *User, error) {
+	clientIP := ""
+	if len(clientIPOpt) > 0 {
+		clientIP = clientIPOpt[0]
+	}
 	invitationCode = strings.TrimSpace(invitationCode)
 	affiliateCode = strings.TrimSpace(affiliateCode)
 
@@ -202,6 +282,10 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 	}
 
 	grantPlan := s.resolveSignupGrantPlan(ctx, "email")
+	if grantPlan.Balance > 0 && !s.allowSignupBalanceGiftForIP(ctx, clientIP) {
+		logger.LegacyPrintf("service.auth", "[Auth] Signup balance gift suppressed by daily IP limit: ip=%s email=%s limit=%d", maskSignupIPForLog(clientIP), email, signupBonusIPLimit)
+		grantPlan.Balance = 0
+	}
 
 	// 新用户默认 RPM（0 = 不限制）。注册时写入，后续作为用户级兜底。
 	var defaultRPMLimit int

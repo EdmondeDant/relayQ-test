@@ -179,6 +179,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		req.PromoCode,
 		req.InvitationCode,
 		req.AffCode,
+		ip.GetClientIP(c),
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)
