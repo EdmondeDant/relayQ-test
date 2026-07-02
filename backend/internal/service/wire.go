@@ -56,6 +56,11 @@ func ProvideOpenAIOAuthService(
 	return svc
 }
 
+// ProvideXAIOAuthService creates XAIOAuthService.
+func ProvideXAIOAuthService(proxyRepo ProxyRepository, oauthClient XAIOAuthClient) *XAIOAuthService {
+	return NewXAIOAuthService(proxyRepo, oauthClient)
+}
+
 // ProvideTokenRefreshService creates and starts TokenRefreshService
 func ProvideTokenRefreshService(
 	accountRepo AccountRepository,

@@ -93,6 +93,7 @@
         <ModelTagInput
           :models="form.extra_models"
           :platform="form.provider"
+          :model-options="extraModelOptions"
           :placeholder="t('admin.channelMonitor.form.extraModelsPlaceholder')"
           @update:models="form.extra_models = $event"
         />
@@ -193,7 +194,7 @@ import type {
   UpdateParams,
 } from '@/api/admin/channelMonitor'
 import type { ChannelMonitorTemplate } from '@/api/admin/channelMonitorTemplate'
-import type { ApiKey } from '@/types'
+import type { AdminGroup, ApiKey, ModelsListConfig } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Select from '@/components/common/Select.vue'
@@ -243,6 +244,9 @@ const showKeyPicker = ref(false)
 const myKeysLoading = ref(false)
 const myActiveKeys = ref<ApiKey[]>([])
 const userGroupRates = ref<Record<number, number>>({})
+const selectedKeyModelOptions = ref<string[]>([])
+const adminGroupsCache = ref<AdminGroup[]>([])
+const adminGroupsProvider = ref<Provider | null>(null)
 
 interface MonitorForm {
   name: string
@@ -296,6 +300,23 @@ const templateOptions = computed(() => {
     ...items.map((t) => ({ value: String(t.id), label: templateOptionLabel(t) })),
   ]
 })
+
+const extraModelOptions = computed(() => selectedKeyModelOptions.value)
+
+function extractWhitelistModelsFromKey(key: ApiKey | null | undefined): string[] {
+  const groupId = key?.group_id
+  if (!groupId) return []
+  const matchedGroup = adminGroupsCache.value.find(group => group.id === groupId)
+  const cfg = matchedGroup?.models_list_config as ModelsListConfig | undefined
+  if (!cfg?.enabled || !Array.isArray(cfg.models)) return []
+  return Array.from(
+    new Set(
+      cfg.models
+        .map(model => model.trim())
+        .filter(Boolean)
+    )
+  )
+}
 
 async function loadTemplates() {
   if (templatesCache.value.length > 0) return
@@ -395,6 +416,9 @@ const providerOptions = computed<ProviderOption[]>(() => [
 watch(() => form.provider, () => {
   if (suppressFormWatchers) return
   form.api_key = ''
+  selectedKeyModelOptions.value = []
+  adminGroupsCache.value = []
+  adminGroupsProvider.value = null
   if (form.provider !== PROVIDER_OPENAI) {
     form.api_mode = API_MODE_CHAT_COMPLETIONS
   }
@@ -417,6 +441,9 @@ function resetForm() {
   form.api_key = ''
   form.primary_model = ''
   form.extra_models = []
+  selectedKeyModelOptions.value = []
+  adminGroupsCache.value = []
+  adminGroupsProvider.value = null
   form.group_name = ''
   form.interval_seconds = systemDefaultInterval.value
   form.enabled = true
@@ -436,6 +463,9 @@ function loadFromMonitor(m: ChannelMonitor) {
   form.api_key = ''
   form.primary_model = m.primary_model
   form.extra_models = [...(m.extra_models || [])]
+  selectedKeyModelOptions.value = []
+  adminGroupsCache.value = []
+  adminGroupsProvider.value = null
   form.group_name = m.group_name || ''
   form.interval_seconds = m.interval_seconds || systemDefaultInterval.value
   form.enabled = m.enabled
@@ -465,12 +495,13 @@ function useCurrentDomain() {
 
 async function openMyKeyPicker() {
   showKeyPicker.value = true
-  if (myActiveKeys.value.length > 0) return
+  if (myActiveKeys.value.length > 0 && adminGroupsProvider.value === form.provider) return
   myKeysLoading.value = true
   try {
-    const [res, rates] = await Promise.all([
+    const [res, rates, groups] = await Promise.all([
       keysAPI.list(1, 100, { status: 'active' }),
       userGroupsAPI.getUserGroupRates(),
+      adminAPI.groups.getAll(form.provider),
     ])
     const items = res.items || []
     const now = Date.now()
@@ -480,6 +511,8 @@ async function openMyKeyPicker() {
       return new Date(k.expires_at).getTime() > now
     })
     userGroupRates.value = rates
+    adminGroupsCache.value = groups
+    adminGroupsProvider.value = form.provider
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.form.noActiveKey')))
   } finally {
@@ -489,6 +522,7 @@ async function openMyKeyPicker() {
 
 function pickMyKey(k: ApiKey) {
   form.api_key = k.key
+  selectedKeyModelOptions.value = extractWhitelistModelsFromKey(k)
   showKeyPicker.value = false
 }
 

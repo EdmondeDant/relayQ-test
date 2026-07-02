@@ -2231,6 +2231,7 @@ export default {
         openai: 'OpenAI',
         gemini: 'Gemini',
         antigravity: 'Antigravity',
+        xai: 'Grok',
       },
       saving: '保存中...',
       noGroups: '暂无分组',
@@ -3923,6 +3924,33 @@ export default {
           pleaseEnterRefreshToken: '请输入 Refresh Token',
           pleaseEnterSessionToken: '请输入 Session Token'
         },
+        xai: {
+          title: 'Grok 账户授权',
+          followSteps: '请按照以下步骤完成 Grok 账户的授权：',
+          step1GenerateUrl: '点击下方按钮生成授权链接',
+          generateAuthUrl: '生成授权链接',
+          step2OpenUrl: '在浏览器中打开链接并完成授权',
+          openUrlDesc: '请在新标签页中打开授权链接，登录您的 Grok 账户并授权。',
+          step3EnterCode: '输入授权链接或 Code',
+          authCodeDesc:
+            '授权完成后，当页面地址变为 http://localhost:xxx/auth/callback?code=... 时：',
+          authCode: '授权链接或 Code',
+          authCodePlaceholder:
+            '方式1：复制完整的链接\n(http://localhost:xxx/auth/callback?code=...)\n方式2：仅复制 code 参数的值',
+          authCodeHint: '您可以直接复制整个链接或仅复制 code 参数值，系统会自动识别',
+          failedToGenerateUrl: '生成 Grok 授权链接失败',
+          failedToExchangeCode: 'Grok 授权码兑换失败',
+          failedToValidateRT: '验证 Grok Refresh Token 失败',
+          refreshTokenAuth: '手动输入 RT',
+          refreshTokenDesc: '输入您已有的 Grok Refresh Token，支持批量输入（每行一个），系统将自动验证并创建账号。',
+          refreshTokenPlaceholder: '粘贴您的 Grok Refresh Token...\n支持多个，每行一个',
+          validating: '验证中...',
+          validateAndCreate: '验证并创建账号',
+          pleaseEnterRefreshToken: '请输入 Refresh Token',
+          errors: {
+            default: 'Grok OAuth 操作失败'
+          }
+        },
         // Gemini specific
         gemini: {
           title: 'Gemini 账户授权',
@@ -4151,6 +4179,7 @@ export default {
       usingModel: '使用模型：{model}',
       sendingTestMessage: '发送测试消息："hi"',
       sendingImageRequest: '发送生图测试请求...',
+      sendingVideoRequest: '发送视频生成测试请求...',
       response: '响应：',
       startTest: '开始测试',
       retry: '重试',

@@ -747,6 +747,24 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	if account.Platform == PlatformOpenAI {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}
+	if account.Platform == PlatformXAI {
+		msg := buildForbiddenErrorMessage(
+			"Access forbidden (403):",
+			upstreamMsg,
+			responseBody,
+			"xAI account may be blocked by auth, region, proxy, or upstream policy",
+		)
+		until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
+		reason := fmt.Sprintf("xAI 403 temporary cooldown: %s", msg)
+		s.notifyAccountSchedulingBlocked(account, until, "xai_403_temp")
+		if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+			slog.Warn("xai_403_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
+			s.handleAuthError(ctx, account, msg)
+			return true
+		}
+		slog.Warn("xai_403_temp_unschedulable", "account_id", account.ID, "until", until)
+		return true
+	}
 	// 非 Antigravity 平台：保持原有行为
 	msg := buildForbiddenErrorMessage(
 		"Access forbidden (403):",

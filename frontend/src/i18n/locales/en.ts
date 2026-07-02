@@ -2203,6 +2203,7 @@ export default {
         openai: 'OpenAI',
         gemini: 'Gemini',
         antigravity: 'Antigravity',
+        xai: 'Grok',
       },
       deleteConfirm:
         "Are you sure you want to delete '{name}'? All associated API keys will no longer belong to any group.",
@@ -3791,6 +3792,37 @@ export default {
           pleaseEnterRefreshToken: 'Please enter Refresh Token',
           pleaseEnterSessionToken: 'Please enter Session Token'
         },
+        // xAI / Grok specific
+        xai: {
+          title: 'Grok Account Authorization',
+          followSteps: 'Follow these steps to authorize your Grok account:',
+          step1GenerateUrl: 'Click the button below to generate the authorization URL',
+          generateAuthUrl: 'Generate Auth URL',
+          step2OpenUrl: 'Open the URL in your browser and complete authorization',
+          openUrlDesc:
+            'Open the authorization URL in a new tab, log in to your Grok account and authorize.',
+          step3EnterCode: 'Enter Authorization URL or Code',
+          authCodeDesc:
+            'After authorization is complete, when the page URL becomes http://localhost:xxx/auth/callback?code=...:',
+          authCode: 'Authorization URL or Code',
+          authCodePlaceholder:
+            'Option 1: Copy the complete URL\n(http://localhost:xxx/auth/callback?code=...)\nOption 2: Copy only the code parameter value',
+          authCodeHint:
+            'You can copy the entire URL or just the code parameter value, the system will auto-detect',
+          failedToGenerateUrl: 'Failed to generate Grok auth URL',
+          failedToExchangeCode: 'Failed to exchange Grok auth code',
+          failedToValidateRT: 'Failed to validate Grok refresh token',
+          refreshTokenAuth: 'Manual RT Input',
+          refreshTokenDesc:
+            'Enter your existing Grok Refresh Token(s). Supports batch input (one per line). The system will automatically validate and create accounts.',
+          refreshTokenPlaceholder: 'Paste your Grok Refresh Token...\nSupports multiple, one per line',
+          validating: 'Validating...',
+          validateAndCreate: 'Validate & Create Account',
+          pleaseEnterRefreshToken: 'Please enter Refresh Token',
+          errors: {
+            default: 'Grok OAuth operation failed'
+          }
+        },
         // Gemini specific
 	        gemini: {
 	          title: 'Gemini Account Authorization',
@@ -4025,6 +4057,7 @@ export default {
       usingModel: 'Using model: {model}',
       sendingTestMessage: 'Sending test message: "hi"',
       sendingImageRequest: 'Sending image generation test request...',
+      sendingVideoRequest: 'Sending video generation test request...',
       response: 'Response:',
       startTest: 'Start Test',
       testing: 'Testing...',

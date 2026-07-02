@@ -40,11 +40,11 @@ var cursorResponsesUnsupportedFields = []string{
 }
 
 var mimoRawChatCompletionsModels = map[string]struct{}{
-	"mimo-v2.5-asr":               {},
-	"mimo-v2.5-tts":               {},
-	"mimo-v2.5-tts-voiceclone":    {},
-	"mimo-v2.5-tts-voicedesign":   {},
-	"mimo-v2-tts":                 {},
+	"mimo-v2.5-asr":             {},
+	"mimo-v2.5-tts":             {},
+	"mimo-v2.5-tts-voiceclone":  {},
+	"mimo-v2.5-tts-voicedesign": {},
+	"mimo-v2-tts":               {},
 }
 
 func shouldForceRawChatCompletions(model string) bool {
@@ -85,7 +85,8 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 
 	// 入口分流：APIKey 账号 + 强制或已探测确认上游不支持 Responses，走 CC 直转。
 	// 自动模式下标记缺失（未探测）按"现状即证据"原则继续走下方原 Responses 转换路径。
-	if account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra) {
+	if (account.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(account.Extra)) ||
+		(account.Platform == PlatformXAI && account.Type == AccountTypeOAuth) {
 		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
 	}
 

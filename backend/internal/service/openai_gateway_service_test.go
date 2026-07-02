@@ -55,6 +55,20 @@ func (r stubOpenAIAccountRepo) GetByID(ctx context.Context, id int64) (*Account,
 	return nil, errors.New("account not found")
 }
 
+func (r stubOpenAIAccountRepo) ListSchedulable(ctx context.Context) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if acc.IsOpenAICompatible() {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
+}
+
+func (r stubOpenAIAccountRepo) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error) {
+	return r.ListSchedulable(ctx)
+}
+
 func (r stubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
@@ -1833,7 +1847,7 @@ func TestOpenAIBuildUpstreamRequestOpenAIPassthroughPreservesCompactPath(t *test
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses/compact", bytes.NewReader([]byte(`{"model":"gpt-5"}`)))
 
 	svc := &OpenAIGatewayService{}
-	account := &Account{Type: AccountTypeOAuth}
+	account := &Account{Type: AccountTypeOAuth, Platform: PlatformOpenAI}
 
 	req, err := svc.buildUpstreamRequestOpenAIPassthrough(c.Request.Context(), c, account, []byte(`{"model":"gpt-5"}`), "token")
 	require.NoError(t, err)
@@ -1853,6 +1867,7 @@ func TestOpenAIBuildUpstreamRequestCompactForcesJSONAcceptForOAuth(t *testing.T)
 	svc := &OpenAIGatewayService{}
 	account := &Account{
 		Type:        AccountTypeOAuth,
+		Platform:    PlatformOpenAI,
 		Credentials: map[string]any{"chatgpt_account_id": "chatgpt-acc"},
 	}
 
@@ -1877,6 +1892,7 @@ func TestOpenAIBuildUpstreamRequestOAuthMessagesBridgeUsesSessionOnly(t *testing
 	svc := &OpenAIGatewayService{}
 	account := &Account{
 		Type:        AccountTypeOAuth,
+		Platform:    PlatformOpenAI,
 		Credentials: map[string]any{"chatgpt_account_id": "chatgpt-acc"},
 	}
 
@@ -1939,6 +1955,7 @@ func TestOpenAIBuildUpstreamRequestOAuthOfficialClientOriginatorCompatibility(t 
 			svc := &OpenAIGatewayService{}
 			account := &Account{
 				Type:        AccountTypeOAuth,
+				Platform:    PlatformOpenAI,
 				Credentials: map[string]any{"chatgpt_account_id": "chatgpt-acc"},
 			}
 

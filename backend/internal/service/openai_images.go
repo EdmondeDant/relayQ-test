@@ -459,7 +459,24 @@ func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
 }
 
 func isOpenAIImageGenerationModel(model string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(normalized, "gpt-image-") || strings.HasPrefix(normalized, "grok-imagine-image")
+}
+
+func defaultImagesRequestModelForAccount(account *Account, parsed *OpenAIImagesRequest, channelMappedModel string) string {
+	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
+		return mapped
+	}
+	if parsed != nil && parsed.ExplicitModel {
+		return strings.TrimSpace(parsed.Model)
+	}
+	if account != nil && account.Platform == PlatformXAI {
+		return "grok-imagine-image-quality"
+	}
+	if parsed != nil {
+		return strings.TrimSpace(parsed.Model)
+	}
+	return ""
 }
 
 func validateOpenAIImagesModel(model string) error {
@@ -550,6 +567,9 @@ func (s *OpenAIGatewayService) ForwardImages(
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
+	if isXAIOAuthAccount(account) {
+		return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
+	}
 	switch account.Type {
 	case AccountTypeAPIKey:
 		return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
@@ -569,10 +589,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
-	requestModel := strings.TrimSpace(parsed.Model)
-	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
-		requestModel = mapped
-	}
+	requestModel := defaultImagesRequestModelForAccount(account, parsed, channelMappedModel)
 	if err := validateOpenAIImagesModel(requestModel); err != nil {
 		return nil, err
 	}

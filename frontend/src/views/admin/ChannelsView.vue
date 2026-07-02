@@ -763,7 +763,7 @@ const form = reactive({
 let abortController: AbortController | null = null
 
 // ── Platform config ──
-const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity']
+const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'xai']
 
 // ── Helpers ──
 function formatDate(value: string): string {
@@ -822,16 +822,30 @@ function getGroupModelOptionsKey(groupId: number, platform?: GroupPlatform): str
   return groupId === 0 ? `0:${platform || ''}` : String(groupId)
 }
 
+function extractStrictModelOptionsFromAccountMappings(groupId: number, platform: GroupPlatform): Promise<string[]> {
+  return adminAPI.accounts
+    .list(1, 500, {
+      group: String(groupId),
+      platform,
+    })
+    .then(({ items }) => {
+      const options = new Set<string>()
+      for (const account of items || []) {
+        const mapping = account.credentials?.model_mapping
+        if (!mapping || typeof mapping !== 'object') continue
+        for (const model of Object.keys(mapping as Record<string, unknown>)) {
+          const normalized = model.trim()
+          if (normalized) options.add(normalized)
+        }
+      }
+      return [...options].sort((a, b) => a.localeCompare(b))
+    })
+}
+
 async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatform) {
   if (groupIds.length === 0 && platform) {
     const key = getGroupModelOptionsKey(0, platform)
-    if (groupModelOptionsMap.value[key]) return
-    try {
-      const models = await adminAPI.groups.getModelsListCandidates(0, platform)
-      groupModelOptionsMap.value[key] = models || []
-    } catch {
-      groupModelOptionsMap.value[key] = []
-    }
+    groupModelOptionsMap.value[key] = []
     return
   }
 
@@ -840,7 +854,7 @@ async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatf
     const key = getGroupModelOptionsKey(group.id)
     if (groupModelOptionsMap.value[key]) return
     try {
-      const models = await adminAPI.groups.getModelsListCandidates(group.id, group.platform)
+      const models = await extractStrictModelOptionsFromAccountMappings(group.id, group.platform)
       groupModelOptionsMap.value[key] = models || []
     } catch {
       groupModelOptionsMap.value[key] = []
