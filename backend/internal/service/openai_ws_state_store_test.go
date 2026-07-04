@@ -28,6 +28,24 @@ func TestOpenAIWSStateStore_BindGetDeleteResponseAccount(t *testing.T) {
 	require.Zero(t, accountID)
 }
 
+func TestOpenAIWSStateStore_BindGetDeleteVideoRequestAccount(t *testing.T) {
+	cache := &stubGatewayCache{}
+	store := NewOpenAIWSStateStore(cache)
+	ctx := context.Background()
+	groupID := int64(7)
+
+	require.NoError(t, store.BindVideoRequestAccount(ctx, groupID, "req_video_abc", 202, time.Minute))
+
+	accountID, err := store.GetVideoRequestAccount(ctx, groupID, "req_video_abc")
+	require.NoError(t, err)
+	require.Equal(t, int64(202), accountID)
+
+	require.NoError(t, store.DeleteVideoRequestAccount(ctx, groupID, "req_video_abc"))
+	accountID, err = store.GetVideoRequestAccount(ctx, groupID, "req_video_abc")
+	require.NoError(t, err)
+	require.Zero(t, accountID)
+}
+
 func TestOpenAIWSStateStore_ResponseConnTTL(t *testing.T) {
 	store := NewOpenAIWSStateStore(nil)
 	store.BindResponseConn("resp_conn", "conn_1", 30*time.Millisecond)

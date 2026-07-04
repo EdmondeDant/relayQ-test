@@ -303,7 +303,7 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64, for
 		return nil, fmt.Errorf("get account failed: %w", err)
 	}
 
-	if account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth {
+	if (account.Platform == PlatformOpenAI || account.Platform == PlatformXAI) && account.Type == AccountTypeOAuth {
 		usage, err := s.getOpenAIUsage(ctx, account, forceProbe)
 		if err == nil {
 			s.tryClearRecoverableAccountError(ctx, account)

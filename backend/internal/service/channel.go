@@ -77,6 +77,7 @@ type ChannelModelPricing struct {
 	ChannelID        int64
 	Platform         string            // 所属平台（anthropic/openai/gemini/...）
 	Models           []string          // 绑定的模型列表
+	Summary          string            // 管理员人工维护的模型说明
 	BillingMode      BillingMode       // 计费模式
 	InputPrice       *float64          // 每 token 输入价格（USD）— 向后兼容 flat 定价
 	OutputPrice      *float64          // 每 token 输出价格（USD）
@@ -385,6 +386,7 @@ type ChannelUsageFields struct {
 type SupportedModel struct {
 	Name     string               // 用户侧模型名
 	Platform string               // 所属平台
+	Summary  string               // 用户侧展示的人工模型说明
 	Pricing  *ChannelModelPricing // 定价详情（nil 表示未配置定价）
 }
 
@@ -530,7 +532,13 @@ func (c *Channel) SupportedModels() []SupportedModel {
 		result = append(result, SupportedModel{
 			Name:     displayName,
 			Platform: platform,
-			Pricing:  pricing,
+			Summary:  strings.TrimSpace(func() string {
+				if pricing == nil {
+					return ""
+				}
+				return pricing.Summary
+			}()),
+			Pricing: pricing,
 		})
 	}
 

@@ -13,6 +13,7 @@ import (
 
 const (
 	openAIWSResponseAccountCachePrefix = "openai:response:"
+	openAIVideoRequestAccountCachePrefix = "openai:video_request:"
 	openAIWSStateStoreCleanupInterval  = time.Minute
 	openAIWSStateStoreCleanupMaxPerMap = 512
 	openAIWSStateStoreMaxEntriesPerMap = 65536
@@ -49,6 +50,9 @@ type OpenAIWSStateStore interface {
 	BindResponseAccount(ctx context.Context, groupID int64, responseID string, accountID int64, ttl time.Duration) error
 	GetResponseAccount(ctx context.Context, groupID int64, responseID string) (int64, error)
 	DeleteResponseAccount(ctx context.Context, groupID int64, responseID string) error
+	BindVideoRequestAccount(ctx context.Context, groupID int64, requestID string, accountID int64, ttl time.Duration) error
+	GetVideoRequestAccount(ctx context.Context, groupID int64, requestID string) (int64, error)
+	DeleteVideoRequestAccount(ctx context.Context, groupID int64, requestID string) error
 
 	BindResponseConn(responseID, connID string, ttl time.Duration)
 	GetResponseConn(responseID string) (string, bool)
@@ -92,8 +96,31 @@ func NewOpenAIWSStateStore(cache GatewayCache) OpenAIWSStateStore {
 }
 
 func (s *defaultOpenAIWSStateStore) BindResponseAccount(ctx context.Context, groupID int64, responseID string, accountID int64, ttl time.Duration) error {
-	id := normalizeOpenAIWSResponseID(responseID)
-	if id == "" || accountID <= 0 {
+	return s.bindAccount(ctx, groupID, openAIWSResponseAccountCacheKey(responseID), accountID, ttl)
+}
+
+func (s *defaultOpenAIWSStateStore) GetResponseAccount(ctx context.Context, groupID int64, responseID string) (int64, error) {
+	return s.getAccount(ctx, groupID, openAIWSResponseAccountCacheKey(responseID))
+}
+
+func (s *defaultOpenAIWSStateStore) DeleteResponseAccount(ctx context.Context, groupID int64, responseID string) error {
+	return s.deleteAccount(ctx, groupID, openAIWSResponseAccountCacheKey(responseID))
+}
+
+func (s *defaultOpenAIWSStateStore) BindVideoRequestAccount(ctx context.Context, groupID int64, requestID string, accountID int64, ttl time.Duration) error {
+	return s.bindAccount(ctx, groupID, openAIVideoRequestAccountCacheKey(requestID), accountID, ttl)
+}
+
+func (s *defaultOpenAIWSStateStore) GetVideoRequestAccount(ctx context.Context, groupID int64, requestID string) (int64, error) {
+	return s.getAccount(ctx, groupID, openAIVideoRequestAccountCacheKey(requestID))
+}
+
+func (s *defaultOpenAIWSStateStore) DeleteVideoRequestAccount(ctx context.Context, groupID int64, requestID string) error {
+	return s.deleteAccount(ctx, groupID, openAIVideoRequestAccountCacheKey(requestID))
+}
+
+func (s *defaultOpenAIWSStateStore) bindAccount(ctx context.Context, groupID int64, cacheKey string, accountID int64, ttl time.Duration) error {
+	if cacheKey == "" || accountID <= 0 {
 		return nil
 	}
 	ttl = normalizeOpenAIWSTTL(ttl)
@@ -101,29 +128,27 @@ func (s *defaultOpenAIWSStateStore) BindResponseAccount(ctx context.Context, gro
 
 	expiresAt := time.Now().Add(ttl)
 	s.responseToAccountMu.Lock()
-	ensureBindingCapacity(s.responseToAccount, id, openAIWSStateStoreMaxEntriesPerMap)
-	s.responseToAccount[id] = openAIWSAccountBinding{accountID: accountID, expiresAt: expiresAt}
+	ensureBindingCapacity(s.responseToAccount, cacheKey, openAIWSStateStoreMaxEntriesPerMap)
+	s.responseToAccount[cacheKey] = openAIWSAccountBinding{accountID: accountID, expiresAt: expiresAt}
 	s.responseToAccountMu.Unlock()
 
 	if s.cache == nil {
 		return nil
 	}
-	cacheKey := openAIWSResponseAccountCacheKey(id)
 	cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
 	defer cancel()
 	return s.cache.SetSessionAccountID(cacheCtx, groupID, cacheKey, accountID, ttl)
 }
 
-func (s *defaultOpenAIWSStateStore) GetResponseAccount(ctx context.Context, groupID int64, responseID string) (int64, error) {
-	id := normalizeOpenAIWSResponseID(responseID)
-	if id == "" {
+func (s *defaultOpenAIWSStateStore) getAccount(ctx context.Context, groupID int64, cacheKey string) (int64, error) {
+	if cacheKey == "" {
 		return 0, nil
 	}
 	s.maybeCleanup()
 
 	now := time.Now()
 	s.responseToAccountMu.RLock()
-	if binding, ok := s.responseToAccount[id]; ok {
+	if binding, ok := s.responseToAccount[cacheKey]; ok {
 		if now.Before(binding.expiresAt) {
 			accountID := binding.accountID
 			s.responseToAccountMu.RUnlock()
@@ -136,7 +161,6 @@ func (s *defaultOpenAIWSStateStore) GetResponseAccount(ctx context.Context, grou
 		return 0, nil
 	}
 
-	cacheKey := openAIWSResponseAccountCacheKey(id)
 	cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
 	defer cancel()
 	accountID, err := s.cache.GetSessionAccountID(cacheCtx, groupID, cacheKey)
@@ -147,13 +171,12 @@ func (s *defaultOpenAIWSStateStore) GetResponseAccount(ctx context.Context, grou
 	return accountID, nil
 }
 
-func (s *defaultOpenAIWSStateStore) DeleteResponseAccount(ctx context.Context, groupID int64, responseID string) error {
-	id := normalizeOpenAIWSResponseID(responseID)
-	if id == "" {
+func (s *defaultOpenAIWSStateStore) deleteAccount(ctx context.Context, groupID int64, cacheKey string) error {
+	if cacheKey == "" {
 		return nil
 	}
 	s.responseToAccountMu.Lock()
-	delete(s.responseToAccount, id)
+	delete(s.responseToAccount, cacheKey)
 	s.responseToAccountMu.Unlock()
 
 	if s.cache == nil {
@@ -161,7 +184,7 @@ func (s *defaultOpenAIWSStateStore) DeleteResponseAccount(ctx context.Context, g
 	}
 	cacheCtx, cancel := withOpenAIWSStateStoreRedisTimeout(ctx)
 	defer cancel()
-	return s.cache.DeleteSessionAccountID(cacheCtx, groupID, openAIWSResponseAccountCacheKey(id))
+	return s.cache.DeleteSessionAccountID(cacheCtx, groupID, cacheKey)
 }
 
 func (s *defaultOpenAIWSStateStore) BindResponseConn(responseID, connID string, ttl time.Duration) {
@@ -413,8 +436,21 @@ func normalizeOpenAIWSResponseID(responseID string) string {
 }
 
 func openAIWSResponseAccountCacheKey(responseID string) string {
+	responseID = normalizeOpenAIWSResponseID(responseID)
+	if responseID == "" {
+		return ""
+	}
 	sum := sha256.Sum256([]byte(responseID))
 	return openAIWSResponseAccountCachePrefix + hex.EncodeToString(sum[:])
+}
+
+func openAIVideoRequestAccountCacheKey(requestID string) string {
+	requestID = normalizeOpenAIWSResponseID(requestID)
+	if requestID == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(requestID))
+	return openAIVideoRequestAccountCachePrefix + hex.EncodeToString(sum[:])
 }
 
 func normalizeOpenAIWSTTL(ttl time.Duration) time.Duration {

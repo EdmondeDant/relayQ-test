@@ -277,6 +277,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/interface-docs',
+    name: 'APIDocs',
+    component: () => import('@/views/user/APIDocsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: '接口文档',
+      description: '介绍视频、图片、音频模型的接入方式、请求格式和返回结构'
+    }
+  },
+  {
     path: '/starter-install',
     name: 'StarterInstall',
     component: () => import('@/views/user/StarterInstallView.vue'),

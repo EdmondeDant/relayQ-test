@@ -273,6 +273,71 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).toContain('7d|36|900')
   })
 
+  it('Grok OAuth 默认展示四个统计 span，不依赖 /usage 返回', async () => {
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 2005,
+          platform: 'xai',
+          type: 'oauth',
+          extra: {}
+        }),
+        todayStats: {
+          requests: 0,
+          tokens: 0,
+          cost: 0,
+          standard_cost: 0,
+          user_cost: 0
+        }
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'windowStats', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ windowStats?.tokens }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(getUsage).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('0 req')
+    expect(wrapper.text()).toContain('A $0.00')
+    expect(wrapper.text()).toContain('U $0.00')
+  })
+
+  it('Grok OAuth 在没有 todayStats 时也会显示四个 0 span', async () => {
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 2006,
+          platform: 'xai',
+          type: 'oauth',
+          extra: {}
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'windowStats', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ windowStats?.tokens }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(getUsage).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('0 req')
+    expect(wrapper.text()).toContain('A $0.00')
+    expect(wrapper.text()).toContain('U $0.00')
+  })
+
   it('OpenAI OAuth 有现成快照时，手动刷新信号会触发 usage 重拉', async () => {
     getUsage.mockResolvedValue({
       five_hour: {

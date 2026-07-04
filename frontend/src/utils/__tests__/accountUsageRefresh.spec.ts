@@ -50,6 +50,21 @@ describe('buildOpenAIUsageRefreshKey', () => {
     expect(buildOpenAIUsageRefreshKey(base)).not.toBe(buildOpenAIUsageRefreshKey(next))
   })
 
+  it('xAI OAuth 账号不再生成 OpenAI usage refresh key', () => {
+    expect(buildOpenAIUsageRefreshKey({
+      id: 4,
+      platform: 'xai',
+      type: 'oauth',
+      updated_at: '2026-03-07T10:00:00Z',
+      last_used_at: '2026-03-07T10:00:00Z',
+      extra: {
+        codex_usage_updated_at: '2026-03-07T10:00:00Z',
+        codex_5h_used_percent: 12,
+        codex_7d_used_percent: 24
+      }
+    } as any)).toBe('')
+  })
+
   it('非 OpenAI OAuth 账号返回空 key', () => {
     expect(buildOpenAIUsageRefreshKey({
       id: 2,

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -99,6 +100,7 @@ type userSupportedModelImagePricing struct {
 type userSupportedModel struct {
 	Name         string                          `json:"name"`
 	Platform     string                          `json:"platform"`
+	Summary      string                          `json:"summary,omitempty"`
 	Pricing      *userSupportedModelPricing      `json:"pricing"`
 	ImagePricing *userSupportedModelImagePricing `json:"image_pricing,omitempty"`
 }
@@ -258,6 +260,7 @@ func toUserSupportedModels(
 		out = append(out, userSupportedModel{
 			Name:         m.Name,
 			Platform:     m.Platform,
+			Summary:      strings.TrimSpace(m.Summary),
 			Pricing:      toUserPricing(m.Pricing),
 			ImagePricing: toUserImagePricingForModel(m.Pricing, visibleGroups),
 		})

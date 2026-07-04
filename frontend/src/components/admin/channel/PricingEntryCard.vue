@@ -12,10 +12,10 @@
         class="flex-shrink-0 text-gray-400 transition-transform duration-200"
       />
 
-      <!-- Summary: model tags + billing badge -->
+      <!-- Summary: model tags + manual description + billing badge -->
       <div v-if="collapsed" class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-        <!-- Compact model tags (show first 3) -->
-        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+        <div class="min-w-0 flex-1">
+          <div class="flex min-w-0 flex-wrap items-center gap-1">
           <span
             v-for="(m, i) in entry.models.slice(0, 3)"
             :key="i"
@@ -36,6 +36,13 @@
           >
             {{ t('admin.channels.form.noModels', '未添加模型') }}
           </span>
+          </div>
+          <div
+            v-if="props.showSummaryField && trimmedSummary"
+            class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400"
+          >
+            {{ trimmedSummary }}
+          </div>
         </div>
 
         <!-- Billing mode badge -->
@@ -81,6 +88,20 @@
               :placeholder="t('admin.channels.form.modelsPlaceholder', '选择关联分组模型，或输入完整模型名后按回车添加')"
               class="mt-1"
             />
+
+            <div v-if="props.showSummaryField" class="mt-3">
+              <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {{ t('admin.channels.form.modelSummary', '模型说明') }}
+              </label>
+              <textarea
+                :value="entry.summary"
+                rows="2"
+                class="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-dark-600 dark:bg-dark-900 dark:text-white"
+                :placeholder="t('admin.channels.form.modelSummaryPlaceholder', '给管理员/客户看的简短说明，例如：对话主力模型，适合代码与长文本。')"
+                maxlength="500"
+                @input="updateSummary(($event.target as HTMLTextAreaElement).value)"
+              />
+            </div>
           </div>
           <div class="w-40">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -245,6 +266,7 @@ const props = defineProps<{
   entry: PricingFormEntry
   platform?: string
   modelOptions?: string[]
+  showSummaryField?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -266,8 +288,14 @@ const billingModeLabel = computed(() => {
   return opt ? opt.label : props.entry.billing_mode
 })
 
+const trimmedSummary = computed(() => props.entry.summary.trim())
+
 function emitField(field: keyof PricingFormEntry, value: string) {
   emit('update', { ...props.entry, [field]: value === '' ? null : value })
+}
+
+function updateSummary(value: string) {
+  emit('update', { ...props.entry, summary: value })
 }
 
 function addInterval() {

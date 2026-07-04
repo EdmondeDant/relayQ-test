@@ -105,7 +105,7 @@
       <div v-else class="text-xs text-gray-400">-</div>
     </template>
 
-    <!-- OpenAI OAuth accounts: single source from /usage API -->
+    <!-- OpenAI OAuth accounts: official 5h / 7d upstream windows -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
       <div v-if="hasOpenAIUsageFallback" class="space-y-1">
         <UsageProgressBar
@@ -164,6 +164,28 @@
         </div>
       </div>
       <div v-else class="text-xs text-gray-400">-</div>
+    </template>
+
+    <!-- Grok / xAI OAuth accounts: show the same 4 stats spans as API key accounts -->
+    <template v-else-if="account.platform === 'xai' && account.type === 'oauth'">
+      <div class="space-y-1">
+        <div class="mb-0.5 flex items-center">
+          <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+              {{ formatXAIRequests }} req
+            </span>
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+              {{ formatXAITokens }}
+            </span>
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.accountBilled')">
+              A ${{ formatXAICost }}
+            </span>
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.userBilled')">
+              U ${{ formatXAIUserCost }}
+            </span>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- Antigravity OAuth accounts: fetch usage from API -->
@@ -588,6 +610,29 @@ const hasOpenAIUsageFallback = computed(() => {
 })
 
 const openAIUsageRefreshKey = computed(() => buildOpenAIUsageRefreshKey(props.account))
+
+const xaiStats = computed<WindowStats>(() => {
+  if (props.account.platform !== 'xai') {
+    return { requests: 0, tokens: 0, cost: 0, standard_cost: 0, user_cost: 0 }
+  }
+  return props.todayStats ?? { requests: 0, tokens: 0, cost: 0, standard_cost: 0, user_cost: 0 }
+})
+
+const formatXAIRequests = computed(() => {
+  return formatCompactNumber(xaiStats.value.requests, { allowBillions: false })
+})
+
+const formatXAITokens = computed(() => {
+  return formatCompactNumber(xaiStats.value.tokens)
+})
+
+const formatXAICost = computed(() => {
+  return xaiStats.value.cost.toFixed(2)
+})
+
+const formatXAIUserCost = computed(() => {
+  return (xaiStats.value.user_cost ?? 0).toFixed(2)
+})
 
 const shouldAutoLoadUsageOnMount = computed(() => {
   return shouldFetchUsage.value

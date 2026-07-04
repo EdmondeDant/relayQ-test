@@ -377,6 +377,7 @@ export default {
     expand: 'Expand',
     logout: 'Logout',
     github: 'GitHub',
+    apiDocs: 'API Docs',
     newUserMustInstall: 'Starter Install',
     contactUs: 'Contact Us',
     mySubscriptions: 'My Subscriptions',
@@ -1040,7 +1041,8 @@ export default {
       description: 'Description',
       platform: 'Platform',
       groups: 'Your Accessible Groups',
-      supportedModels: 'Supported Models'
+      supportedModels: 'Supported Models',
+      modelSummary: 'Model Summary'
     },
     pricing: {
       billingMode: 'Billing Mode',
@@ -1056,6 +1058,19 @@ export default {
       intervals: 'Tiered Pricing',
       unitPerMillion: '/ 1M tokens',
       unitPerRequest: '/ request'
+    },
+    summary: {
+      textModel: 'Text Model',
+      imageModel: 'Image Model',
+      pricingPending: 'Pricing Pending',
+      groupCount: '{count} groups',
+      hasExclusiveGroups: 'Includes exclusive groups',
+      subscriptionGroups: 'Subscription groups',
+      publicGroups: 'Public groups',
+      tieredPricing: 'Tiered pricing',
+      multiResolutionPricing: 'Multi-resolution pricing',
+      cachePricing: 'Cache pricing',
+      standardPricing: 'Standard pricing'
     }
   },
 
@@ -2422,6 +2437,8 @@ export default {
         models: 'Models',
         modelsPlaceholder: 'Type full model name and press Enter',
         modelInputHint: 'Press Enter to add, supports paste for batch import.',
+        modelSummary: 'Model Summary',
+        modelSummaryPlaceholder: 'Short customer-facing note, for example: Primary chat model for code and long-form text.',
         billingMode: 'Billing Mode',
         defaultPrices: 'Default prices (fallback when no interval matches)',
         inputPrice: 'Input',
@@ -3160,7 +3177,7 @@ export default {
         expiresAt: 'Expires At',
         actions: 'Actions'
       },
-      usageWindowsHint: '"5h / 7d" are the upstream account\'s official rolling usage windows (e.g. OpenAI ChatGPT, Claude). They are imposed by the upstream provider on the account itself — not configured by sub2api, and unrelated to the models you map. Usage resets automatically once each window rolls over, and the limit cannot be lifted from within sub2api.',
+      usageWindowsHint: '"5h / 7d" usually means the upstream provider\'s official rolling windows for accounts like OpenAI ChatGPT or Claude. Grok / xAI OAuth accounts are shown differently here: we display xAI/X public plan-based quota guidance, and xAI/X does not publish a fixed official 5h / 7d number.',
       allPrivacyModes: 'All Privacy States',
       privacyUnset: 'Unset',
       privacyTrainingOff: 'Training data sharing disabled',
@@ -4120,7 +4137,18 @@ export default {
         gemini3Image: 'G31FI',
         claude: 'Claude',
         passiveSampled: 'Passive',
-        activeQuery: 'Query'
+        activeQuery: 'Query',
+        xaiOfficialQuotaBadge: 'xAI Public Quota',
+        xaiPlanLabel: 'Plan',
+        xaiRawPlanLabel: 'Raw plan',
+        xaiPlanPremium: 'Premium',
+        xaiPlanPremiumPlus: 'Premium+',
+        xaiPlanSuperGrok: 'SuperGrok',
+        xaiPlanUnknown: 'Unknown',
+        xaiOfficialQuotaPremium: 'Official public guidance: Premium offers increased Grok usage limits, but xAI/X does not publish a fixed 5h / 7d number.',
+        xaiOfficialQuotaPremiumPlus: 'Official public guidance: Premium+ offers higher Grok usage limits, but xAI/X does not publish a fixed 5h / 7d number.',
+        xaiOfficialQuotaSuperGrok: 'Official public guidance: SuperGrok offers higher-tier Grok access and usage limits, but xAI/X does not publish a fixed 5h / 7d number.',
+        xaiOfficialQuotaUnknown: 'Official public guidance: xAI/X does not publish a fixed 5h / 7d number. The effective limit depends on the current subscription plan and official product pages.'
       },
       tier: {
         free: 'Free',

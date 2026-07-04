@@ -23,6 +23,17 @@
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex items-center gap-3">
+        <!-- API Docs -->
+        <router-link
+          v-if="user"
+          to="/interface-docs"
+          :title="t('nav.apiDocs')"
+          class="group header-pill-link header-pill-link-secondary"
+        >
+          <Icon name="book" size="sm" />
+          <span>{{ t('nav.apiDocs') }}</span>
+        </router-link>
+
         <!-- Starter Install -->
         <router-link
           v-if="user"

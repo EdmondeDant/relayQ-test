@@ -1,0 +1,2 @@
+ALTER TABLE channel_model_pricing
+  ADD COLUMN IF NOT EXISTS summary TEXT NOT NULL DEFAULT '';

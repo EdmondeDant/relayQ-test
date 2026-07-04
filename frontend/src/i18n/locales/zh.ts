@@ -377,6 +377,7 @@ export default {
     expand: '展开',
     logout: '退出登录',
     github: 'GitHub',
+    apiDocs: '接口文档',
     newUserMustInstall: '新人必装程序',
     contactUs: '联系我们',
     mySubscriptions: '我的订阅',
@@ -1044,7 +1045,8 @@ export default {
       description: '描述',
       platform: '平台',
       groups: '我可访问的分组',
-      supportedModels: '支持模型'
+      supportedModels: '支持模型',
+      modelSummary: '模型说明'
     },
     pricing: {
       billingMode: '计费模式',
@@ -1060,6 +1062,19 @@ export default {
       intervals: '阶梯定价',
       unitPerMillion: '/ 1M token',
       unitPerRequest: '/ 次'
+    },
+    summary: {
+      textModel: '文本模型',
+      imageModel: '图像模型',
+      pricingPending: '定价待配置',
+      groupCount: '{count} 个分组',
+      hasExclusiveGroups: '含专属组',
+      subscriptionGroups: '订阅分组',
+      publicGroups: '公开分组',
+      tieredPricing: '含阶梯价',
+      multiResolutionPricing: '多档分辨率',
+      cachePricing: '含缓存价',
+      standardPricing: '标准定价'
     }
   },
 
@@ -2499,6 +2514,8 @@ export default {
         models: '模型列表',
         modelsPlaceholder: '输入完整模型名后按回车添加',
         modelInputHint: '按回车添加，支持粘贴批量导入',
+        modelSummary: '模型说明',
+        modelSummaryPlaceholder: '给客户看的简短说明，例如：主力对话模型，适合代码与长文本。',
         billingMode: '计费模式',
         defaultPrices: '默认价格（未命中区间时使用）',
         inputPrice: '输入',
@@ -3198,7 +3215,7 @@ export default {
         expiresAt: '过期时间',
         actions: '操作'
       },
-      usageWindowsHint: '“5h / 7d”是上游账号（如 OpenAI ChatGPT、Claude）官方的滚动用量窗口限制，由上游对账号设定，并非 sub2api 配置，也与你映射的模型无关。窗口滚动到期后用量会自动重置，无法在 sub2api 端解除该限制。',
+      usageWindowsHint: '“5h / 7d”对 OpenAI ChatGPT、Claude 等账号通常表示上游官方的滚动用量窗口。Grok / xAI OAuth 账号这里改为展示 xAI/X 官方公开口径：按订阅计划区分使用等级，但官方未公开固定的 5h / 7d 数值。',
       allPrivacyModes: '全部Privacy状态',
       privacyUnset: '未设置',
       privacyTrainingOff: '已关闭训练数据共享',
@@ -3381,7 +3398,18 @@ export default {
         gemini3Image: 'G31FI',
         claude: 'Claude',
         passiveSampled: '被动采样',
-        activeQuery: '查询'
+        activeQuery: '查询',
+        xaiOfficialQuotaBadge: 'xAI 官方公开配额',
+        xaiPlanLabel: '订阅计划',
+        xaiRawPlanLabel: '原始计划',
+        xaiPlanPremium: 'Premium',
+        xaiPlanPremiumPlus: 'Premium+',
+        xaiPlanSuperGrok: 'SuperGrok',
+        xaiPlanUnknown: '未知',
+        xaiOfficialQuotaPremium: '官方公开：Premium 提供更高的 Grok 使用限额，但未公开固定 5h / 7d 数值。',
+        xaiOfficialQuotaPremiumPlus: '官方公开：Premium+ 提供更高的 Grok 使用限额，但未公开固定 5h / 7d 数值。',
+        xaiOfficialQuotaSuperGrok: '官方公开：SuperGrok 提供更高等级的 Grok 访问与使用限额，但未公开固定 5h / 7d 数值。',
+        xaiOfficialQuotaUnknown: '官方公开：xAI/X 未公布固定的 5h / 7d 数值，具体以账号当前订阅计划和官方页面为准。'
       },
       tier: {
         free: 'Free',

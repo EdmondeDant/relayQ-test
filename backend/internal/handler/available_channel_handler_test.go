@@ -47,13 +47,14 @@ func TestFilterUserVisibleGroups_IntersectionOnly(t *testing.T) {
 func TestToUserSupportedModels_FiltersByAllowedPlatforms(t *testing.T) {
 	// 用户可访问分组只覆盖 anthropic；anthropic 平台的模型保留，openai 模型被剔除。
 	src := []service.SupportedModel{
-		{Name: "claude-sonnet-4-6", Platform: "anthropic", Pricing: nil},
+		{Name: "claude-sonnet-4-6", Platform: "anthropic", Summary: "  主力对话模型  ", Pricing: nil},
 		{Name: "gpt-4o", Platform: "openai", Pricing: nil},
 	}
 	allowed := map[string]struct{}{"anthropic": {}}
 	out := toUserSupportedModels(src, allowed, nil)
 	require.Len(t, out, 1)
 	require.Equal(t, "claude-sonnet-4-6", out[0].Name)
+	require.Equal(t, "主力对话模型", out[0].Summary)
 }
 
 func TestToUserSupportedModels_NilAllowedPlatformsKeepsAll(t *testing.T) {
@@ -159,7 +160,7 @@ func TestBuildPlatformSections_GroupsByPlatform(t *testing.T) {
 	ch := service.AvailableChannel{
 		Name: "ch",
 		SupportedModels: []service.SupportedModel{
-			{Name: "claude-sonnet-4-6", Platform: "anthropic"},
+			{Name: "claude-sonnet-4-6", Platform: "anthropic", Summary: "主力模型"},
 			{Name: "gpt-4o", Platform: "openai"},
 		},
 	}
@@ -176,4 +177,5 @@ func TestBuildPlatformSections_GroupsByPlatform(t *testing.T) {
 	require.Equal(t, int64(2), sections[0].Groups[0].ID)
 	require.Len(t, sections[0].SupportedModels, 1)
 	require.Equal(t, "claude-sonnet-4-6", sections[0].SupportedModels[0].Name)
+	require.Equal(t, "主力模型", sections[0].SupportedModels[0].Summary)
 }

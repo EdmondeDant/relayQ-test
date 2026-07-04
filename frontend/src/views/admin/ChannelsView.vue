@@ -448,6 +448,7 @@
                   :entry="entry"
                   :platform="section.platform"
                   :model-options="getModelOptionsForGroupIds(section.group_ids)"
+                  :show-summary-field="true"
                   @update="updatePricingEntry(sIdx, idx, $event)"
                   @remove="removePricingEntry(sIdx, idx)"
                 />
@@ -910,6 +911,7 @@ function toggleGroupInSection(sectionIdx: number, groupId: number) {
 function addPricingEntry(sectionIdx: number) {
   form.platforms[sectionIdx].model_pricing.push({
     models: [],
+    summary: '',
     billing_mode: 'token',
     input_price: null,
     output_price: null,
@@ -942,6 +944,7 @@ async function syncLatestModels(sectionIdx: number) {
     // Add new models as a single new pricing entry (user fills in prices)
     form.platforms[sectionIdx].model_pricing.push({
       models: newModels,
+      summary: '',
       billing_mode: 'token',
       input_price: null,
       output_price: null,
@@ -1006,6 +1009,7 @@ function addAccountStatsRule(sectionIdx: number) {
 function addRulePricingEntry(sectionIdx: number, ruleIndex: number) {
   form.platforms[sectionIdx].account_stats_pricing_rules[ruleIndex].pricing.push({
     models: [],
+    summary: '',
     billing_mode: 'token',
     input_price: null,
     output_price: null,
@@ -1121,6 +1125,7 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
           .map(p => ({
             platform: section.platform,
             models: p.models,
+            summary: p.summary.trim(),
             billing_mode: p.billing_mode,
             input_price: mTokToPerToken(p.input_price),
             output_price: mTokToPerToken(p.output_price),
@@ -1161,6 +1166,7 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
       model_pricing.push({
         platform: section.platform,
         models: entry.models,
+        summary: entry.summary.trim(),
         billing_mode: entry.billing_mode,
         input_price: mTokToPerToken(entry.input_price),
         output_price: mTokToPerToken(entry.output_price),
@@ -1249,6 +1255,7 @@ function apiToForm(channel: Channel): PlatformSection[] {
       .filter(p => (p.platform || 'anthropic') === platform)
       .map(p => ({
         models: p.models || [],
+        summary: p.summary || '',
         billing_mode: p.billing_mode,
         input_price: perTokenToMTok(p.input_price),
         output_price: perTokenToMTok(p.output_price),
@@ -1439,6 +1446,7 @@ function distributeRulesToPlatforms(apiRules: AccountStatsPricingRule[]) {
       account_ids: [...(apiRule.account_ids || [])],
       pricing: (apiRule.pricing || []).map(p => ({
         models: [...(p.models || [])],
+        summary: p.summary || '',
         billing_mode: p.billing_mode,
         input_price: perTokenToMTok(p.input_price),
         output_price: perTokenToMTok(p.output_price),

@@ -13,6 +13,15 @@ type accountUsageCodexProbeRepo struct {
 	rateLimitCh   chan time.Time
 }
 
+type accountUsageGetUsageRepo struct {
+	stubOpenAIAccountRepo
+	account *Account
+}
+
+func (r *accountUsageGetUsageRepo) GetByID(_ context.Context, _ int64) (*Account, error) {
+	return r.account, nil
+}
+
 func (r *accountUsageCodexProbeRepo) UpdateExtra(_ context.Context, _ int64, updates map[string]any) error {
 	if r.updateExtraCh != nil {
 		copied := make(map[string]any, len(updates))
@@ -181,6 +190,39 @@ func TestAccountUsageService_GetOpenAIUsage_DoesNotPromoteCodexExtraToRateLimit(
 	case got := <-repo.rateLimitCh:
 		t.Fatalf("不应将已耗尽的 codex extra 持久化为运行时限流状态: %v", got)
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestAccountUsageService_GetUsage_XAIOAuthReturnsCodexWindows(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	account := &Account{
+		ID:       9527,
+		Platform: PlatformXAI,
+		Type:     AccountTypeOAuth,
+		Extra: map[string]any{
+			"codex_5h_used_percent": 27.0,
+			"codex_5h_reset_at":     now.Add(2 * time.Hour).Format(time.RFC3339),
+			"codex_7d_used_percent": 61.0,
+			"codex_7d_reset_at":     now.Add(6 * 24 * time.Hour).Format(time.RFC3339),
+		},
+	}
+	repo := &accountUsageGetUsageRepo{account: account}
+	svc := &AccountUsageService{accountRepo: repo}
+
+	usage, err := svc.GetUsage(context.Background(), account.ID)
+	if err != nil {
+		t.Fatalf("GetUsage() error = %v", err)
+	}
+	if usage == nil {
+		t.Fatal("expected non-nil usage")
+	}
+	if usage.FiveHour == nil || usage.FiveHour.Utilization != 27.0 {
+		t.Fatalf("expected xAI 5h usage from codex snapshot, got %#v", usage.FiveHour)
+	}
+	if usage.SevenDay == nil || usage.SevenDay.Utilization != 61.0 {
+		t.Fatalf("expected xAI 7d usage from codex snapshot, got %#v", usage.SevenDay)
 	}
 }
 
