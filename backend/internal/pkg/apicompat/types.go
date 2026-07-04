@@ -464,15 +464,137 @@ type ChatMessage struct {
 
 // ChatContentPart is a typed content part in a multi-modal message.
 type ChatContentPart struct {
-	Type     string        `json:"type"` // "text" | "image_url"
-	Text     string        `json:"text,omitempty"`
-	ImageURL *ChatImageURL `json:"image_url,omitempty"`
+	Type       string          `json:"type"` // "text" | "image_url" | "video_url" | "audio_url" | "input_audio"
+	Text       string          `json:"text,omitempty"`
+	ImageURL   *ChatImageURL   `json:"image_url,omitempty"`
+	VideoURL   *ChatMediaURL   `json:"video_url,omitempty"`
+	AudioURL   *ChatMediaURL   `json:"audio_url,omitempty"`
+	InputAudio *ChatInputAudio `json:"input_audio,omitempty"`
+}
+
+// UnmarshalJSON accepts the strict OpenAI Chat Completions image part shape
+// (`{"type":"image_url","image_url":{"url":"..."}}`) plus the common
+// OpenAI-compatible variants seen in the wild:
+//   - `image_url` as a plain string
+//   - Responses-style `input_image` parts inside a chat-completions message
+//   - Responses-style `input_text` parts inside a chat-completions message
+//
+// Without this tolerant parser, clients that send string media URLs or
+// Responses-style parts to `/v1/chat/completions` fail to parse as typed
+// content, which makes the modality disappear (or turns the whole request
+// into a parsing error) before the upstream multimodal model ever sees it.
+func (p *ChatContentPart) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	var typ string
+	if rawType, ok := raw["type"]; ok {
+		_ = json.Unmarshal(rawType, &typ)
+	}
+	var text string
+	if rawText, ok := raw["text"]; ok {
+		_ = json.Unmarshal(rawText, &text)
+	}
+
+	switch typ {
+	case "input_text":
+		typ = "text"
+	case "input_image":
+		typ = "image_url"
+	}
+
+	*p = ChatContentPart{Type: typ, Text: text}
+
+	if rawImageURL, ok := raw["image_url"]; ok {
+		image, err := unmarshalChatImageURL(rawImageURL)
+		if err != nil {
+			return err
+		}
+		p.ImageURL = image
+	}
+	if rawVideoURL, ok := raw["video_url"]; ok {
+		video, err := unmarshalChatMediaURL(rawVideoURL)
+		if err != nil {
+			return err
+		}
+		p.VideoURL = video
+	}
+	if rawAudioURL, ok := raw["audio_url"]; ok {
+		audio, err := unmarshalChatMediaURL(rawAudioURL)
+		if err != nil {
+			return err
+		}
+		p.AudioURL = audio
+	}
+	if rawInputAudio, ok := raw["input_audio"]; ok {
+		var inputAudio ChatInputAudio
+		if err := json.Unmarshal(rawInputAudio, &inputAudio); err != nil {
+			return err
+		}
+		if inputAudio.Data != "" || inputAudio.Format != "" {
+			p.InputAudio = &inputAudio
+		}
+	}
+
+	return nil
+}
+
+func unmarshalChatImageURL(raw json.RawMessage) (*ChatImageURL, error) {
+	var imageURL string
+	if err := json.Unmarshal(raw, &imageURL); err == nil {
+		if imageURL == "" {
+			return nil, nil
+		}
+		return &ChatImageURL{URL: imageURL}, nil
+	}
+
+	var image ChatImageURL
+	if err := json.Unmarshal(raw, &image); err != nil {
+		return nil, err
+	}
+	if image.URL == "" && image.Detail == "" {
+		return nil, nil
+	}
+	return &image, nil
+}
+
+func unmarshalChatMediaURL(raw json.RawMessage) (*ChatMediaURL, error) {
+	var mediaURL string
+	if err := json.Unmarshal(raw, &mediaURL); err == nil {
+		if mediaURL == "" {
+			return nil, nil
+		}
+		return &ChatMediaURL{URL: mediaURL}, nil
+	}
+
+	var media ChatMediaURL
+	if err := json.Unmarshal(raw, &media); err != nil {
+		return nil, err
+	}
+	if media.URL == "" {
+		return nil, nil
+	}
+	return &media, nil
 }
 
 // ChatImageURL contains the URL for an image content part.
 type ChatImageURL struct {
 	URL    string `json:"url"`
 	Detail string `json:"detail,omitempty"` // "auto" | "low" | "high"
+}
+
+// ChatMediaURL contains a URL for non-image media parts such as video_url or
+// audio_url.
+type ChatMediaURL struct {
+	URL string `json:"url"`
+}
+
+// ChatInputAudio contains inline audio bytes in OpenAI-compatible chat format.
+type ChatInputAudio struct {
+	Data   string `json:"data,omitempty"`
+	Format string `json:"format,omitempty"`
 }
 
 // ChatTool describes a tool available to the model.

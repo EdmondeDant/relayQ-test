@@ -94,6 +94,11 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	} else if changed {
 		upstreamBody = normalizedBody
 	}
+	if normalizedBody, changed, err := normalizeRawChatCompletionsMultimodalContent(upstreamBody); err != nil {
+		return nil, fmt.Errorf("normalize raw chat completions multimodal content: %w", err)
+	} else if changed {
+		upstreamBody = normalizedBody
+	}
 
 	// 4. Apply OpenAI fast policy on the CC body
 	updatedBody, policyErr := s.applyOpenAIFastPolicyToBody(ctx, account, upstreamModel, upstreamBody)
@@ -270,6 +275,72 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		return s.streamRawChatCompletions(c, resp, account, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, len(body))
 	}
 	return s.bufferRawChatCompletions(c, resp, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+}
+
+func normalizeRawChatCompletionsMultimodalContent(body []byte) ([]byte, bool, error) {
+	if len(body) == 0 || !bytes.Contains(body, []byte("messages")) {
+		return body, false, nil
+	}
+
+	var reqBody map[string]any
+	if err := json.Unmarshal(body, &reqBody); err != nil {
+		return body, false, err
+	}
+	messages, ok := reqBody["messages"].([]any)
+	if !ok {
+		return body, false, nil
+	}
+
+	changed := false
+	for _, rawMessage := range messages {
+		msg, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, ok := msg["content"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawPart := range parts {
+			part, ok := rawPart.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			switch strings.TrimSpace(firstNonEmptyString(part["type"])) {
+			case "input_text":
+				part["type"] = "text"
+				changed = true
+			case "input_image":
+				part["type"] = "image_url"
+				changed = true
+			case "input_video":
+				part["type"] = "video_url"
+				changed = true
+			}
+
+			changed = normalizeRawChatCompletionsMediaURLPart(part, "image_url") || changed
+			changed = normalizeRawChatCompletionsMediaURLPart(part, "video_url") || changed
+			changed = normalizeRawChatCompletionsMediaURLPart(part, "audio_url") || changed
+		}
+	}
+	if !changed {
+		return body, false, nil
+	}
+	normalized, err := marshalOpenAIUpstreamJSON(reqBody)
+	if err != nil {
+		return body, false, err
+	}
+	return normalized, true, nil
+}
+
+func normalizeRawChatCompletionsMediaURLPart(part map[string]any, field string) bool {
+	mediaURL, ok := part[field].(string)
+	if !ok || strings.TrimSpace(mediaURL) == "" {
+		return false
+	}
+	part[field] = map[string]any{"url": mediaURL}
+	return true
 }
 
 // streamRawChatCompletions 透传上游 CC SSE 流到客户端，并提取 usage（包括

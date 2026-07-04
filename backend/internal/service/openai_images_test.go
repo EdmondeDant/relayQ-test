@@ -497,6 +497,9 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatImageInput))
+		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatVideoInput))
+		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatAudioInput))
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	})
 
@@ -533,7 +536,25 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatImageInput))
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
+	})
+
+	t.Run("显式列表可单独声明多模态 chat 能力", func(t *testing.T) {
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Credentials: map[string]any{
+				"openai_capabilities": []any{"chat_completions", "chat_image_input", "chat_audio_input"},
+			},
+		}
+
+		require.True(t, account.SupportsOpenAIEndpointCapabilities(
+			OpenAIEndpointCapabilityChatCompletions,
+			OpenAIEndpointCapabilityChatImageInput,
+			OpenAIEndpointCapabilityChatAudioInput,
+		))
+		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatVideoInput))
 	})
 
 	t.Run("显式 map 支持单独关闭 chat 并开启 embeddings", func(t *testing.T) {

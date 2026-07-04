@@ -80,6 +80,66 @@ func TestBuildOpenAIResponsesURL_ProbeURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeRawChatCompletionsMultimodalContent_ImageURLString(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":"data:image/png;base64,abc123"}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "image_url", gjson.GetBytes(got, "messages.0.content.1.type").String())
+	require.Equal(t, "data:image/png;base64,abc123", gjson.GetBytes(got, "messages.0.content.1.image_url.url").String())
+}
+
+func TestNormalizeRawChatCompletionsMultimodalContent_InputImageVariant(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"input_text","text":"describe"},{"type":"input_image","image_url":"data:image/png;base64,abc123"}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "text", gjson.GetBytes(got, "messages.0.content.0.type").String())
+	require.Equal(t, "image_url", gjson.GetBytes(got, "messages.0.content.1.type").String())
+	require.Equal(t, "data:image/png;base64,abc123", gjson.GetBytes(got, "messages.0.content.1.image_url.url").String())
+}
+
+func TestNormalizeRawChatCompletionsMultimodalContent_VideoURLString(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"video_url","video_url":"https://example.com/video.mp4"}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "video_url", gjson.GetBytes(got, "messages.0.content.1.type").String())
+	require.Equal(t, "https://example.com/video.mp4", gjson.GetBytes(got, "messages.0.content.1.video_url.url").String())
+}
+
+func TestNormalizeRawChatCompletionsMultimodalContent_InputVideoVariant(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"input_video","video_url":"https://example.com/video.mp4"}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "video_url", gjson.GetBytes(got, "messages.0.content.0.type").String())
+	require.Equal(t, "https://example.com/video.mp4", gjson.GetBytes(got, "messages.0.content.0.video_url.url").String())
+}
+
+func TestNormalizeRawChatCompletionsMultimodalContent_AudioURLString(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"audio_url","audio_url":"https://example.com/audio.wav"}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "audio_url", gjson.GetBytes(got, "messages.0.content.1.type").String())
+	require.Equal(t, "https://example.com/audio.wav", gjson.GetBytes(got, "messages.0.content.1.audio_url.url").String())
+}
+
+func TestNormalizeRawChatCompletionsMultimodalContent_StrictShapeUnchanged(t *testing.T) {
+	body := []byte(`{"model":"grok-4.3","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,abc123"}}]}]}`)
+
+	got, changed, err := normalizeRawChatCompletionsMultimodalContent(body)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.JSONEq(t, string(body), string(got))
+}
+
 func TestForwardAsRawChatCompletions_ForcesStreamUsageUpstreamAndPassesUsageDownstream(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -342,7 +342,10 @@ func marshalChatInputContent(content chatMessageContent) (json.RawMessage, error
 	if content.Text != nil {
 		return json.Marshal(*content.Text)
 	}
-	parts := convertChatContentPartsToResponses(content.Parts)
+	parts, err := convertChatContentPartsToResponses(content.Parts)
+	if err != nil {
+		return nil, err
+	}
 	if len(parts) == 0 {
 		// A nil slice marshals to JSON null, which the upstream Responses API
 		// rejects ("expected an array of objects or string, but got null").
@@ -352,27 +355,30 @@ func marshalChatInputContent(content chatMessageContent) (json.RawMessage, error
 	return json.Marshal(parts)
 }
 
-func convertChatContentPartsToResponses(parts []ChatContentPart) []ResponsesContentPart {
+func convertChatContentPartsToResponses(parts []ChatContentPart) ([]ResponsesContentPart, error) {
+	canonicalParts := CanonicalContentPartsFromChat(parts)
 	var responseParts []ResponsesContentPart
-	for _, p := range parts {
-		switch p.Type {
-		case "text":
+	for _, p := range canonicalParts {
+		switch p.Kind {
+		case CanonicalContentText:
 			if p.Text != "" {
 				responseParts = append(responseParts, ResponsesContentPart{
 					Type: "input_text",
 					Text: p.Text,
 				})
 			}
-		case "image_url":
-			if p.ImageURL != nil && p.ImageURL.URL != "" && !isEmptyBase64DataURI(p.ImageURL.URL) {
+		case CanonicalContentImage:
+			if p.URL != "" && !isEmptyBase64DataURI(p.URL) {
 				responseParts = append(responseParts, ResponsesContentPart{
 					Type:     "input_image",
-					ImageURL: p.ImageURL.URL,
+					ImageURL: p.URL,
 				})
 			}
+		case CanonicalContentVideo, CanonicalContentAudio:
+			return nil, fmt.Errorf("%s content is not supported by the chat-completions to responses bridge", p.Kind)
 		}
 	}
-	return responseParts
+	return responseParts, nil
 }
 
 func isEmptyBase64DataURI(raw string) bool {

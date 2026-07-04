@@ -177,3 +177,22 @@ func TestExtractContentModerationInput_ResponsesLastIsAssistantSkipped(t *testin
 	require.Empty(t, input.Text)
 	require.Empty(t, input.Images)
 }
+
+func TestExtractContentModerationInput_GeminiFileDataOnlyImages(t *testing.T) {
+	body := []byte(`{
+		"contents":[{"role":"user","parts":[
+			{"text":"summarize media"},
+			{"fileData":{"fileUri":"https://example.com/image.png","mimeType":"image/png"}},
+			{"fileData":{"fileUri":"https://example.com/video.mp4","mimeType":"video/mp4"}},
+			{"inlineData":{"mimeType":"audio/wav","data":"QUJD"}},
+			{"inlineData":{"mimeType":"image/jpeg","data":"REVGRw=="}}
+		]}]
+	}`)
+
+	input := ExtractContentModerationInput(ContentModerationProtocolGemini, body)
+	require.Equal(t, "summarize media", input.Text)
+	require.Equal(t, []string{
+		"https://example.com/image.png",
+		"data:image/jpeg;base64,REVGRw==",
+	}, input.Images)
+}

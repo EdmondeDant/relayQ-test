@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/tidwall/gjson"
 )
 
@@ -241,19 +242,30 @@ func addGeminiModerationImage(images *[]string, part gjson.Result) {
 	if inlineData := part.Get("inline_data"); inlineData.IsObject() {
 		mimeType := strings.TrimSpace(inlineData.Get("mime_type").String())
 		data := strings.TrimSpace(inlineData.Get("data").String())
-		if mimeType != "" && data != "" {
+		if apicompat.CanonicalKindFromMIMEType(mimeType) == apicompat.CanonicalContentImage && data != "" {
 			addModerationImage(images, fmt.Sprintf("data:%s;base64,%s", mimeType, data))
 		}
 	}
 	if inlineData := part.Get("inlineData"); inlineData.IsObject() {
 		mimeType := strings.TrimSpace(inlineData.Get("mimeType").String())
 		data := strings.TrimSpace(inlineData.Get("data").String())
-		if mimeType != "" && data != "" {
+		if apicompat.CanonicalKindFromMIMEType(mimeType) == apicompat.CanonicalContentImage && data != "" {
 			addModerationImage(images, fmt.Sprintf("data:%s;base64,%s", mimeType, data))
 		}
 	}
-	addModerationImage(images, part.Get("file_data.file_uri").String())
-	addModerationImage(images, part.Get("fileData.fileUri").String())
+	addGeminiModerationImageFileURI(images, part.Get("file_data"))
+	addGeminiModerationImageFileURI(images, part.Get("fileData"))
+}
+
+func addGeminiModerationImageFileURI(images *[]string, fileData gjson.Result) {
+	if !fileData.IsObject() {
+		return
+	}
+	mimeType := strings.TrimSpace(firstNonEmptyString(fileData.Get("mime_type").String(), fileData.Get("mimeType").String()))
+	if apicompat.CanonicalKindFromMIMEType(mimeType) != apicompat.CanonicalContentImage {
+		return
+	}
+	addModerationImage(images, firstNonEmptyString(fileData.Get("file_uri").String(), fileData.Get("fileUri").String()))
 }
 
 func addModerationImageData(images *[]string, mimeType string, data string) {

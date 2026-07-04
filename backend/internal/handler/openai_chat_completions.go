@@ -75,8 +75,17 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 	reqModel := modelResult.String()
 	reqStream := gjson.GetBytes(body, "stream").Bool()
+	requiredMediaCapabilities := service.RequiredChatMediaCapabilitiesFromBody(body)
+	requiredMediaCapabilityNames := make([]string, 0, len(requiredMediaCapabilities))
+	for _, capability := range requiredMediaCapabilities {
+		requiredMediaCapabilityNames = append(requiredMediaCapabilityNames, string(capability))
+	}
 
-	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
+	reqLog = reqLog.With(
+		zap.String("model", reqModel),
+		zap.Bool("stream", reqStream),
+		zap.Strings("required_media_capabilities", requiredMediaCapabilityNames),
+	)
 
 	setOpsRequestContext(c, reqModel, reqStream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
@@ -127,7 +136,9 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai_chat_completions.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		requiredEndpointCapabilities := []service.OpenAIEndpointCapability{service.OpenAIEndpointCapabilityChatCompletions}
+		requiredEndpointCapabilities = append(requiredEndpointCapabilities, requiredMediaCapabilities...)
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapabilities(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
@@ -135,7 +146,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			reqModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportAny,
-			service.OpenAIEndpointCapabilityChatCompletions,
+			requiredEndpointCapabilities,
 			false,
 		)
 		if err != nil {

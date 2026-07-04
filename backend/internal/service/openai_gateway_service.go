@@ -2162,8 +2162,23 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 			if group, groupErr := s.schedulerSnapshot.GetGroupByID(ctx, *groupID); groupErr == nil && group != nil && group.Platform != "" {
 				accounts, _, err = s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, group.Platform, false)
 			}
+			if len(accounts) == 0 && err == nil && s.accountRepo == nil {
+				openaiAccounts, _, openaiErr := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, PlatformOpenAI, false)
+				if openaiErr != nil {
+					return nil, openaiErr
+				}
+				xaiAccounts, _, xaiErr := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, PlatformXAI, false)
+				if xaiErr != nil {
+					return nil, xaiErr
+				}
+				accounts = append(accounts, openaiAccounts...)
+				accounts = append(accounts, xaiAccounts...)
+			}
 		}
 		if len(accounts) == 0 && err == nil {
+			if s.accountRepo == nil {
+				return nil, ErrNoAvailableAccounts
+			}
 			accounts, err = s.accountRepo.ListSchedulableByGroupID(ctx, *groupID)
 		}
 	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {

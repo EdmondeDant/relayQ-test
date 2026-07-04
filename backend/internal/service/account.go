@@ -71,6 +71,9 @@ type OpenAIEndpointCapability string
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
+	OpenAIEndpointCapabilityChatImageInput  OpenAIEndpointCapability = "chat_image_input"
+	OpenAIEndpointCapabilityChatVideoInput  OpenAIEndpointCapability = "chat_video_input"
+	OpenAIEndpointCapabilityChatAudioInput  OpenAIEndpointCapability = "chat_audio_input"
 )
 
 const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
@@ -1150,6 +1153,9 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	}
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
+	case OpenAIEndpointCapabilityChatImageInput:
+	case OpenAIEndpointCapabilityChatVideoInput:
+	case OpenAIEndpointCapabilityChatAudioInput:
 	case OpenAIEndpointCapabilityEmbeddings:
 		if a.Type != AccountTypeAPIKey || a.Platform == PlatformXAI {
 			return false
@@ -1163,6 +1169,15 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 		return true
 	}
 	return configured[string(capability)]
+}
+
+func (a *Account) SupportsOpenAIEndpointCapabilities(capabilities ...OpenAIEndpointCapability) bool {
+	for _, capability := range capabilities {
+		if !a.SupportsOpenAIEndpointCapability(capability) {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *Account) openAIEndpointCapabilitySet() (map[string]bool, bool) {
