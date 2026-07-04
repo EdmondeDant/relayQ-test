@@ -56,7 +56,7 @@ func TestOpenAIGatewayService_ToolCorrection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := service.correctToolCallsInResponseBody(tt.input)
+			result := service.correctToolCallsInResponseBody(nil, tt.input)
 			resultStr := string(result)
 
 			// 检查是否包含期望的工具名称
