@@ -125,6 +125,10 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
+	if h.maybeHandleChatCompletionsImageBridge(c, apiKey, subscription, reqLog, body, reqModel, reqStream, channelMapping, &streamStarted) {
+		return
+	}
+
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	promptCacheKey := h.gatewayService.ExtractSessionID(c, body)
 

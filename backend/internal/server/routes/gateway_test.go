@@ -144,9 +144,11 @@ func TestGatewayRoutesXAIVideosPathsAreRegistered(t *testing.T) {
 	)
 
 	postCases := map[string]string{
+		"/v1/videos":             `{"model":"sora-2","prompt":"a cinematic city at dusk","seconds":8}`,
 		"/v1/videos/generations": `{"model":"grok-imagine-video","prompt":"a cinematic city at dusk"}`,
 		"/v1/videos/edits":       `{"model":"grok-imagine-video","prompt":"make it rainy","video":{"url":"https://example.com/input.mp4"}}`,
 		"/v1/videos/extensions":  `{"model":"grok-imagine-video","prompt":"continue the motion","video":{"url":"https://example.com/input.mp4"},"duration":5}`,
+		"/videos":                `{"model":"sora-2","prompt":"a cinematic city at dusk","seconds":8}`,
 		"/videos/generations":    `{"model":"grok-imagine-video","prompt":"a cinematic city at dusk"}`,
 		"/videos/edits":          `{"model":"grok-imagine-video","prompt":"make it rainy","video":{"url":"https://example.com/input.mp4"}}`,
 		"/videos/extensions":     `{"model":"grok-imagine-video","prompt":"continue the motion","video":{"url":"https://example.com/input.mp4"},"duration":5}`,
@@ -161,7 +163,9 @@ func TestGatewayRoutesXAIVideosPathsAreRegistered(t *testing.T) {
 	}
 
 	for _, path := range []string{
+		"/v1/videos/req_123/content",
 		"/v1/videos/req_123",
+		"/videos/req_123/content",
 		"/videos/req_123",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
