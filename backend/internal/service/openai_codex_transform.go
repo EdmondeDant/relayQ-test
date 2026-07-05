@@ -835,10 +835,25 @@ func normalizeOpenAIResponsesImageOnlyModel(reqBody map[string]any) bool {
 }
 
 func normalizeOpenAIModelForUpstream(account *Account, model string) string {
+	if account != nil && account.Platform == PlatformXAI {
+		return normalizeXAIModelForUpstream(model)
+	}
 	if account == nil || account.Type == AccountTypeOAuth {
 		return normalizeCodexModel(model)
 	}
 	return strings.TrimSpace(model)
+}
+
+func normalizeXAIModelForUpstream(model string) string {
+	trimmed := strings.TrimSpace(model)
+	if trimmed == "" {
+		return "grok-4.3"
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "grok-") || strings.HasPrefix(lower, "grok_") || strings.HasPrefix(lower, "xai-") {
+		return trimmed
+	}
+	return "grok-4.3"
 }
 
 func SupportsVerbosity(model string) bool {

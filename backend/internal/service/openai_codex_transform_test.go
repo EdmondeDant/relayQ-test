@@ -8,6 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNormalizeOpenAIModelForUpstream_XAIFallsBackToGrok(t *testing.T) {
+	account := &Account{Platform: PlatformXAI, Type: AccountTypeOAuth}
+	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "gpt-5.4-mini"))
+	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "gpt5.4-mini"))
+	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, ""))
+	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "grok-4.3"))
+}
+
 func TestApplyCodexOAuthTransform_ToolContinuationPreservesInput(t *testing.T) {
 	// 续链场景：保留 item_reference 与 id，但不再强制 store=true。
 
