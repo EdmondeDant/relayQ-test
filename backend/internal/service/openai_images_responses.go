@@ -342,6 +342,8 @@ func buildOpenAIImagesResponsesRequest(parsed *OpenAIImagesRequest, toolModel st
 		value string
 	}{
 		{path: "size", value: parsed.Size},
+		{path: "aspect_ratio", value: parsed.AspectRatio},
+		{path: "resolution", value: parsed.Resolution},
 		{path: "quality", value: parsed.Quality},
 		{path: "background", value: parsed.Background},
 		{path: "output_format", value: parsed.OutputFormat},

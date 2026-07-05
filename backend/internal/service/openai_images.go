@@ -74,6 +74,8 @@ type OpenAIImagesRequest struct {
 	Size               string
 	ExplicitSize       bool
 	SizeTier           string
+	AspectRatio        string
+	Resolution         string
 	ResponseFormat     string
 	Quality            string
 	Background         string
@@ -256,6 +258,20 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.ExplicitSize = req.Size != ""
 	}
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
+	req.AspectRatio = strings.TrimSpace(firstNonEmptyString(
+		gjson.GetBytes(body, "aspect_ratio").String(),
+		gjson.GetBytes(body, "aspectRatio").String(),
+		gjson.GetBytes(body, "image_options.aspect_ratio").String(),
+		gjson.GetBytes(body, "image_options.aspectRatio").String(),
+		gjson.GetBytes(body, "providerOptions.xai.aspectRatio").String(),
+		gjson.GetBytes(body, "provider_options.xai.aspectRatio").String(),
+	))
+	req.Resolution = normalizeXAIImageResolution(firstNonEmptyString(
+		gjson.GetBytes(body, "resolution").String(),
+		gjson.GetBytes(body, "image_options.resolution").String(),
+		gjson.GetBytes(body, "providerOptions.xai.resolution").String(),
+		gjson.GetBytes(body, "provider_options.xai.resolution").String(),
+	))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
 	req.OutputFormat = strings.TrimSpace(gjson.GetBytes(body, "output_format").String())
@@ -383,6 +399,12 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			req.ExplicitSize = value != ""
 		case "response_format":
 			req.ResponseFormat = strings.ToLower(value)
+		case "aspect_ratio":
+			req.AspectRatio = value
+			req.HasNativeOptions = true
+		case "resolution":
+			req.Resolution = normalizeXAIImageResolution(value)
+			req.HasNativeOptions = true
 		case "stream":
 			parsed, err := strconv.ParseBool(value)
 			if err != nil {
@@ -539,6 +561,9 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 		"moderation",
 		"input_fidelity",
 		"partial_images",
+		"aspect_ratio",
+		"aspectRatio",
+		"resolution",
 	} {
 		if exists(path) {
 			return true
@@ -549,10 +574,22 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 
 func isOpenAINativeImageOption(name string) bool {
 	switch strings.TrimSpace(strings.ToLower(name)) {
-	case "background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images":
+	case "background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images", "aspect_ratio", "aspectratio", "resolution":
 		return true
 	default:
 		return false
+	}
+}
+
+func normalizeXAIImageResolution(value string) string {
+	v := strings.ToLower(strings.TrimSpace(value))
+	switch v {
+	case "1k", "1K":
+		return "1k"
+	case "2k", "2K":
+		return "2k"
+	default:
+		return strings.TrimSpace(value)
 	}
 }
 
@@ -772,6 +809,16 @@ func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upst
 	}
 	if parsed.N > 0 {
 		payload["n"] = parsed.N
+	}
+	if aspectRatio := strings.TrimSpace(parsed.AspectRatio); aspectRatio != "" {
+		payload["aspect_ratio"] = aspectRatio
+		delete(payload, "aspectRatio")
+	}
+	if resolution := strings.TrimSpace(parsed.Resolution); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	if quality := strings.TrimSpace(parsed.Quality); quality != "" {
+		payload["quality"] = quality
 	}
 	if desired := strings.TrimSpace(parsed.ResponseFormat); desired == "" || strings.EqualFold(desired, "url") {
 		payload["response_format"] = "b64_json"

@@ -25,6 +25,7 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 	prompt string,
 	model string,
 	stream bool,
+	options map[string]any,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	prompt = strings.TrimSpace(prompt)
@@ -35,14 +36,27 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 	if requestModel == "" {
 		requestModel = "grok-imagine-image-quality"
 	}
+	n := 1
+	if v, ok := options["n"].(int); ok && v > 0 {
+		n = v
+	}
 	parsed := &OpenAIImagesRequest{
 		Endpoint:           openAIImagesGenerationsEndpoint,
 		Model:              requestModel,
 		ExplicitModel:      true,
 		Prompt:             prompt,
-		N:                  1,
+		N:                  n,
 		ResponseFormat:     "url",
 		RequiredCapability: OpenAIImagesCapabilityNative,
+	}
+	if aspectRatio, ok := options["aspect_ratio"].(string); ok {
+		parsed.AspectRatio = aspectRatio
+	}
+	if resolution, ok := options["resolution"].(string); ok {
+		parsed.Resolution = resolution
+	}
+	if quality, ok := options["quality"].(string); ok {
+		parsed.Quality = quality
 	}
 	applyOpenAIImagesDefaults(parsed)
 	parsed.SizeTier = normalizeOpenAIImageSizeTier(parsed.Size)
@@ -51,12 +65,18 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 	if err := validateOpenAIImagesModel(upstreamModel); err != nil {
 		return nil, err
 	}
-	imagesBody, err := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"model":           upstreamModel,
 		"prompt":          prompt,
-		"n":               1,
+		"n":               n,
 		"response_format": "b64_json",
-	})
+	}
+	for _, key := range []string{"aspect_ratio", "resolution", "quality", "user"} {
+		if value, ok := options[key]; ok && value != nil {
+			payload[key] = value
+		}
+	}
+	imagesBody, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -91,16 +111,30 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 		return s.handleErrorResponse(upstreamCtx, resp, c, account, imagesBody)
 	}
 	body = convertOpenAIImagesB64JSONToDataURL(body)
-	imageURL := strings.TrimSpace(gjson.GetBytes(body, "data.0.url").String())
-	if imageURL == "" {
-		if b64 := cleanOpenAIImageBase64ForDataURL(gjson.GetBytes(body, "data.0.b64_json").String()); b64 != "" {
-			imageURL = fmt.Sprintf("data:%s;base64,%s", detectOpenAIImageBase64MimeType(b64), b64)
+	var imageURLs []string
+	for _, item := range gjson.GetBytes(body, "data").Array() {
+		imageURL := strings.TrimSpace(item.Get("url").String())
+		if imageURL == "" {
+			if b64 := cleanOpenAIImageBase64ForDataURL(item.Get("b64_json").String()); b64 != "" {
+				mimeType := strings.TrimSpace(item.Get("mime_type").String())
+				if mimeType == "" {
+					mimeType = detectOpenAIImageBase64MimeType(b64)
+				}
+				imageURL = fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
+			}
+		}
+		if imageURL != "" {
+			imageURLs = append(imageURLs, imageURL)
 		}
 	}
-	if imageURL == "" {
+	if len(imageURLs) == 0 {
 		return nil, fmt.Errorf("No images returned from upstream")
 	}
-	content := fmt.Sprintf("![generated image](%s)", imageURL)
+	var contentParts []string
+	for _, imageURL := range imageURLs {
+		contentParts = append(contentParts, fmt.Sprintf("![generated image](%s)", imageURL))
+	}
+	content := strings.Join(contentParts, "\n")
 	if stream {
 		writeChatCompletionsImageBridgeStream(c, requestModel, content)
 	} else {
@@ -113,7 +147,7 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 		Stream:          stream,
 		ResponseHeaders: resp.Header.Clone(),
 		Duration:        time.Since(startTime),
-		ImageCount:      1,
+		ImageCount:      len(imageURLs),
 		ImageSize:       parsed.SizeTier,
 		ImageInputSize:  parsed.Size,
 	}, nil

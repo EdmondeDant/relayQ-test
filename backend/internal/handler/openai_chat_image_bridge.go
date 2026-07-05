@@ -84,7 +84,8 @@ func (h *OpenAIGatewayHandler) maybeHandleChatCompletionsImageBridge(
 
 	service.SetOpsLatencyMs(c, service.OpsRoutingLatencyMsKey, 0)
 	forwardStart := time.Now()
-	result, err := h.gatewayService.ForwardChatCompletionsImageBridge(c.Request.Context(), c, account, prompt, selectModel, reqStream)
+	options := service.ExtractOpenAIChatImageOptions(body)
+	result, err := h.gatewayService.ForwardChatCompletionsImageBridge(c.Request.Context(), c, account, prompt, selectModel, reqStream, options)
 	service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, time.Since(forwardStart).Milliseconds())
 	if err != nil {
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)

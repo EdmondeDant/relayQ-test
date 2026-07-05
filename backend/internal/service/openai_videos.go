@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,31 +84,152 @@ func normalizeXAIVideoGenerationBody(body []byte) ([]byte, string, error) {
 			out = next
 		}
 	}
-	// Upstream deprecated images in favor of reference_images. Accept both at the RelayQ edge.
-	if images := gjson.GetBytes(out, "images"); images.Exists() {
-		if !gjson.GetBytes(out, "reference_images").Exists() {
-			if next, err := sjson.SetRawBytes(out, "reference_images", []byte(images.Raw)); err == nil {
-				out = next
+	if aspectRatio := firstNonEmptyString(
+		gjson.GetBytes(out, "aspect_ratio").String(),
+		gjson.GetBytes(out, "aspectRatio").String(),
+		gjson.GetBytes(out, "providerOptions.xai.aspectRatio").String(),
+		gjson.GetBytes(out, "provider_options.xai.aspectRatio").String(),
+	); strings.TrimSpace(aspectRatio) != "" {
+		out, _ = sjson.SetBytes(out, "aspect_ratio", strings.TrimSpace(aspectRatio))
+	}
+	if resolution := firstNonEmptyString(
+		gjson.GetBytes(out, "resolution").String(),
+		gjson.GetBytes(out, "providerOptions.xai.resolution").String(),
+		gjson.GetBytes(out, "provider_options.xai.resolution").String(),
+	); strings.TrimSpace(resolution) != "" {
+		out, _ = sjson.SetBytes(out, "resolution", normalizeXAIVideoResolution(resolution))
+	}
+	if size := strings.TrimSpace(gjson.GetBytes(out, "size").String()); size != "" {
+		if !gjson.GetBytes(out, "aspect_ratio").Exists() {
+			if ratio := inferAspectRatioFromSize(size); ratio != "" {
+				out, _ = sjson.SetBytes(out, "aspect_ratio", ratio)
 			}
 		}
-		if next, err := sjson.DeleteBytes(out, "images"); err == nil {
-			out = next
+		if !gjson.GetBytes(out, "resolution").Exists() {
+			if resolution := inferVideoResolutionFromSize(size); resolution != "" {
+				out, _ = sjson.SetBytes(out, "resolution", resolution)
+			}
 		}
+		out, _ = sjson.DeleteBytes(out, "size")
 	}
-	// OpenAI/Sora-compatible clients (for example OpenClaw's openai video provider)
-	// send image-to-video references as input_reference.image_url. xAI expects
-	// reference_images, so normalize at RelayQ's edge.
+
+	mode := strings.ToLower(strings.TrimSpace(firstNonEmptyString(
+		gjson.GetBytes(out, "mode").String(),
+		gjson.GetBytes(out, "providerOptions.xai.mode").String(),
+		gjson.GetBytes(out, "provider_options.xai.mode").String(),
+	)))
+
 	if ref := strings.TrimSpace(gjson.GetBytes(out, "input_reference.image_url").String()); ref != "" {
-		if !gjson.GetBytes(out, "reference_images").Exists() {
-			if next, err := sjson.SetBytes(out, "reference_images", []map[string]string{{"image_url": ref}}); err == nil {
-				out = next
-			}
+		if mode == "reference-to-video" {
+			out, _ = sjson.SetBytes(out, "reference_images", []map[string]string{{"url": ref}})
+		} else if !gjson.GetBytes(out, "image").Exists() && !gjson.GetBytes(out, "reference_images").Exists() {
+			out, _ = sjson.SetBytes(out, "image.url", ref)
 		}
-		if next, err := sjson.DeleteBytes(out, "input_reference"); err == nil {
-			out = next
+		out, _ = sjson.DeleteBytes(out, "input_reference")
+	}
+	if imageURL := strings.TrimSpace(gjson.GetBytes(out, "image_url").String()); imageURL != "" && !gjson.GetBytes(out, "image").Exists() {
+		out, _ = sjson.SetBytes(out, "image.url", imageURL)
+		out, _ = sjson.DeleteBytes(out, "image_url")
+	}
+
+	if images := gjson.GetBytes(out, "images"); images.Exists() && !gjson.GetBytes(out, "reference_images").Exists() {
+		out, _ = sjson.SetRawBytes(out, "reference_images", []byte(images.Raw))
+		out, _ = sjson.DeleteBytes(out, "images")
+	}
+	if refs := gjson.GetBytes(out, "providerOptions.xai.referenceImageUrls"); refs.IsArray() && !gjson.GetBytes(out, "reference_images").Exists() {
+		out, _ = sjson.SetRawBytes(out, "reference_images", []byte(refs.Raw))
+	}
+	if refs := gjson.GetBytes(out, "provider_options.xai.referenceImageUrls"); refs.IsArray() && !gjson.GetBytes(out, "reference_images").Exists() {
+		out, _ = sjson.SetRawBytes(out, "reference_images", []byte(refs.Raw))
+	}
+	out = normalizeXAIVideoReferenceImages(out)
+	out, _ = sjson.DeleteBytes(out, "aspectRatio")
+	out, _ = sjson.DeleteBytes(out, "providerOptions")
+	out, _ = sjson.DeleteBytes(out, "provider_options")
+	return out, requestModel, nil
+}
+
+func normalizeXAIVideoResolution(value string) string {
+	v := strings.ToLower(strings.TrimSpace(value))
+	switch v {
+	case "480", "480p", "sd":
+		return "480p"
+	case "720", "720p", "hd":
+		return "720p"
+	case "1080", "1080p", "fhd", "fullhd":
+		return "1080p"
+	default:
+		return strings.TrimSpace(value)
+	}
+}
+
+func inferVideoResolutionFromSize(size string) string {
+	width, height := parseDimensionPair(size)
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+	short := width
+	if height < short {
+		short = height
+	}
+	if short >= 1000 {
+		return "1080p"
+	}
+	if short >= 700 {
+		return "720p"
+	}
+	return "480p"
+}
+
+func inferAspectRatioFromSize(size string) string {
+	width, height := parseDimensionPair(size)
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+	g := gcdInt(width, height)
+	if g <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", width/g, height/g)
+}
+
+func parseDimensionPair(size string) (int, int) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 {
+		return 0, 0
+	}
+	w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
+	return w, h
+}
+
+func gcdInt(a, b int) int {
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+func normalizeXAIVideoReferenceImages(body []byte) []byte {
+	refs := gjson.GetBytes(body, "reference_images")
+	if !refs.IsArray() {
+		return body
+	}
+	normalized := make([]map[string]string, 0, len(refs.Array()))
+	for _, item := range refs.Array() {
+		url := strings.TrimSpace(firstNonEmptyString(item.Get("url").String(), item.Get("image_url").String(), item.String()))
+		if url != "" {
+			normalized = append(normalized, map[string]string{"url": url})
 		}
 	}
-	return out, requestModel, nil
+	body, _ = sjson.SetBytes(body, "reference_images", normalized)
+	return body
 }
 
 func (s *OpenAIGatewayService) buildXAIVideoURL(account *Account, suffix string) (string, error) {

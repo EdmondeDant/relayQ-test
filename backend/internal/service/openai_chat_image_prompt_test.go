@@ -23,3 +23,15 @@ func TestExtractOpenAIChatImagePromptUsesLastUserMessage(t *testing.T) {
 
 	require.Equal(t, "new", ExtractOpenAIChatImagePrompt(body))
 }
+
+func TestExtractOpenAIChatImageOptions(t *testing.T) {
+	body := []byte(`{"aspectRatio":"9:16","providerOptions":{"xai":{"resolution":"2K","quality":"high"}},"n":12,"user":"u1"}`)
+
+	options := ExtractOpenAIChatImageOptions(body)
+
+	require.Equal(t, "9:16", options["aspect_ratio"])
+	require.Equal(t, "2k", options["resolution"])
+	require.Equal(t, "high", options["quality"])
+	require.Equal(t, 10, options["n"])
+	require.Equal(t, "u1", options["user"])
+}
