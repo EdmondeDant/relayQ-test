@@ -734,6 +734,11 @@ func ChatCompletionsChunkToResponsesEvents(
 					copyCall.ID = generateItemID()
 				}
 				copyCall.Type = "function"
+				// The current chunk arguments are emitted below as a delta. Do not
+				// seed state with them here, or a first-frame full-arguments chunk
+				// becomes JSONJSON after the delta append and breaks xAI tool
+				// continuation validation.
+				copyCall.Function.Arguments = ""
 				state.ToolCalls[idx] = &copyCall
 				stored = &copyCall
 				itemID := generateItemID()
