@@ -53,6 +53,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	clientStream := responsesReq.Stream
 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, originalModel)
 	serviceTier := extractOpenAIServiceTierFromBody(body)
+	xaiToolSessionKey := s.xaiToolArgumentSessionKey(c, body)
 
 	chatReq, err := apicompat.ResponsesToChatCompletionsRequest(&responsesReq)
 	if err != nil {
@@ -75,6 +76,13 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	}
 	if clientStream {
 		chatReq.StreamOptions = &apicompat.ChatStreamOptions{IncludeUsage: true}
+	}
+	if isXAIOAuthAccount(account) {
+		chatReq.Messages, err = s.applyXAIToolArgumentInterceptor(ctx, account, xaiToolSessionKey, chatReq.Messages)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"type": "invalid_request_error", "message": err.Error()}})
+			return nil, err
+		}
 	}
 
 	chatBody, err := json.Marshal(chatReq)
@@ -258,14 +266,16 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	}
 
 	if clientStream {
-		return s.streamChatCompletionsAsResponses(c, resp, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+		return s.streamChatCompletionsAsResponses(c, resp, account, xaiToolSessionKey, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
 	}
-	return s.bufferChatCompletionsAsResponses(c, resp, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+	return s.bufferChatCompletionsAsResponses(c, resp, account, xaiToolSessionKey, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
 }
 
 func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	c *gin.Context,
 	resp *http.Response,
+	account *Account,
+	xaiToolSessionKey string,
 	originalModel string,
 	billingModel string,
 	upstreamModel string,
@@ -297,6 +307,7 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 		})
 		return nil, fmt.Errorf("parse chat completions response: %w", err)
 	}
+	s.recordXAIChatCompletionsResponseToolArguments(account, xaiToolSessionKey, &ccResp)
 	responsesResp := apicompat.ChatCompletionsResponseToResponses(&ccResp, originalModel)
 
 	usage := OpenAIUsage{}
@@ -325,6 +336,8 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	c *gin.Context,
 	resp *http.Response,
+	account *Account,
+	xaiToolSessionKey string,
 	originalModel string,
 	billingModel string,
 	upstreamModel string,
@@ -350,6 +363,7 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	}
 
 	state := apicompat.NewChatCompletionsToResponsesStreamState(originalModel)
+	xaiToolStreamCache := newXAIToolArgumentStreamCache()
 	var usage OpenAIUsage
 	var firstTokenMs *int
 	clientDisconnected := false
@@ -419,6 +433,7 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 			ms := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &ms
 		}
+		s.recordXAIChatCompletionsStreamToolArguments(account, xaiToolSessionKey, xaiToolStreamCache, &chunk)
 		writeEvents(apicompat.ChatCompletionsChunkToResponsesEvents(&chunk, state))
 	}
 
@@ -443,6 +458,7 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 		}, fmt.Errorf("stream usage incomplete: %w", err)
 	}
 
+	s.finalizeXAIChatCompletionsStreamToolArguments(account, xaiToolSessionKey, xaiToolStreamCache, state)
 	writeEvents(apicompat.FinalizeChatCompletionsResponsesStream(state))
 	if !clientDisconnected {
 		writeStreamHeaders()

@@ -381,6 +381,7 @@ type OpenAIGatewayService struct {
 	codexSnapshotThrottle               *accountWriteThrottle
 	openaiCompatSessionResponses        sync.Map
 	openaiCompatAnthropicDigestSessions sync.Map
+	xaiToolArguments                    sync.Map
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
