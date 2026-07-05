@@ -99,7 +99,7 @@ func normalizeXAIVideoGenerationBody(body []byte) ([]byte, string, error) {
 	// reference_images, so normalize at RelayQ's edge.
 	if ref := strings.TrimSpace(gjson.GetBytes(out, "input_reference.image_url").String()); ref != "" {
 		if !gjson.GetBytes(out, "reference_images").Exists() {
-			if next, err := sjson.SetBytes(out, "reference_images", []string{ref}); err == nil {
+			if next, err := sjson.SetBytes(out, "reference_images", []map[string]string{{"image_url": ref}}); err == nil {
 				out = next
 			}
 		}

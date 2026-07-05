@@ -35,7 +35,7 @@ func TestNormalizeXAIVideoGenerationBodyConvertsInputReference(t *testing.T) {
 	forwardBody, _, err := NormalizeXAIVideoGenerationBodyForHandler(body)
 
 	require.NoError(t, err)
-	require.Equal(t, "data:image/png;base64,abc", gjson.GetBytes(forwardBody, "reference_images.0").String())
+	require.Equal(t, "data:image/png;base64,abc", gjson.GetBytes(forwardBody, "reference_images.0.image_url").String())
 	require.False(t, gjson.GetBytes(forwardBody, "input_reference").Exists())
 }
 
