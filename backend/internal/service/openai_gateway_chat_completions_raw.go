@@ -132,7 +132,8 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if isXAIOAuthAccount(account) {
 		token, _, err := s.GetAccessToken(ctx, account)
 		if err != nil {
-			return nil, fmt.Errorf("get xai oauth access token: %w", err)
+			s.BlockAccountScheduling(account, time.Now().Add(30*time.Minute), "xai_oauth_token_refresh_failed")
+			return nil, &UpstreamFailoverError{StatusCode: http.StatusUnauthorized, ResponseBody: []byte(err.Error())}
 		}
 		resp, err = s.doXAIOAuthChatCompletionsRequest(ctx, c, account, upstreamBody, clientStream, token)
 		if err != nil {

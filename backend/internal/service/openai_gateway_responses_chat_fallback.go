@@ -68,6 +68,11 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	chatReq.Model = upstreamModel
+	if normalizedEffort := normalizeOpenAIReasoningEffort(chatReq.ReasoningEffort); normalizedEffort != "" {
+		chatReq.ReasoningEffort = normalizedEffort
+	} else {
+		chatReq.ReasoningEffort = ""
+	}
 	if clientStream {
 		chatReq.StreamOptions = &apicompat.ChatStreamOptions{IncludeUsage: true}
 	}
@@ -100,7 +105,8 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	if isXAIOAuthAccount(account) {
 		token, _, err := s.GetAccessToken(ctx, account)
 		if err != nil {
-			return nil, fmt.Errorf("get xai oauth access token: %w", err)
+			s.BlockAccountScheduling(account, time.Now().Add(30*time.Minute), "xai_oauth_token_refresh_failed")
+			return nil, &UpstreamFailoverError{StatusCode: http.StatusUnauthorized, ResponseBody: []byte(err.Error())}
 		}
 		resp, err = s.doXAIOAuthChatCompletionsRequest(ctx, c, account, chatBody, clientStream, token)
 		if err != nil {
