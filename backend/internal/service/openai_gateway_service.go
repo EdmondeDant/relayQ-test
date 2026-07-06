@@ -4836,13 +4836,11 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 			imageCounter.AddSSEData(dataBytes)
 
 			// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
-			if account.Platform != PlatformXAI {
-				if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
-					dataBytes = correctedData
-					data = string(correctedData)
-					line = "data: " + data
-					eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
-				}
+			if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
+				dataBytes = correctedData
+				data = string(correctedData)
+				line = "data: " + data
+				eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
 			}
 			startsClientOutput := forceFlushFailedEvent || openAIStreamDataStartsClientOutput(data, eventType)
 
@@ -5118,9 +5116,6 @@ func (s *OpenAIGatewayService) replaceModelInSSELine(line, fromModel, toModel st
 // correctToolCallsInResponseBody 修正响应体中的工具调用
 func (s *OpenAIGatewayService) correctToolCallsInResponseBody(account *Account, body []byte) []byte {
 	if len(body) == 0 {
-		return body
-	}
-	if account != nil && account.Platform == PlatformXAI {
 		return body
 	}
 

@@ -763,6 +763,12 @@ func ChatCompletionsChunkToResponsesEvents(
 				}
 			}
 			if toolCall.Function.Arguments != "" {
+				// Some upstreams resend the full arguments JSON more than once for the
+				// same tool call. Appending identical full payloads would corrupt the
+				// final arguments string into invalid trailing characters.
+				if stored.Function.Arguments == toolCall.Function.Arguments {
+					continue
+				}
 				stored.Function.Arguments += toolCall.Function.Arguments
 				events = append(events, chatToResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
 					OutputIndex: state.ToolOutputIndex[idx],

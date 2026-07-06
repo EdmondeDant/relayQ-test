@@ -514,6 +514,8 @@ var ProviderSet = wire.NewSet(
 	NewAnnouncementService,
 	NewIdeaMessageService,
 	NewAdminService,
+	NewRetailGrokService,
+	NewRetailGrokGatewayService,
 	NewGatewayService,
 	NewOpenAIGatewayService,
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),

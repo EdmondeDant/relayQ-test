@@ -166,6 +166,24 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/retail/grok/key-usage',
+    name: 'RetailGrokKeyUsage',
+    component: () => import('@/views/public/RetailGrokKeyUsageView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Retail Grok Key Usage',
+    }
+  },
+  {
+    path: '/retail/grok/docs',
+    name: 'RetailGrokDocs',
+    component: () => import('@/views/public/RetailGrokDocsView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Retail Grok Docs',
+    }
+  },
+  {
     path: '/legal/:documentId',
     name: 'LegalDocument',
     component: () => import('@/views/public/LegalDocumentView.vue'),
@@ -594,6 +612,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/retail-grok',
+    name: 'AdminRetailGrok',
+    component: () => import('@/views/admin/RetailGrokView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Retail Grok'
+    }
+  },
+  {
     path: '/admin/risk-control',
     name: 'AdminRiskControl',
     component: () => import('@/views/admin/RiskControlView.vue'),
@@ -753,7 +781,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/retail/grok/key-usage', '/retail/grok/docs', '/setup', '/payment/result', '/payment/airwallex', '/legal']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

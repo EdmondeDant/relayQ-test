@@ -2226,7 +2226,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			if needModelReplace && len(mappedModelBytes) > 0 && openAIWSEventMayContainModel(eventType) && bytes.Contains(message, mappedModelBytes) {
 				message = replaceOpenAIWSMessageModel(message, mappedModel, originalModel)
 			}
-			if openAIWSEventMayContainToolCalls(eventType) && openAIWSMessageLikelyContainsToolCalls(message) && account.Platform != PlatformXAI {
+			if openAIWSEventMayContainToolCalls(eventType) && openAIWSMessageLikelyContainsToolCalls(message) {
 				if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(message); changed {
 					message = corrected
 				}
@@ -3215,10 +3215,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					upstreamMessage = replaceOpenAIWSMessageModel(upstreamMessage, mappedModel, originalModel)
 				}
 				if openAIWSEventMayContainToolCalls(eventType) && openAIWSMessageLikelyContainsToolCalls(upstreamMessage) {
-					if account.Platform != PlatformXAI {
-						if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(upstreamMessage); changed {
-							upstreamMessage = corrected
-						}
+					if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(upstreamMessage); changed {
+						upstreamMessage = corrected
 					}
 				}
 				replayCollector.AddEvent(eventType, upstreamMessage)

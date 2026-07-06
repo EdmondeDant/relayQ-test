@@ -95,6 +95,9 @@ func RegisterAdminRoutes(
 		// API Key 管理
 		registerAdminAPIKeyRoutes(admin, h)
 
+		// Retail Grok isolated sales
+		registerRetailGrokRoutes(admin, h)
+
 		// 定时测试计划
 		registerScheduledTestRoutes(admin, h)
 
@@ -139,6 +142,15 @@ func registerAdminAPIKeyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	apiKeys := admin.Group("/api-keys")
 	{
 		apiKeys.PUT("/:id", h.Admin.APIKey.UpdateGroup)
+	}
+}
+
+func registerRetailGrokRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	retail := admin.Group("/retail-grok")
+	{
+		retail.POST("/batch-generate", h.Admin.RetailGrok.BatchGenerate)
+		retail.GET("/keys", h.Admin.RetailGrok.ListKeys)
+		retail.GET("/keys/:id/usage", h.Admin.RetailGrok.GetUsage)
 	}
 }
 

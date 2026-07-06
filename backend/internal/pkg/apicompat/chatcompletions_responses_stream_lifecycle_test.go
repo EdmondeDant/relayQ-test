@@ -103,6 +103,26 @@ func TestStream_ToolCallFirstFrameArgumentsNotDuplicated(t *testing.T) {
 	require.True(t, sawItemDone, "function_call output_item.done missing")
 }
 
+// TestStream_ToolCallLifecycleDedupesRepeatedFullArguments guards a provider
+// quirk where the same full arguments payload is delivered more than once as
+// function_call delta content. The bridge must not concatenate identical full
+// JSON payloads into invalid trailing characters.
+func TestStream_ToolCallLifecycleDedupesRepeatedFullArguments(t *testing.T) {
+	events := collectStreamEvents(t, []string{
+		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"exec","arguments":"{\"cmd\":\"ls\"}"}}]}}]}`,
+		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"cmd\":\"ls\"}"}}]}}]}`,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}`,
+	})
+
+	var got string
+	for _, e := range events {
+		if e.Type == "response.function_call_arguments.done" {
+			got = e.Arguments
+		}
+	}
+	require.Equal(t, `{"cmd":"ls"}`, got)
+}
+
 // TestStream_SSEWireComplete drives the full stream through SSE encoding and
 // asserts the function_call events carry complete fields on the wire.
 func TestStream_SSEWireComplete(t *testing.T) {
