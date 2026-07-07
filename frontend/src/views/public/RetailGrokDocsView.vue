@@ -16,10 +16,16 @@
       <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">公共约定</h2>
         <ul class="mt-3 space-y-2 text-sm text-gray-600 dark:text-dark-300">
-          <li>鉴权：<code>Authorization: Bearer YOUR_RETAIL_GROK_KEY</code></li>
-          <li>推理模型：<code>grok-4.3</code>，支持文本和图片理解。</li>
-          <li>图片模型：<code>grok-imagine-image</code>、<code>grok-imagine-image-quality</code>。</li>
-          <li>视频模型：<code>grok-imagine-video</code>。</li>
+          <li>接口协议：兼容 OpenAI API 调用格式，请把 OpenAI SDK 或客户端的 <code>base_url</code> 设置为 <code>https://www.reayq.top/retail/v1</code>。</li>
+          <li>鉴权方式：<code>Authorization: Bearer YOUR_RETAIL_GROK_KEY</code>。零售 Key 只能调用 <code>/retail/v1/*</code>，不能调用普通 <code>/v1/*</code>。</li>
+          <li>文本/多模态接口：<code>POST https://www.reayq.top/retail/v1/chat/completions</code></li>
+          <li>文生图接口：<code>POST https://www.reayq.top/retail/v1/images/generations</code></li>
+          <li>图生图/图片编辑接口：<code>POST https://www.reayq.top/retail/v1/images/edits</code></li>
+          <li>文生视频/图生视频接口：<code>POST https://www.reayq.top/retail/v1/videos/generations</code></li>
+          <li>视频结果查询接口：<code>GET https://www.reayq.top/retail/v1/videos/REQUEST_ID</code></li>
+          <li>支持的推理模型：<code>grok-4.3</code>，支持文本和图片理解。</li>
+          <li>支持的图片模型：<code>grok-imagine-image</code>、<code>grok-imagine-image-quality</code>。</li>
+          <li>支持的视频模型：<code>grok-imagine-video</code>。</li>
           <li>图片输入支持公网 URL 或 <code>data:image/jpeg;base64,...</code> / <code>data:image/png;base64,...</code>。</li>
         </ul>
       </section>

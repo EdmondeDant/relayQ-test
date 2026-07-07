@@ -49,12 +49,14 @@ export function resolveCcSwitchImportConfig(
   }
 }
 
+const CCSWITCH_PROVIDER_NAME = 'Relayq'
+
 export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput): string {
   const config = resolveCcSwitchImportConfig(input.platform, input.clientType, input.baseUrl)
   const entries: [string, string][] = [
     ['resource', 'provider'],
     ['app', config.app],
-    ['name', input.providerName],
+    ['name', CCSWITCH_PROVIDER_NAME],
     ['homepage', input.baseUrl],
     ['endpoint', config.endpoint],
     ['apiKey', input.apiKey],

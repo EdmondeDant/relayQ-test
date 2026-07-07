@@ -64,6 +64,12 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			return
 		}
 
+		// 零售 Grok Key 只能走 /retail/v1/* 专用路由，禁止误入普通生产 /v1 链路。
+		if strings.HasPrefix(strings.ToLower(apiKeyString), "rgk-") {
+			AbortWithError(c, 401, "INVALID_API_KEY", "Retail Grok API key must use /retail/v1 endpoints")
+			return
+		}
+
 		// ── 2. 验证 Key 存在 ─────────────────────────────────────────
 
 		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)

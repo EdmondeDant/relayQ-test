@@ -53,6 +53,9 @@ func (s *RetailGrokGatewayService) BuildUsageLogFromForwardResult(keyID int64, e
 		Model:           strings.TrimSpace(model),
 		Status:          "success",
 	}
+	if isRetailGrokVideoEndpoint(endpoint) {
+		log.VideoCount = 1
+	}
 	if result == nil {
 		return log
 	}
@@ -63,11 +66,12 @@ func (s *RetailGrokGatewayService) BuildUsageLogFromForwardResult(keyID int64, e
 	log.OutputTokens = int64(result.Usage.OutputTokens)
 	log.TotalTokens = log.InputTokens + log.OutputTokens
 	log.ImageCount = int64(result.ImageCount)
-	if endpoint == "/retail/v1/videos/generations" || endpoint == "/retail/v1/videos/edits" || endpoint == "/retail/v1/videos/extensions" {
-		log.VideoCount = 1
-	}
 	if log.RequestID == "" {
 		log.RequestID = strings.TrimSpace(result.ResponseID)
 	}
 	return log
+}
+
+func isRetailGrokVideoEndpoint(endpoint string) bool {
+	return endpoint == "/retail/v1/videos/generations" || endpoint == "/retail/v1/videos/edits" || endpoint == "/retail/v1/videos/extensions"
 }

@@ -55,7 +55,7 @@ SELECT id, key, name, status, group_id, expires_at,
        video_limit_total, video_used_total,
        created_by_admin_id, created_at, updated_at
 FROM retail_grok_keys
-WHERE id = $1`
+WHERE id = $1 AND status <> 'deleted'`
 	return r.getOne(ctx, query, id)
 }
 
@@ -67,7 +67,7 @@ SELECT id, key, name, status, group_id, expires_at,
        video_limit_total, video_used_total,
        created_by_admin_id, created_at, updated_at
 FROM retail_grok_keys
-WHERE key = $1`
+WHERE key = $1 AND status <> 'deleted'`
 	return r.getOne(ctx, query, key)
 }
 
@@ -104,7 +104,7 @@ func (r *retailGrokKeyRepository) getOne(ctx context.Context, query string, arg 
 }
 
 func (r *retailGrokKeyRepository) List(ctx context.Context, limit int) ([]service.RetailGrokKey, error) {
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 || limit > 10000 {
 		limit = 100
 	}
 	const query = `
@@ -114,6 +114,7 @@ SELECT id, key, name, status, group_id, expires_at,
        video_limit_total, video_used_total,
        created_by_admin_id, created_at, updated_at
 FROM retail_grok_keys
+WHERE status <> 'deleted'
 ORDER BY id DESC
 LIMIT $1`
 	rows, err := r.db.QueryContext(ctx, query, limit)
@@ -151,6 +152,25 @@ LIMIT $1`
 		keys = append(keys, key)
 	}
 	return keys, rows.Err()
+}
+
+func (r *retailGrokKeyRepository) Delete(ctx context.Context, id int64) error {
+	const query = `
+UPDATE retail_grok_keys
+SET status = 'deleted', updated_at = $2
+WHERE id = $1 AND status <> 'deleted'`
+	result, err := r.db.ExecContext(ctx, query, id, time.Now())
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrRetailGrokKeyNotFound
+	}
+	return nil
 }
 
 func (r *retailGrokKeyRepository) IncrementUsage(ctx context.Context, id int64, tokens, images, videos int64) error {

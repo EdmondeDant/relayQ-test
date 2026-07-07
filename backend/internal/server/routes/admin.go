@@ -151,6 +151,7 @@ func registerRetailGrokRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		retail.POST("/batch-generate", h.Admin.RetailGrok.BatchGenerate)
 		retail.GET("/keys", h.Admin.RetailGrok.ListKeys)
 		retail.GET("/keys/:id/usage", h.Admin.RetailGrok.GetUsage)
+		retail.DELETE("/keys/:id", h.Admin.RetailGrok.DeleteKey)
 	}
 }
 

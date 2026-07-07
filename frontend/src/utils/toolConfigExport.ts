@@ -185,18 +185,21 @@ function resolveCcSwitchEndpoint(appId: CcSwitchImportAppId, routeBaseUrl: strin
   }
 }
 
+const CCSWITCH_PROVIDER_NAME = 'Relayq'
+
 export function buildCcSwitchImportLink(appId: CcSwitchImportAppId, context: ToolConfigContext): string {
   const endpoint = resolveCcSwitchEndpoint(appId, context.routeBaseUrl)
+  const ccswitchProviderName = CCSWITCH_PROVIDER_NAME
   const params = new URLSearchParams({
     resource: 'provider',
     app: appId,
-    name: context.providerName,
+    name: ccswitchProviderName,
     homepage: context.homepage,
     endpoint,
     apiKey: context.apiKey,
     model: context.modelName,
     enabled: 'true',
-    notes: `${context.providerName} - ${context.modelName}`,
+    notes: `${ccswitchProviderName} - ${context.modelName}`,
   })
 
   const providerConfig = buildCcSwitchProviderConfig(appId, context)

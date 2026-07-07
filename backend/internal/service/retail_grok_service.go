@@ -119,6 +119,10 @@ func (s *RetailGrokService) ListKeys(ctx context.Context, limit int) ([]RetailGr
 	return s.keyRepo.List(ctx, limit)
 }
 
+func (s *RetailGrokService) DeleteKey(ctx context.Context, id int64) error {
+	return s.keyRepo.Delete(ctx, id)
+}
+
 func (s *RetailGrokService) RecordUsage(ctx context.Context, key *RetailGrokKey, log *RetailGrokUsageLog) error {
 	if key == nil || log == nil {
 		return nil

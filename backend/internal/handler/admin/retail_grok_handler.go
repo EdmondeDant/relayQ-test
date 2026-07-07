@@ -64,3 +64,16 @@ func (h *RetailGrokHandler) GetUsage(c *gin.Context) {
 	}
 	response.Success(c, summary)
 }
+
+func (h *RetailGrokHandler) DeleteKey(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid retail grok key id")
+		return
+	}
+	if err := h.retailService.DeleteKey(c.Request.Context(), id); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"deleted": true})
+}

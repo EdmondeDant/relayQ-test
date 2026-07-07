@@ -70,8 +70,10 @@
             <div class="mb-4 flex items-center justify-between">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">最近生成的 Key</h2>
               <div class="flex gap-2">
-                <button class="btn btn-secondary" @click="loadKeys">刷新</button>
-                <button class="btn btn-secondary" :disabled="generatedKeys.length === 0" @click="downloadCsv">导出 CSV</button>
+                <button class="btn btn-secondary" @click="loadKeys()">刷新</button>
+                <button class="btn btn-secondary" :disabled="generatedKeys.length === 0 || exporting" @click="downloadCsv">
+                  {{ exporting ? '导出中...' : '导出全部 CSV' }}
+                </button>
               </div>
             </div>
 
@@ -101,7 +103,12 @@
                     </td>
                     <td class="py-3 pr-4 text-gray-600 dark:text-dark-300">{{ formatDate(item.expires_at) }}</td>
                     <td class="py-3 pr-4">
-                      <button class="btn btn-secondary" @click="showUsage(item.id)">查看用量</button>
+                      <div class="flex gap-2">
+                        <button class="btn btn-secondary" @click="showUsage(item.id)">查看用量</button>
+                        <button class="btn btn-secondary" :disabled="deletingId === item.id" @click="handleDelete(item)">
+                          {{ deletingId === item.id ? '删除中...' : '删除' }}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -173,6 +180,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import { getAll as getAllGroups } from '@/api/admin/groups'
 import {
   batchGenerateRetailGrokKeys,
+  deleteRetailGrokKey,
   getRetailGrokKeyUsage,
   listRetailGrokKeys,
   type RetailGrokKey,
@@ -184,6 +192,8 @@ const groups = ref<AdminGroup[]>([])
 const generatedKeys = ref<RetailGrokKey[]>([])
 const usageSummary = ref<RetailGrokUsageSummary | null>(null)
 const submitting = ref(false)
+const exporting = ref(false)
+const deletingId = ref<number | null>(null)
 const message = ref('')
 const errorMessage = ref('')
 
@@ -216,8 +226,8 @@ async function loadGroups() {
   groups.value = await getAllGroups('xai')
 }
 
-async function loadKeys() {
-  generatedKeys.value = await listRetailGrokKeys(100)
+async function loadKeys(limit = 100) {
+  generatedKeys.value = await listRetailGrokKeys(limit)
 }
 
 async function handleGenerate() {
@@ -234,7 +244,7 @@ async function handleGenerate() {
       image_limit_total: form.image_limit_total,
       video_limit_total: form.video_limit_total
     })
-    generatedKeys.value = result.keys
+    await loadKeys()
     message.value = `已生成 ${result.keys.length} 个零售 Key`
     if (result.keys[0]) {
       await showUsage(result.keys[0].id)
@@ -250,29 +260,58 @@ async function showUsage(id: number) {
   usageSummary.value = await getRetailGrokKeyUsage(id)
 }
 
-function downloadCsv() {
-  const rows = [
-    ['id', 'name', 'key', 'status', 'group_id', 'expires_at', 'token_limit_total', 'image_limit_total', 'video_limit_total'],
-    ...generatedKeys.value.map((item) => [
-      item.id,
-      item.name,
-      item.key,
-      item.status,
-      item.group_id,
-      item.expires_at ?? '',
-      item.token_limit_total,
-      item.image_limit_total,
-      item.video_limit_total
-    ])
-  ]
-  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `retail-grok-keys-${Date.now()}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+async function handleDelete(item: RetailGrokKey) {
+  if (!window.confirm(`确认删除零售 Key：${item.name}？`)) return
+  errorMessage.value = ''
+  message.value = ''
+  deletingId.value = item.id
+  try {
+    await deleteRetailGrokKey(item.id)
+    if (usageSummary.value?.key.id === item.id) {
+      usageSummary.value = null
+    }
+    await loadKeys()
+    message.value = '已删除零售 Key'
+  } catch (error: any) {
+    errorMessage.value = error?.message || '删除失败'
+  } finally {
+    deletingId.value = null
+  }
+}
+
+async function downloadCsv() {
+  errorMessage.value = ''
+  exporting.value = true
+  try {
+    const allKeys = await listRetailGrokKeys(10000)
+    generatedKeys.value = allKeys
+    const rows = [
+      ['id', 'name', 'key', 'status', 'group_id', 'expires_at', 'token_limit_total', 'image_limit_total', 'video_limit_total'],
+      ...allKeys.map((item) => [
+        item.id,
+        item.name,
+        item.key,
+        item.status,
+        item.group_id,
+        item.expires_at ?? '',
+        item.token_limit_total,
+        item.image_limit_total,
+        item.video_limit_total
+      ])
+    ]
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `retail-grok-keys-${Date.now()}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error: any) {
+    errorMessage.value = error?.message || '导出失败'
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(async () => {

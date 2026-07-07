@@ -9,8 +9,7 @@
             </div>
             <h2 class="text-3xl font-black tracking-tight md:text-4xl">接口文档</h2>
             <p class="max-w-3xl text-sm leading-7 text-white/90 md:text-base">
-              这一页说明如何通过 RelayQ 调用图片、视频、音频与 Agent 常用接口。默认 Base URL 为 `https://www.relayq.top/v1`，
-              鉴权统一使用 API Key。媒体能力已兼容 Grok Imagine 官方 JSON 参数，模型名以后台分组白名单和账号实际开通情况为准。
+              本页面详细介绍各个模型的接口模式，如果人看不懂，请你让的agent看懂就行了。图片，音频，视频模型是子agents。不能当推理模型使用。
             </p>
             <div class="flex flex-wrap items-center gap-3">
               <a

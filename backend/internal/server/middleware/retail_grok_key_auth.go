@@ -20,6 +20,7 @@ func NewRetailGrokKeyAuthMiddleware(retailService *service.RetailGrokService) Re
 		}
 		keyValue := strings.TrimSpace(raw[len("Bearer "):])
 		allowUsage := c.Request.URL.Path == "/retail/v1/usage" ||
+			c.Request.URL.Path == "/retail/v1/models" ||
 			c.Request.URL.Path == "/api/v1/retail-grok/usage" ||
 			(c.Request.Method == "GET" && strings.HasPrefix(c.Request.URL.Path, "/retail/v1/videos/"))
 		retailKey, err := retailService.Authenticate(c.Request.Context(), keyValue, allowUsage)

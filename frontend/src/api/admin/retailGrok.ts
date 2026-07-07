@@ -64,3 +64,7 @@ export async function getRetailGrokKeyUsage(id: number): Promise<RetailGrokUsage
   const { data } = await apiClient.get<RetailGrokUsageSummary>(`/admin/retail-grok/keys/${id}/usage`)
   return data
 }
+
+export async function deleteRetailGrokKey(id: number): Promise<void> {
+  await apiClient.delete(`/admin/retail-grok/keys/${id}`)
+}

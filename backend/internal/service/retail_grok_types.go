@@ -154,6 +154,7 @@ type RetailGrokKeyRepository interface {
 	GetByID(ctx context.Context, id int64) (*RetailGrokKey, error)
 	GetByKey(ctx context.Context, key string) (*RetailGrokKey, error)
 	List(ctx context.Context, limit int) ([]RetailGrokKey, error)
+	Delete(ctx context.Context, id int64) error
 	IncrementUsage(ctx context.Context, id int64, tokens, images, videos int64) error
 }
 

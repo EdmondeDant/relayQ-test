@@ -852,8 +852,8 @@ const downloadTools: DownloadToolCard[] = [
       {
         title: 'Windows',
         links: [
-          createDownloadLink('Windows x64 Desktop EXE', 'codex-windows-x64-exe', 'x64', 'EXE', 245125936, true),
-          createDownloadLink('Windows ARM64 Desktop EXE', 'codex-windows-arm64-exe', 'ARM64', 'EXE', 207270704),
+          createExternalDownloadLink('Windows x64 Desktop EXE', 'https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi', 'x64', 'EXE', 245125936, true),
+          createExternalDownloadLink('Windows ARM64 Desktop EXE', 'https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi', 'ARM64', 'EXE', 207270704),
         ],
       },
       {
