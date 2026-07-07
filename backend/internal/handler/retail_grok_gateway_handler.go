@@ -1,16 +1,21 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 type RetailGrokGatewayHandler struct {
@@ -19,6 +24,42 @@ type RetailGrokGatewayHandler struct {
 
 func NewRetailGrokGatewayHandler(retailGateway *service.RetailGrokGatewayService) *RetailGrokGatewayHandler {
 	return &RetailGrokGatewayHandler{retailGateway: retailGateway}
+}
+
+func (h *RetailGrokGatewayHandler) Models(c *gin.Context) {
+	_, ok := servermiddleware.GetRetailGrokKeyFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "Invalid retail grok key")
+		return
+	}
+
+	now := time.Now()
+	data := make([]gin.H, len(defaultRetailGrokModels))
+	for i, m := range defaultRetailGrokModels {
+		data[i] = gin.H{
+			"id":       m,
+			"object":   "model",
+			"created":  now.Unix(),
+			"owned_by": "grok-retail",
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"object": "list",
+		"data":   data,
+	})
+}
+
+var defaultRetailGrokModels = []string{
+	"grok-4.3",
+	"grok-4.20-multi-agent-0309",
+	"grok-4.20-0309-reasoning",
+	"grok-4.20-0309-non-reasoning",
+	"grok-4-1-fast-reasoning",
+	"grok-4-1-fast-non-reasoning",
+	"grok-imagine-image-quality",
+	"grok-imagine-image",
+	"grok-imagine-video",
 }
 
 func (h *RetailGrokGatewayHandler) ChatCompletions(c *gin.Context) {
@@ -87,11 +128,7 @@ func (h *RetailGrokGatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 	h.retailGateway.OpenAI().ReportOpenAIAccountScheduleResult(selection.Account.ID, true, nil)
-	_ = h.retailGateway.Retail().RecordUsage(
-		c.Request.Context(),
-		retailKey,
-		h.retailGateway.BuildUsageLogFromForwardResult(retailKey.ID, c.Request.URL.Path, model, result),
-	)
+	h.recordRetailGrokUsage(c.Request.Context(), retailKey, c.Request.URL.Path, model, result)
 }
 
 func (h *RetailGrokGatewayHandler) Images(c *gin.Context) {
@@ -147,11 +184,7 @@ func (h *RetailGrokGatewayHandler) Images(c *gin.Context) {
 		return
 	}
 	h.retailGateway.OpenAI().ReportOpenAIAccountScheduleResult(selection.Account.ID, true, nil)
-	_ = h.retailGateway.Retail().RecordUsage(
-		c.Request.Context(),
-		retailKey,
-		h.retailGateway.BuildUsageLogFromForwardResult(retailKey.ID, c.Request.URL.Path, parsed.Model, result),
-	)
+	h.recordRetailGrokUsage(c.Request.Context(), retailKey, c.Request.URL.Path, parsed.Model, result)
 }
 
 func (h *RetailGrokGatewayHandler) Videos(c *gin.Context) {
@@ -223,11 +256,7 @@ func (h *RetailGrokGatewayHandler) Videos(c *gin.Context) {
 		return
 	}
 	h.retailGateway.OpenAI().ReportOpenAIAccountScheduleResult(selection.Account.ID, true, nil)
-	_ = h.retailGateway.Retail().RecordUsage(
-		c.Request.Context(),
-		retailKey,
-		h.retailGateway.BuildUsageLogFromForwardResult(retailKey.ID, c.Request.URL.Path, requestModel, nil),
-	)
+	h.recordRetailGrokUsage(c.Request.Context(), retailKey, c.Request.URL.Path, requestModel, nil)
 }
 
 func (h *RetailGrokGatewayHandler) Usage(c *gin.Context) {
@@ -242,6 +271,18 @@ func (h *RetailGrokGatewayHandler) Usage(c *gin.Context) {
 		return
 	}
 	response.Success(c, summary)
+}
+
+func (h *RetailGrokGatewayHandler) Models(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"object": "list",
+		"data": []gin.H{
+			{"id": "grok-4.3", "object": "model", "owned_by": "xai", "created": 0},
+			{"id": "grok-imagine-image", "object": "model", "owned_by": "xai", "created": 0},
+			{"id": "grok-imagine-image-quality", "object": "model", "owned_by": "xai", "created": 0},
+			{"id": "grok-imagine-video", "object": "model", "owned_by": "xai", "created": 0},
+		},
+	})
 }
 
 func (h *RetailGrokGatewayHandler) handleVideoPoll(c *gin.Context, retailKey *service.RetailGrokKey) {
@@ -295,6 +336,48 @@ func (h *RetailGrokGatewayHandler) writeOpenAIError(c *gin.Context, status int, 
 			"message": message,
 		},
 	})
+}
+
+func (h *RetailGrokGatewayHandler) recordRetailGrokUsage(parent context.Context, key *service.RetailGrokKey, endpoint, model string, result *service.OpenAIForwardResult) {
+	ctx, cancel := retailGrokUsageContext(parent)
+	defer cancel()
+	if err := h.retailGateway.Retail().RecordUsage(
+		ctx,
+		key,
+		h.retailGateway.BuildUsageLogFromForwardResult(key.ID, endpoint, model, result),
+	); err != nil {
+		logRetailGrokUsageError(key, endpoint, model, err)
+	}
+}
+
+func retailGrokUsageContext(parent context.Context) (context.Context, context.CancelFunc) {
+	base, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if parent == nil {
+		return base, cancel
+	}
+	if clientRequestID, _ := parent.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
+		base = context.WithValue(base, ctxkey.ClientRequestID, strings.TrimSpace(clientRequestID))
+	}
+	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
+		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
+	}
+	return base, cancel
+}
+
+func logRetailGrokUsageError(key *service.RetailGrokKey, endpoint, model string, err error) {
+	if err == nil {
+		return
+	}
+	var keyID int64
+	if key != nil {
+		keyID = key.ID
+	}
+	logger.L().With(
+		zap.String("component", "handler.retail_grok_gateway"),
+		zap.Int64("retail_grok_key_id", keyID),
+		zap.String("endpoint", endpoint),
+		zap.String("model", model),
+	).Error("retail_grok.record_usage_failed", zap.Error(err))
 }
 
 func isRetailUpstreamFailover(err error) bool {
