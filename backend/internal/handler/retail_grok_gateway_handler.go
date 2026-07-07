@@ -273,18 +273,6 @@ func (h *RetailGrokGatewayHandler) Usage(c *gin.Context) {
 	response.Success(c, summary)
 }
 
-func (h *RetailGrokGatewayHandler) Models(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"object": "list",
-		"data": []gin.H{
-			{"id": "grok-4.3", "object": "model", "owned_by": "xai", "created": 0},
-			{"id": "grok-imagine-image", "object": "model", "owned_by": "xai", "created": 0},
-			{"id": "grok-imagine-image-quality", "object": "model", "owned_by": "xai", "created": 0},
-			{"id": "grok-imagine-video", "object": "model", "owned_by": "xai", "created": 0},
-		},
-	})
-}
-
 func (h *RetailGrokGatewayHandler) handleVideoPoll(c *gin.Context, retailKey *service.RetailGrokKey) {
 	requestID := strings.TrimSpace(c.Param("request_id"))
 	if requestID == "" {
