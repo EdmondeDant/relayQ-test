@@ -17,6 +17,24 @@
                 class="input pl-10"
               />
             </div>
+
+            <div v-if="modelTotalPages > 1" class="flex flex-wrap items-center gap-2 rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-sm shadow-sm dark:border-primary-900/40 dark:bg-primary-950/30">
+              <span class="font-medium text-primary-700 dark:text-primary-300">
+                第 {{ currentModelPage }} / {{ modelTotalPages }} 页，共 {{ totalModelCount }} 个模型
+              </span>
+              <button
+                v-for="page in modelPageNumbers"
+                :key="`model-page-${page}`"
+                type="button"
+                class="min-w-9 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors"
+                :class="page === currentModelPage
+                  ? 'border-primary-600 bg-primary-600 text-white shadow'
+                  : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-dark-900 dark:text-primary-300 dark:hover:bg-primary-900/40'"
+                @click="goToModelPage(page)"
+              >
+                {{ page }}
+              </button>
+            </div>
           </div>
 
           <div class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto">
@@ -42,6 +60,8 @@
           :no-pricing-label="t('availableChannels.noPricing')"
           :no-models-label="t('availableChannels.noModels')"
           :empty-label="t('availableChannels.empty')"
+          :current-page="currentModelPage"
+          :models-per-page="modelsPerPage"
         />
       </template>
     </TablePageLayout>
@@ -49,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -67,6 +87,8 @@ const channels = ref<UserAvailableChannel[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 const loading = ref(false)
 const searchQuery = ref('')
+const currentModelPage = ref(1)
+const modelsPerPage = 5
 
 const columnLabels = computed(() => ({
   name: t('availableChannels.columns.name'),
@@ -98,6 +120,24 @@ const filteredChannels = computed(() => {
       return { ...ch, platforms: matchingSections }
     })
     .filter((ch): ch is UserAvailableChannel => ch !== null)
+})
+
+const totalModelCount = computed(() =>
+  filteredChannels.value.reduce(
+    (total, channel) => total + channel.platforms.reduce((sum, section) => sum + section.supported_models.length, 0),
+    0,
+  ),
+)
+
+const modelTotalPages = computed(() => Math.max(1, Math.ceil(totalModelCount.value / modelsPerPage)))
+const modelPageNumbers = computed(() => Array.from({ length: modelTotalPages.value }, (_, index) => index + 1))
+
+function goToModelPage(page: number) {
+  currentModelPage.value = Math.max(1, Math.min(page, modelTotalPages.value))
+}
+
+watch([searchQuery, totalModelCount], () => {
+  currentModelPage.value = 1
 })
 
 async function loadChannels() {

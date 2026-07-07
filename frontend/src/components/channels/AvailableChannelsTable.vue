@@ -1,5 +1,5 @@
 <template>
-  <table class="w-full table-fixed border-collapse text-sm">
+  <table class="available-channels-table w-full table-fixed border-collapse text-sm">
       <thead>
         <tr class="border-b border-gray-100 bg-gray-50/50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-dark-700 dark:bg-dark-800/50 dark:text-gray-400">
           <th class="px-4 py-3 text-left">
@@ -95,24 +95,6 @@
                     </div>
                   </div>
                 </div>
-
-                <div v-if="allModels.length > modelsPerPage" class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                  <span class="mr-2 text-gray-400">
-                    第 {{ currentPage }} / {{ getTotalPages(allModels.length) }} 页，共 {{ allModels.length }} 个模型
-                  </span>
-                  <button
-                    v-for="page in getPageNumbers(allModels.length)"
-                    :key="`page-${page}`"
-                    type="button"
-                    class="min-w-8 rounded border px-2 py-1 transition-colors"
-                    :class="page === currentPage
-                      ? 'border-primary-500 bg-primary-500 text-white'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-dark-700 dark:text-gray-300 dark:hover:bg-dark-700'"
-                    @click="goToPage(page)"
-                  >
-                    {{ page }}
-                  </button>
-                </div>
               </template>
               <span v-else class="text-xs text-gray-400">
                 {{ noModelsLabel }}
@@ -125,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserAvailableChannel, UserPricingInterval, UserSupportedModel } from '@/api/channels'
@@ -149,17 +131,18 @@ const props = defineProps<{
   noModelsLabel: string
   emptyLabel: string
   userGroupRates: Record<number, number>
+  currentPage: number
+  modelsPerPage?: number
 }>()
 
 const { t } = useI18n()
 
 void props.userGroupRates
 
-const modelsPerPage = 5
+const modelsPerPage = computed(() => props.modelsPerPage ?? 5)
 const perMillionScale = 1_000_000
 const unitPerMillion = ' / 1M token'
 const unitPerRequest = ' / 次'
-const currentPage = ref(1)
 
 type DisplayModel = UserSupportedModel & {
   channelName: string
@@ -183,21 +166,13 @@ const allModels = computed<DisplayModel[]>(() =>
 )
 
 const pagedModels = computed(() => {
-  const safePage = Math.min(currentPage.value, getTotalPages(allModels.value.length))
-  const start = (safePage - 1) * modelsPerPage
-  return allModels.value.slice(start, start + modelsPerPage)
+  const safePage = Math.min(props.currentPage, getTotalPages(allModels.value.length))
+  const start = (safePage - 1) * modelsPerPage.value
+  return allModels.value.slice(start, start + modelsPerPage.value)
 })
 
 function getTotalPages(total: number): number {
-  return Math.max(1, Math.ceil(total / modelsPerPage))
-}
-
-function goToPage(page: number) {
-  currentPage.value = Math.max(1, Math.min(page, getTotalPages(allModels.value.length)))
-}
-
-function getPageNumbers(total: number): number[] {
-  return Array.from({ length: getTotalPages(total) }, (_, index) => index + 1)
+  return Math.max(1, Math.ceil(total / modelsPerPage.value))
 }
 
 function getGroupImagePriceItems(model: UserSupportedModel) {
@@ -227,6 +202,10 @@ function formatIntervalRange(min: number, max: number | null) {
 </script>
 
 <style scoped>
+.available-channels-table {
+  min-height: calc(100vh - 18rem);
+}
+
 .model-price-list {
   @apply grid grid-cols-1 gap-1 sm:grid-cols-2;
 }
