@@ -16,13 +16,13 @@
       <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">公共约定</h2>
         <ul class="mt-3 space-y-2 text-sm text-gray-600 dark:text-dark-300">
-          <li>接口协议：兼容 OpenAI API 调用格式，请把 OpenAI SDK 或客户端的 <code>base_url</code> 设置为 <code>https://www.reayq.top/retail/v1</code>。</li>
+          <li>接口协议：兼容 OpenAI API 调用格式，请把 OpenAI SDK 或客户端的 <code>base_url</code> 设置为 <code>https://www.relayq.top/retail/v1</code>。</li>
           <li>鉴权方式：<code>Authorization: Bearer YOUR_RETAIL_GROK_KEY</code>。零售 Key 只能调用 <code>/retail/v1/*</code>，不能调用普通 <code>/v1/*</code>。</li>
-          <li>文本/多模态接口：<code>POST https://www.reayq.top/retail/v1/chat/completions</code></li>
-          <li>文生图接口：<code>POST https://www.reayq.top/retail/v1/images/generations</code></li>
-          <li>图生图/图片编辑接口：<code>POST https://www.reayq.top/retail/v1/images/edits</code></li>
-          <li>文生视频/图生视频接口：<code>POST https://www.reayq.top/retail/v1/videos/generations</code></li>
-          <li>视频结果查询接口：<code>GET https://www.reayq.top/retail/v1/videos/REQUEST_ID</code></li>
+          <li>文本/多模态接口：<code>POST https://www.relayq.top/retail/v1/chat/completions</code></li>
+          <li>文生图接口：<code>POST https://www.relayq.top/retail/v1/images/generations</code></li>
+          <li>图生图/图片编辑接口：<code>POST https://www.relayq.top/retail/v1/images/edits</code></li>
+          <li>文生视频/图生视频接口：<code>POST https://www.relayq.top/retail/v1/videos/generations</code></li>
+          <li>视频结果查询接口：<code>GET https://www.relayq.top/retail/v1/videos/REQUEST_ID</code></li>
           <li>支持的推理模型：<code>grok-4.3</code>，支持文本和图片理解。</li>
           <li>支持的图片模型：<code>grok-imagine-image</code>、<code>grok-imagine-image-quality</code>。</li>
           <li>支持的视频模型：<code>grok-imagine-video</code>。</li>
@@ -35,7 +35,7 @@
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
           用 <code>messages[].content</code> 数组传入文本和图片。<code>detail</code> 可传 <code>low</code>、<code>high</code> 或 <code>auto</code>。
         </p>
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/chat/completions \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/chat/completions \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -71,7 +71,7 @@
           <li><code>response_format</code>：<code>url</code> 或 <code>b64_json</code>。</li>
           <li><code>n</code>：一次生成图片数量，官方上限为 10。</li>
         </ul>
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/images/generations \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/images/generations \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -89,7 +89,7 @@
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
           单图编辑使用 <code>image</code>，多参考图使用 <code>images</code>。多图编辑最多 3 张参考图，可在提示词里引用 <code>&lt;IMAGE_0&gt;</code>、<code>&lt;IMAGE_1&gt;</code>。
         </p>
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/images/edits \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/images/edits \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -103,7 +103,7 @@
     "response_format": "url"
   }'</code></pre>
 
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/images/edits \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/images/edits \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,7 +129,7 @@
           <li><code>aspect_ratio</code>：<code>1:1</code>、<code>16:9</code>、<code>9:16</code>、<code>4:3</code>、<code>3:4</code>、<code>3:2</code>、<code>2:3</code>。</li>
           <li><code>resolution</code>：<code>480p</code>、<code>720p</code>、<code>1080p</code>。</li>
         </ul>
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/videos/generations \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/videos/generations \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -140,7 +140,7 @@
     "resolution": "720p"
   }'</code></pre>
 
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/videos/REQUEST_ID \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/videos/REQUEST_ID \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY"</code></pre>
       </section>
 
@@ -149,7 +149,7 @@
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
           在视频生成接口中传 <code>image</code> 可做图生视频，传 <code>reference_images</code> 可用参考图控制风格或内容。
         </p>
-        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.reayq.top/retail/v1/videos/generations \
+        <pre class="mt-4 overflow-x-auto rounded-xl bg-gray-900 p-4 text-xs text-gray-100"><code>curl https://www.relayq.top/retail/v1/videos/generations \
   -H "Authorization: Bearer YOUR_RETAIL_GROK_KEY" \
   -H "Content-Type: application/json" \
   -d '{
