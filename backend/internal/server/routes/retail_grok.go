@@ -10,6 +10,7 @@ func RegisterRetailGrokRoutes(r *gin.Engine, h *handler.Handlers, auth middlewar
 	retail := r.Group("/retail/v1")
 	retail.Use(gin.HandlerFunc(auth))
 	{
+		retail.GET("/models", h.RetailGrok.Models)
 		retail.POST("/chat/completions", h.RetailGrok.ChatCompletions)
 		retail.POST("/images/generations", h.RetailGrok.Images)
 		retail.POST("/images/edits", h.RetailGrok.Images)
