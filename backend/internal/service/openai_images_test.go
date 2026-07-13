@@ -38,20 +38,28 @@ func TestConvertOpenAIImagesB64JSONToDataURL(t *testing.T) {
 	require.Equal(t, "cat", data.Get("revised_prompt").String())
 }
 
-func TestBuildOpenAIImagesForwardBodyNormalizesURLToB64JSON(t *testing.T) {
+func TestShouldInlineRemoteImageURL(t *testing.T) {
+	require.True(t, shouldInlineRemoteImageURL("https://imgen.x.ai/foo.png"))
+	require.True(t, shouldInlineRemoteImageURL("https://image.codesonline.dev/p/img/img_abc/0?exp=1&sig=2"))
+	require.True(t, shouldInlineRemoteImageURL("https://cdn.codesonline.dev/p/img/img_abc/0"))
+	require.False(t, shouldInlineRemoteImageURL("data:image/png;base64,abc"))
+	require.False(t, shouldInlineRemoteImageURL("https://example.com/ok.png"))
+}
+
+func TestBuildOpenAIImagesForwardBodyStripsResponseFormatForGptImage(t *testing.T) {
 	parsed := &OpenAIImagesRequest{Model: "gpt-image-2", Prompt: "cat", N: 1, ResponseFormat: "url"}
 
 	body, contentType, err := buildOpenAIImagesForwardBody([]byte(`{"model":"gpt-image-2","prompt":"cat","response_format":"url"}`), parsed, "gpt-image-2")
 
 	require.NoError(t, err)
 	require.Equal(t, "application/json", contentType)
-	require.Equal(t, "b64_json", gjson.GetBytes(body, "response_format").String())
+	require.False(t, gjson.GetBytes(body, "response_format").Exists(), "gpt-image models must not forward response_format")
 }
 
-func TestBuildOpenAIImagesForwardBodyDefaultsToB64JSON(t *testing.T) {
-	parsed := &OpenAIImagesRequest{Model: "gpt-image-2", Prompt: "cat", N: 1}
+func TestBuildOpenAIImagesForwardBodyDefaultsToB64JSONForNonGptImage(t *testing.T) {
+	parsed := &OpenAIImagesRequest{Model: "dall-e-3", Prompt: "cat", N: 1}
 
-	body, contentType, err := buildOpenAIImagesForwardBody([]byte(`{"model":"gpt-image-2","prompt":"cat"}`), parsed, "gpt-image-2")
+	body, contentType, err := buildOpenAIImagesForwardBody([]byte(`{"model":"dall-e-3","prompt":"cat"}`), parsed, "dall-e-3")
 
 	require.NoError(t, err)
 	require.Equal(t, "application/json", contentType)

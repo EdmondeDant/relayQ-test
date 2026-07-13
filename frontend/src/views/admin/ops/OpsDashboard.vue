@@ -700,14 +700,16 @@ async function fetchData() {
   abortDashboardFetch()
   dashboardFetchSeq += 1
   const fetchSeq = dashboardFetchSeq
-  dashboardFetchController = new AbortController()
+  const controller = new AbortController()
+  dashboardFetchController = controller
+  const { signal } = controller
 
   loading.value = true
   errorMessage.value = ''
   try {
     await Promise.all([
-      refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal),
-      refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal),
+      refreshCoreSnapshotWithCancel(fetchSeq, signal),
+      refreshSwitchTrendWithCancel(fetchSeq, signal),
     ])
     if (fetchSeq !== dashboardFetchSeq) return
 
@@ -722,7 +724,7 @@ async function fetchData() {
     }
 
     // Defer non-core visual panels to reduce initial blocking.
-    void refreshDeferredPanels(fetchSeq, dashboardFetchController.signal)
+    void refreshDeferredPanels(fetchSeq, signal)
   } catch (err) {
     if (!isOpsDisabledError(err)) {
       console.error('[ops] failed to fetch dashboard data', err)
@@ -730,6 +732,9 @@ async function fetchData() {
     }
   } finally {
     if (fetchSeq === dashboardFetchSeq) {
+      if (dashboardFetchController === controller) {
+        dashboardFetchController = null
+      }
       loading.value = false
       hasLoadedOnce.value = true
     }

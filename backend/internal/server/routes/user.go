@@ -139,5 +139,28 @@ func RegisterUserRoutes(
 			monitors.GET("", h.ChannelMonitor.List)
 			monitors.GET("/:id/status", h.ChannelMonitor.GetStatus)
 		}
+
+		playground := authenticated.Group("/playground")
+		{
+			tasks := playground.Group("/tasks")
+			{
+				tasks.POST("", h.Playground.CreateTask)
+				tasks.GET("", h.Playground.ListTasks)
+				tasks.GET("/:id", h.Playground.GetTask)
+				tasks.POST("/:id/cancel", h.Playground.CancelTask)
+			}
+			assets := playground.Group("/assets")
+			{
+				assets.POST("", h.Playground.CreateAsset)
+				assets.GET("", h.Playground.ListAssets)
+				assets.GET("/:id", h.Playground.GetAsset)
+				assets.DELETE("/:id", h.Playground.DeleteAsset)
+			}
+			records := playground.Group("/records")
+			{
+				records.GET("", h.Playground.ListRecords)
+				records.DELETE("/:id", h.Playground.DeleteRecord)
+			}
+		}
 	}
 }

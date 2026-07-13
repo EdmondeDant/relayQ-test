@@ -42,7 +42,8 @@ const (
 	apiKeyMaxErrorsPerHour = 20
 	apiKeyLastUsedMinTouch = 30 * time.Second
 	// DB 写失败后的短退避，避免请求路径持续同步重试造成写风暴与高延迟。
-	apiKeyLastUsedFailBackoff = 5 * time.Second
+	apiKeyLastUsedFailBackoff  = 5 * time.Second
+	playgroundAPIKeyNamePrefix = "RelayQ Online Experience"
 )
 
 type APIKeyRepository interface {
@@ -425,6 +426,62 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	s.compileAPIKeyIPRules(apiKey)
 
 	return apiKey, nil
+}
+
+// GetOrCreatePlaygroundAPIKey returns a hidden-ish per-user/per-group API key
+// used to route logged-in playground traffic through the existing gateway
+// billing path. The key is never sent to the browser.
+func (s *APIKeyService) GetOrCreatePlaygroundAPIKey(ctx context.Context, userID int64, groupID int64) (*APIKey, error) {
+	if s == nil {
+		return nil, ErrAPIKeyNotFound
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if !user.IsActive() {
+		return nil, ErrUserNotActive
+	}
+
+	name := fmt.Sprintf("%s · group %d", playgroundAPIKeyNamePrefix, groupID)
+	keys, _, err := s.apiKeyRepo.ListByUserID(ctx, userID, pagination.PaginationParams{Page: 1, PageSize: 100}, APIKeyListFilters{})
+	if err != nil {
+		return nil, fmt.Errorf("list user api keys: %w", err)
+	}
+	for i := range keys {
+		key := &keys[i]
+		if key.Name == name && key.GroupID != nil && *key.GroupID == groupID && key.IsActive() {
+			full, err := s.apiKeyRepo.GetByID(ctx, key.ID)
+			if err != nil {
+				return nil, fmt.Errorf("get playground api key: %w", err)
+			}
+			s.compileAPIKeyIPRules(full)
+			return full, nil
+		}
+	}
+
+	keyValue, err := s.GenerateKey()
+	if err != nil {
+		return nil, fmt.Errorf("generate playground key: %w", err)
+	}
+	apiKey := &APIKey{
+		UserID:    userID,
+		Key:       keyValue,
+		Name:      name,
+		GroupID:   &groupID,
+		Status:    StatusActive,
+		Quota:     0,
+		QuotaUsed: 0,
+	}
+	if err := s.apiKeyRepo.Create(ctx, apiKey); err != nil {
+		return nil, fmt.Errorf("create playground api key: %w", err)
+	}
+	full, err := s.apiKeyRepo.GetByID(ctx, apiKey.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get created playground api key: %w", err)
+	}
+	s.compileAPIKeyIPRules(full)
+	return full, nil
 }
 
 // List 获取用户的API Key列表

@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -11,7 +13,18 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/tidwall/gjson"
 )
+
+const playgroundSource = "playground"
+
+var playgroundModelGroups = map[string]int64{
+	"gpt-image-2":       2,
+	"gpt-image-2-pro":   2,
+	"deepseek-v4-flash": 3,
+	"gpt-5.4":           5,
+}
 
 // NewAPIKeyAuthMiddleware 创建 API Key 认证中间件
 func NewAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) APIKeyAuthMiddleware {
@@ -70,16 +83,27 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			return
 		}
 
-		// ── 2. 验证 Key 存在 ─────────────────────────────────────────
+		var apiKey *service.APIKey
+		var err error
 
-		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
-		if err != nil {
-			if errors.Is(err, service.ErrAPIKeyNotFound) {
-				AbortWithError(c, 401, "INVALID_API_KEY", "Invalid API key")
+		if isPlaygroundSessionRequest(c, apiKeyString) {
+			apiKey, err = resolvePlaygroundSessionAPIKey(c, apiKeyService, cfg, apiKeyString)
+			if err != nil {
+				AbortWithError(c, 401, "INVALID_TOKEN", "Invalid or expired login session")
 				return
 			}
-			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
-			return
+		} else {
+			// ── 2. 验证 Key 存在 ─────────────────────────────────────────
+
+			apiKey, err = apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
+			if err != nil {
+				if errors.Is(err, service.ErrAPIKeyNotFound) {
+					AbortWithError(c, 401, "INVALID_API_KEY", "Invalid API key")
+					return
+				}
+				AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
+				return
+			}
 		}
 
 		// ── 3. 基础鉴权（始终执行） ─────────────────────────────────
@@ -231,6 +255,61 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		c.Next()
 	}
+}
+
+func isPlaygroundSessionRequest(c *gin.Context, token string) bool {
+	return strings.EqualFold(strings.TrimSpace(c.GetHeader("X-RelayQ-Source")), playgroundSource) && strings.Count(token, ".") == 2
+}
+
+func resolvePlaygroundSessionAPIKey(c *gin.Context, apiKeyService *service.APIKeyService, cfg *config.Config, tokenString string) (*service.APIKey, error) {
+	groupID, err := playgroundGroupIDFromBody(c)
+	if err != nil {
+		return nil, err
+	}
+	claims, err := parsePlaygroundJWT(cfg, tokenString)
+	if err != nil {
+		return nil, err
+	}
+	return apiKeyService.GetOrCreatePlaygroundAPIKey(c.Request.Context(), claims.UserID, groupID)
+}
+
+func playgroundGroupIDFromBody(c *gin.Context) (int64, error) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return 0, err
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	model := strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	groupID, ok := playgroundModelGroups[model]
+	if !ok {
+		return 0, service.ErrGroupNotAllowed
+	}
+	return groupID, nil
+}
+
+func parsePlaygroundJWT(cfg *config.Config, tokenString string) (*service.JWTClaims, error) {
+	if cfg == nil || strings.TrimSpace(cfg.JWT.Secret) == "" {
+		return nil, service.ErrInvalidToken
+	}
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{
+		jwt.SigningMethodHS256.Name,
+		jwt.SigningMethodHS384.Name,
+		jwt.SigningMethodHS512.Name,
+	}))
+	token, err := parser.ParseWithClaims(tokenString, &service.JWTClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, service.ErrInvalidToken
+		}
+		return []byte(cfg.JWT.Secret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*service.JWTClaims)
+	if !ok || !token.Valid || claims.UserID <= 0 {
+		return nil, service.ErrInvalidToken
+	}
+	return claims, nil
 }
 
 // GetAPIKeyFromContext 从上下文中获取API key

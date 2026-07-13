@@ -489,6 +489,35 @@ func isOpenAIImageGenerationModel(model string) bool {
 	return strings.HasPrefix(normalized, "gpt-image-") || strings.HasPrefix(normalized, "grok-imagine-image")
 }
 
+func isGrokImagineImageModel(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "grok-imagine-image")
+}
+
+// mapPlaygroundSizeToAspectRatio 将 playground/兼容 size 映射为 xAI aspect_ratio。
+func mapPlaygroundSizeToAspectRatio(size string) string {
+	s := strings.TrimSpace(size)
+	switch strings.ToLower(s) {
+	case "1:1", "square", "1024x1024":
+		return "1:1"
+	case "16:9", "1536x1024", "1792x1024":
+		return "16:9"
+	case "9:16", "1024x1536", "1024x1792":
+		return "9:16"
+	case "3:2", "4:3":
+		return "3:2"
+	case "2:3", "3:4":
+		return "2:3"
+	case "auto":
+		return "auto"
+	default:
+		// 已是比例串则原样使用
+		if strings.Contains(s, ":") {
+			return s
+		}
+		return ""
+	}
+}
+
 func defaultImagesRequestModelForAccount(account *Account, parsed *OpenAIImagesRequest, channelMappedModel string) string {
 	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
 		return mapped
@@ -646,7 +675,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		parsed.Endpoint,
 		account.Type,
 	)
-	if parsed.IsEdits() {
+	// OpenAI 官方 edits 走 Responses；xAI Grok Imagine 官方是 /v1/images/edits JSON，
+	// 不能误转 Responses，否则上游会 422 并被映射成 502。
+	if parsed.IsEdits() && !isGrokImagineImageModel(upstreamModel) {
 		return s.forwardOpenAIImagesResponses(ctx, c, account, parsed, requestModel, upstreamModel)
 	}
 	forwardBody, forwardContentType, err := buildOpenAIImagesForwardBody(body, parsed, upstreamModel)
@@ -757,7 +788,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			ImageOutputSizes: imageOutputSizes,
 		}, nil
 	} else {
-		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c, parsed)
+		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c, parsed, proxyURL)
 		if err != nil {
 			return nil, err
 		}
@@ -786,7 +817,8 @@ func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upst
 	if parsed == nil {
 		return nil, "", fmt.Errorf("parsed images request is required")
 	}
-	if parsed.IsEdits() {
+	// 仅非 Grok 的 edits 才转 Responses 请求体；Grok 保持 images/edits 原生 JSON。
+	if parsed.IsEdits() && !isGrokImagineImageModel(upstreamModel) {
 		responsesBody, err := buildOpenAIImagesResponsesRequest(parsed, upstreamModel)
 		if err != nil {
 			return nil, "", err
@@ -820,10 +852,52 @@ func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upst
 	if quality := strings.TrimSpace(parsed.Quality); quality != "" {
 		payload["quality"] = quality
 	}
-	if desired := strings.TrimSpace(parsed.ResponseFormat); desired == "" || strings.EqualFold(desired, "url") {
-		payload["response_format"] = "b64_json"
+
+	// xAI Grok Imagine：官方字段是 aspect_ratio + resolution，不认 size/style/background/quality。
+	// playground 可能仍传 size=1:1，这里统一转换并剥离非法字段，避免上游 400。
+	if isGrokImagineImageModel(upstreamModel) {
+		if _, ok := payload["aspect_ratio"]; !ok || strings.TrimSpace(fmt.Sprint(payload["aspect_ratio"])) == "" {
+			if mapped := mapPlaygroundSizeToAspectRatio(parsed.Size); mapped != "" {
+				payload["aspect_ratio"] = mapped
+			} else if sizeRaw, ok := payload["size"]; ok {
+				if mapped := mapPlaygroundSizeToAspectRatio(fmt.Sprint(sizeRaw)); mapped != "" {
+					payload["aspect_ratio"] = mapped
+				}
+			}
+		}
+		if _, ok := payload["resolution"]; !ok || strings.TrimSpace(fmt.Sprint(payload["resolution"])) == "" {
+			// high 画质映射 2k，其余默认 1k
+			if strings.EqualFold(strings.TrimSpace(parsed.Quality), "high") {
+				payload["resolution"] = "2k"
+			} else {
+				payload["resolution"] = "1k"
+			}
+		} else if res, ok := payload["resolution"].(string); ok {
+			payload["resolution"] = normalizeXAIImageResolution(res)
+		}
+		delete(payload, "size")
+		delete(payload, "quality")
+		delete(payload, "style")
+		delete(payload, "background")
+		delete(payload, "output_format")
+		delete(payload, "output_compression")
+		delete(payload, "moderation")
+		delete(payload, "input_fidelity")
+		delete(payload, "partial_images")
+		delete(payload, "response_format")
+	}
+
+	// GPT Image 官方不支持 response_format（固定返回 b64_json）；
+	// 部分兼容上游（如 codesonline）实际返回 url，强制 b64_json 会拖慢甚至 504。
+	// 仅对 DALL·E 等非 gpt-image/grok 模型转发/默认 response_format。
+	if !isOpenAIImageGenerationModel(upstreamModel) {
+		if desired := strings.TrimSpace(parsed.ResponseFormat); desired == "" || strings.EqualFold(desired, "url") {
+			payload["response_format"] = "b64_json"
+		} else {
+			payload["response_format"] = desired
+		}
 	} else {
-		payload["response_format"] = desired
+		delete(payload, "response_format")
 	}
 	forwardBody, err := json.Marshal(payload)
 	if err != nil {
@@ -968,7 +1042,7 @@ func cloneMultipartHeader(src textproto.MIMEHeader) textproto.MIMEHeader {
 	return dst
 }
 
-func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context, parsed *OpenAIImagesRequest) (OpenAIUsage, int, []string, error) {
+func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http.Response, c *gin.Context, parsed *OpenAIImagesRequest, proxyURL string) (OpenAIUsage, int, []string, error) {
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
@@ -976,6 +1050,8 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 	if shouldReturnOpenAIImagesURLResponse(parsed) {
 		body = convertOpenAIImagesB64JSONToDataURL(body)
 	}
+	// xAI 返回 imgen.x.ai 临时 URL，国内直连常超时；用账号代理拉回并转 data URL，避免前端 502/超时红字。
+	body = s.inlineRemoteOpenAIImageURLs(body, proxyURL)
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"
 	if s.cfg != nil && !s.cfg.Security.ResponseHeaders.Enabled {
@@ -987,6 +1063,91 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 
 	usage, _ := extractOpenAIUsageFromJSONBytes(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+}
+
+func (s *OpenAIGatewayService) inlineRemoteOpenAIImageURLs(body []byte, proxyURL string) []byte {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return body
+	}
+	data := gjson.GetBytes(body, "data")
+	if !data.IsArray() {
+		return body
+	}
+	out := body
+	changed := false
+	for i, item := range data.Array() {
+		imageURL := strings.TrimSpace(item.Get("url").String())
+		if imageURL == "" || strings.HasPrefix(strings.ToLower(imageURL), "data:") {
+			continue
+		}
+		if !shouldInlineRemoteImageURL(imageURL) {
+			continue
+		}
+		dataURL, err := s.fetchImageAsDataURL(imageURL, proxyURL)
+		if err != nil || dataURL == "" {
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] inline image url failed url=%s err=%v", safeUpstreamURL(imageURL), err)
+			continue
+		}
+		updated, err := sjson.SetBytes(out, fmt.Sprintf("data.%d.url", i), dataURL)
+		if err != nil {
+			continue
+		}
+		out = updated
+		changed = true
+	}
+	if !changed {
+		return body
+	}
+	return out
+}
+
+func shouldInlineRemoteImageURL(imageURL string) bool {
+	lower := strings.ToLower(strings.TrimSpace(imageURL))
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return false
+	}
+	// 临时图床/签名 URL：浏览器直连易 502 或过期，生成时用上游代理拉回转 data URL。
+	return strings.Contains(lower, "imgen.x.ai") ||
+		strings.Contains(lower, "xai-imgen") ||
+		strings.Contains(lower, "oaidalleapiprodscus") ||
+		strings.Contains(lower, "blob.core.windows.net") ||
+		strings.Contains(lower, "image.codesonline.dev") ||
+		strings.Contains(lower, "codesonline.dev/p/img")
+}
+
+func (s *OpenAIGatewayService) fetchImageAsDataURL(imageURL, proxyURL string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, imageURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "RelayQ-ImageInline/1.0")
+	resp, err := s.httpUpstream.Do(req, proxyURL, 0, 0)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("status=%d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 20<<20))
+	if err != nil {
+		return "", err
+	}
+	if len(raw) == 0 {
+		return "", fmt.Errorf("empty image body")
+	}
+	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if contentType == "" || !strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		contentType = http.DetectContentType(raw)
+	}
+	if !strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		contentType = "image/png"
+	}
+	// strip parameters like charset
+	if idx := strings.Index(contentType, ";"); idx >= 0 {
+		contentType = strings.TrimSpace(contentType[:idx])
+	}
+	return fmt.Sprintf("data:%s;base64,%s", contentType, base64.StdEncoding.EncodeToString(raw)), nil
 }
 
 func shouldReturnOpenAIImagesURLResponse(parsed *OpenAIImagesRequest) bool {

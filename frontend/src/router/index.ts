@@ -236,12 +236,16 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/model-test',
-    name: 'ModelTest',
-    component: () => import('@/views/user/ModelTestView.vue'),
+    redirect: '/playground'
+  },
+  {
+    path: '/playground',
+    name: 'Playground',
+    component: () => import('@/views/user/PlaygroundView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Model Test',
+      title: 'Online Experience',
       titleKey: 'modelTest.title',
       descriptionKey: 'modelTest.description'
     }

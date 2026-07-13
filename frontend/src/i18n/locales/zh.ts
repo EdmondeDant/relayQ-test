@@ -312,6 +312,7 @@ export default {
     unknownError: '发生未知错误',
     saving: '保存中...',
     selectedCount: '（已选 {count} 个）',
+    login: '登录',
     refresh: '刷新',
     autoRefresh: {
       title: '自动刷新',
@@ -350,7 +351,7 @@ export default {
     announcements: '公告',
     apiKeys: 'API 密钥',
     usage: '使用记录',
-    modelTest: '模型测试',
+    modelTest: '在线体验',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
@@ -395,10 +396,10 @@ export default {
     riskControl: '风控中心',
   },
 
-  // Model Test
+  // Online Experience
   modelTest: {
-    title: '模型测试',
-    description: '选择自己的 API Key 和模型进行流式对话测试'
+    title: '在线体验',
+    description: '视频 音频 图片的在线体验工具箱，推荐还是用本地agents调用api的模式使用'
   },
 
   // Auth
@@ -429,6 +430,13 @@ export default {
     loginFailed: '登录失败，请检查您的凭据后重试。',
     errors: {
       USER_NOT_ACTIVE: '账号已被禁用',
+      INVALID_CREDENTIALS: '邮箱或密码错误',
+      ACCOUNT_DISABLED: '账号已被禁用',
+      UNAUTHORIZED: '请先登录',
+      FORBIDDEN: '没有权限执行此操作',
+      TOO_MANY_REQUESTS: '请求过于频繁，请稍后再试',
+      NETWORK_ERROR: '网络异常，请检查连接后重试',
+      UNKNOWN: '操作失败，请稍后重试',
     },
     registrationFailed: '注册失败，请重试。',
     emailSuffixNotAllowed: '该邮箱域名不在允许注册范围内。',
@@ -711,7 +719,7 @@ export default {
     created: '创建时间',
     copyToClipboard: '复制到剪贴板',
     copied: '已复制！',
-    importToCcSwitch: '导入到 CCS',
+    importToCcSwitch: '导入到 CC Switch',
     enable: '启用',
     disable: '禁用',
     nameLabel: '名称',

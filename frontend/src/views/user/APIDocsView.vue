@@ -4,12 +4,9 @@
       <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
         <div class="bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 py-8 text-white md:px-8">
           <div class="max-w-4xl space-y-4">
-            <div class="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold">
-              OpenAI Compatible + Grok Imagine 媒体接口
-            </div>
             <h2 class="text-3xl font-black tracking-tight md:text-4xl">接口文档</h2>
             <p class="max-w-3xl text-sm leading-7 text-white/90 md:text-base">
-              本页面详细介绍各个模型的接口模式，如果人看不懂，请你让的agent看懂就行了。图片，音频，视频模型是子agents。不能当推理模型使用。
+              本页面与下载版 Agent 接口文档保持一致，按当前仓库的真实实现说明图片、视频、音频接口格式。图片、音频、视频模型是子 agents，不能当推理模型使用。
             </p>
             <div class="flex flex-wrap items-center gap-3">
               <a
@@ -24,11 +21,6 @@
                 <span aria-hidden="true" class="text-base leading-none">←</span>
                 <span>左边这个文档主要投喂给 agents / SDK 生成器，人看不明白没关系，AI 看明白就行。</span>
               </span>
-            </div>
-            <div class="flex flex-wrap gap-2 text-xs font-semibold text-white/90">
-              <span class="rounded-full bg-white/10 px-3 py-1">Base URL: {{ defaultBaseUrl }}</span>
-              <span class="rounded-full bg-white/10 px-3 py-1">Authorization: Bearer sk-xxx</span>
-              <span class="rounded-full bg-white/10 px-3 py-1">Content-Type: application/json / multipart/form-data</span>
             </div>
           </div>
         </div>
@@ -56,9 +48,9 @@
           <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
             <div class="text-sm font-bold text-slate-900 dark:text-white">接入说明</div>
             <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              <li>只把请求发到 RelayQ，不要直连 `api.x.ai`、`api.openai.com` 等上游。</li>
+              <li>只把请求发到 RelayQ，不要直连 `api.x.ai`、`imgen.x.ai`、`vidgen.x.ai`、`api.openai.com`。</li>
               <li>模型名称以你的分组白名单为准；没有权限或模型不在白名单会返回错误。</li>
-              <li>图片/视频建议优先使用 JSON 官方格式；音频上传通常使用 multipart/form-data。</li>
+              <li>图片/视频建议优先使用 JSON 官方格式；MiMo 音频模型当前也走 JSON 的 `POST /v1/chat/completions`。</li>
               <li>视频生成是异步任务：提交后拿 `request_id`，再轮询 `/v1/videos/{request_id}`。</li>
             </ul>
           </div>
@@ -84,7 +76,7 @@
           </div>
         </div>
         <div class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100">
-          支持参数：`n`、`aspect_ratio/aspectRatio`、`resolution`（1k/2k）、`quality`、`user`，也可放在 `image_options`、`providerOptions.xai` 或 `provider_options.xai` 中。
+          只在 agent / SDK 只支持 `chat/completions` 时使用。模型名必须是 `grok-imagine-image*`。支持参数：`n`、`aspect_ratio/aspectRatio`、`resolution`（1k/2k）、`quality`、`user`，也可放在 `image_options`、`providerOptions.xai` 或 `provider_options.xai` 中。
         </div>
       </section>
 
@@ -92,7 +84,7 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-xl font-black text-slate-950 dark:text-white">3. 图片模型官方 JSON 接口</h3>
-            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">适用于标准文生图和图片编辑。Grok Imagine 官方不支持 `size`，请优先使用 `aspect_ratio` + `resolution`。</p>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">适用于标准文生图和图片编辑。`gpt-image-*` 使用 `size`，`grok-imagine-image*` 使用 `aspect_ratio` + `resolution`，不要混用。</p>
           </div>
           <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">POST /v1/images/generations</span>
         </div>
@@ -117,7 +109,7 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-xl font-black text-slate-950 dark:text-white">4. 视频模型：文生视频 / 图生视频 / 参考图视频</h3>
-            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Grok Imagine 视频是异步任务。RelayQ 支持官方 `/v1/videos/generations`，也兼容 OpenAI/Sora 风格 `/v1/videos`。</p>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">`grok-imagine-video` 是异步任务。提交后先拿 `request_id`，再轮询 `/v1/videos/{request_id}`，预览和下载应走 `/v1/videos/{request_id}/content`。</p>
           </div>
           <span class="rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-bold text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300">POST /v1/videos/generations</span>
         </div>
@@ -142,7 +134,7 @@
         </div>
 
         <div class="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-          参数：`duration` 1-15 秒；参考图模式最大 10 秒；`aspect_ratio` 支持 1:1、16:9、9:16、4:3、3:4、3:2、2:3；`resolution` 支持 480p/720p，部分模型/模式支持 1080p。`size` 不是官方字段，RelayQ 会尽量转换成 `aspect_ratio + resolution`。
+          当前页面与下载文档一致：视频示例统一使用 `duration`、`aspect_ratio`、`resolution`，不要向视频接口发送 `size`。浏览器也不要直连 `vidgen.x.ai`，应通过 RelayQ 的 `/content` 路由获取视频内容。
         </div>
       </section>
 
@@ -150,20 +142,31 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-xl font-black text-slate-950 dark:text-white">5. 音频模型</h3>
-            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">音频通常分两类：音频转文字与文本转语音。建议按 OpenAI Audio 兼容格式接入。</p>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">MiMo 音频模型当前统一走 `POST /v1/chat/completions`。语音转写使用 `mimo-v2.5-asr`，配音/音色设计/声音克隆使用 `mimo-v2.5-tts*` 系列。</p>
           </div>
-          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">/v1/audio/transcriptions / /v1/audio/speech</span>
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">POST /v1/chat/completions</span>
         </div>
 
         <div class="mt-5 grid gap-4 xl:grid-cols-2">
           <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
-            <div class="text-sm font-bold text-slate-900 dark:text-white">转写示例</div>
+            <div class="text-sm font-bold text-slate-900 dark:text-white">语音转写：mimo-v2.5-asr</div>
             <pre class="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{{ audioTranscriptionExample }}</pre>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
-            <div class="text-sm font-bold text-slate-900 dark:text-white">语音合成示例</div>
+            <div class="text-sm font-bold text-slate-900 dark:text-white">标准配音：mimo-v2.5-tts</div>
             <pre class="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{{ audioSpeechExample }}</pre>
           </div>
+          <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
+            <div class="text-sm font-bold text-slate-900 dark:text-white">音色设计：mimo-v2.5-tts-voicedesign</div>
+            <pre class="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{{ audioVoiceDesignExample }}</pre>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
+            <div class="text-sm font-bold text-slate-900 dark:text-white">声音克隆：mimo-v2.5-tts-voiceclone</div>
+            <pre class="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{{ audioVoiceCloneExample }}</pre>
+          </div>
+        </div>
+        <div class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+          关键点：ASR 当前按官方兼容格式传 `input_audio.data` + `asr_options.language`；配音文本放在 `assistant` 消息里；风格/音色约束放在 `user` 消息里；标准配音用 `audio.voice` 传真实音色 ID；返回音频通常在 `choices[0].message.audio.data`。
         </div>
       </section>
 
@@ -196,24 +199,24 @@ const introCards = [
   {
     title: '图片官方接口',
     endpoint: 'POST /v1/images/generations',
-    description: '同步返回图片结果，支持 n、aspect_ratio、resolution、quality、response_format。'
+    description: 'gpt-image-* 用 size；grok-imagine-image* 用 aspect_ratio + resolution。'
   },
   {
     title: '视频异步接口',
     endpoint: 'POST /v1/videos/generations',
-    description: '支持文生视频、首帧图生视频、参考图视频，提交后轮询 request_id。'
+    description: 'grok-imagine-video 异步提交，轮询 request_id，并通过 /content 下载或预览。'
   },
   {
     title: '音频模型',
-    endpoint: '/v1/audio/transcriptions / /v1/audio/speech',
-    description: '支持转写和语音合成，上传音频文件时通常使用 multipart/form-data。'
+    endpoint: 'POST /v1/chat/completions',
+    description: 'MiMo 音频模型统一走 chat/completions：支持转写、标准配音、音色设计和声音克隆。'
   }
 ]
 
 const defaultBaseUrl = 'https://www.relayq.top/v1'
 const agentDocDownloadUrl = '/relayq-agent-api-reference.md'
 
-const authExample = `POST /v1/chat/completions HTTP/1.1
+const authExample = `POST /v1/images/generations HTTP/1.1
 Host: www.relayq.top
 Authorization: Bearer sk-your-api-key
 Content-Type: application/json`
@@ -247,45 +250,85 @@ const chatImageResponseExample = `{
   ]
 }`
 
-const imageRequestExample = `curl ${defaultBaseUrl}/images/generations \\
-  -H "Authorization: Bearer sk-your-api-key" \\
-  -H "Content-Type: application/json" \\
+const imageRequestExample = `# gpt-image-2-adobe / gpt-image-* 请求体
+curl ${defaultBaseUrl}/images/generations \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2-adobe",
+    "prompt": "高端珠宝广告，模特侧脸特写，冷白珠宝反光，杂志封面质感",
+    "size": "3:2",
+    "quality": "high",
+    "style": "natural",
+    "background": "opaque",
+    "n": 1
+  }'
+
+# grok-imagine-image* 请求体
+curl ${defaultBaseUrl}/images/generations \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
   -d '{
     "model": "grok-imagine-image-quality",
-    "prompt": "一张现代写实电影感人物照片，面部清晰",
+    "prompt": "高端珠宝广告，模特侧脸特写，冷白珠宝反光，杂志封面质感",
     "n": 1,
-    "aspect_ratio": "3:4",
-    "resolution": "2k",
-    "quality": "high",
-    "response_format": "url"
+    "aspect_ratio": "3:2",
+    "resolution": "2k"
   }'`
 
 const imageResponseExample = `{
   "data": [
     {
-      "url": "https://.../generated.png",
-      "b64_json": null,
-      "mime_type": "image/png",
+      "url": "data:image/png;base64,...",
       "revised_prompt": ""
     }
   ],
-  "usage": {
-    "cost_in_usd_ticks": 123456789
+  "request_id": "img_123",
+  "billing": {
+    "amount": 0.12,
+    "currency": "USD",
+    "balance_after": 19.88
   }
 }`
 
-const imageEditExample = `curl ${defaultBaseUrl}/images/edits \\
-  -H "Authorization: Bearer sk-your-api-key" \\
-  -H "Content-Type: application/json" \\
+const imageEditExample = `# gpt-image-2-adobe 编辑请求体
+curl ${defaultBaseUrl}/images/edits \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2-adobe",
+    "prompt": "把图片中的海报文案替换成法语，保留原排版、字体层级与视觉风格",
+    "images": [
+      {
+        "image_url": "data:image/png;base64,..."
+      }
+    ],
+    "mask": {
+      "image_url": "data:image/png;base64,..."
+    },
+    "size": "16:9",
+    "quality": "high",
+    "style": "natural",
+    "background": "opaque"
+  }'
+
+# grok-imagine-image* 编辑请求体
+curl ${defaultBaseUrl}/images/edits \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
   -d '{
     "model": "grok-imagine-image-quality",
-    "prompt": "把这张图改成铅笔素描，保留人物五官",
-    "image": {
-      "url": "data:image/png;base64,...",
-      "type": "image_url"
+    "prompt": "把图片中的海报文案替换成法语，保留原排版、字体层级与视觉风格",
+    "images": [
+      {
+        "image_url": "data:image/png;base64,..."
+      }
+    ],
+    "mask": {
+      "image_url": "data:image/png;base64,..."
     },
-    "resolution": "2k",
-    "response_format": "url"
+    "aspect_ratio": "16:9",
+    "resolution": "2k"
   }'`
 
 const videoTextSubmitExample = `curl ${defaultBaseUrl}/videos/generations \\
@@ -299,82 +342,174 @@ const videoTextSubmitExample = `curl ${defaultBaseUrl}/videos/generations \\
     "resolution": "720p"
   }'`
 
-const videoImageSubmitExample = `curl ${defaultBaseUrl}/videos/generations \\
-  -H "Authorization: Bearer sk-your-api-key" \\
-  -H "Content-Type: application/json" \\
+const videoImageSubmitExample = `curl ${defaultBaseUrl}/videos/generations \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
   -d '{
     "model": "grok-imagine-video",
-    "prompt": "使用图片作为首帧，两人开始战斗，剑气和黑火碰撞",
+    "prompt": "用这张图作为首帧，人物抬头看向镜头，头发被风吹动，镜头缓慢推进",
     "duration": 10,
     "aspect_ratio": "16:9",
-    "resolution": "720p",
+    "resolution": "1080p",
     "image": {
       "url": "data:image/png;base64,..."
     }
   }'`
 
-const videoReferenceSubmitExample = `curl ${defaultBaseUrl}/videos/generations \\
-  -H "Authorization: Bearer sk-your-api-key" \\
-  -H "Content-Type: application/json" \\
+const videoReferenceSubmitExample = `curl ${defaultBaseUrl}/videos/generations \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
   -d '{
     "model": "grok-imagine-video",
     "prompt": "让参考图中的人物出现在宏大战场中，保持服装和脸部特征",
     "duration": 10,
     "aspect_ratio": "16:9",
-    "resolution": "720p",
-    "reference_images": [
-      {"url": "https://example.com/character.png"},
-      {"url": "data:image/jpeg;base64,..."}
-    ]
+    "resolution": "720p"
   }'`
 
 const videoPollExample = `# 提交后返回
 {
-  "request_id": "21f7f4af-0fb0-9a85-aa10-69b0caa3b901"
+  "request_id": "video_req_123",
+  "status": "queued"
 }
 
 # 轮询
-curl ${defaultBaseUrl}/videos/21f7f4af-0fb0-9a85-aa10-69b0caa3b901 \\
+curl ${defaultBaseUrl}/videos/video_req_123 \
   -H "Authorization: Bearer sk-your-api-key"
 
-# 完成
+# 处理中
 {
-  "status": "done",
-  "video": {
-    "url": "https://vidgen.x.ai/.../video.mp4",
-    "duration": 10
-  },
-  "model": "grok-imagine-video",
-  "progress": 100
+  "request_id": "video_req_123",
+  "status": "processing",
+  "progress": 65,
+  "billing": {
+    "amount": 0.8,
+    "currency": "USD"
+  }
 }
 
-# RelayQ 兼容下载入口
-curl -L ${defaultBaseUrl}/videos/21f7f4af-0fb0-9a85-aa10-69b0caa3b901/content \\
-  -H "Authorization: Bearer sk-your-api-key" \\
+# 完成后上游可能返回远程地址
+{
+  "status": "done",
+  "request_id": "video_req_123",
+  "video": {
+    "url": "https://vidgen.x.ai/xai-vidgen-bucket/...mp4"
+  },
+  "progress": 100,
+  "billing": {
+    "amount": 0.8,
+    "currency": "USD",
+    "balance_after": 19.2
+  }
+}
+
+# 不要让浏览器直连 vidgen.x.ai，应该使用 RelayQ content 路由
+curl -L ${defaultBaseUrl}/videos/video_req_123/content \
+  -H "Authorization: Bearer sk-your-api-key" \
   -o result.mp4`
 
-const audioTranscriptionExample = `curl ${defaultBaseUrl}/audio/transcriptions \\
+const audioTranscriptionExample = `curl ${defaultBaseUrl}/chat/completions \
   -H "Authorization: Bearer sk-your-api-key" \\
-  -F "file=@demo.mp3" \\
-  -F "model=whisper-1" \\
-  -F "language=zh"
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mimo-v2.5-asr",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_audio",
+            "input_audio": {
+              "data": "base64-audio-data",
+              "format": "wav"
+            }
+          }
+        ]
+      }
+    ],
+    "asr_options": {
+      "language": "zh"
+    },
+    "stream": false
+  }'
 
-// 典型返回
+# 典型返回
 {
-  "text": "这是转写后的文本内容"
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "这是转写后的文本内容"
+      }
+    }
+  ]
 }`
 
-const audioSpeechExample = `curl ${defaultBaseUrl}/audio/speech \\
+const audioSpeechExample = `curl ${defaultBaseUrl}/chat/completions \
   -H "Authorization: Bearer sk-your-api-key" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gpt-4o-mini-tts",
-    "voice": "alloy",
-    "input": "你好，这是一段语音合成测试。",
-    "format": "mp3"
+    "model": "mimo-v2.5-tts",
+    "audio": {
+      "format": "wav",
+      "voice": "mimo_default"
+    },
+    "messages": [
+      {"role": "user", "content": "请用自然讲述风格朗读，输出语言：中文。"},
+      {"role": "assistant", "content": "你好，这是一段语音合成测试。"}
+    ],
+    "stream": false
   }'
 
-// 返回通常为音频二进制流`
+# 典型返回
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "audio": {
+          "data": "UklGR...",
+          "transcript": null
+        },
+        "final_text_preview": "你好，这是一段语音合成测试。"
+      }
+    }
+  ]
+}`
+
+const audioVoiceDesignExample = `curl ${defaultBaseUrl}/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mimo-v2.5-tts-voicedesign",
+    "audio": {
+      "format": "wav",
+      "optimize_text_preview": true
+    },
+    "messages": [
+      {"role": "user", "content": "请生成温柔、稳定、适合品牌讲解的女声。角色设定：品牌讲解员。输出语言：中文。"},
+      {"role": "assistant", "content": "欢迎使用 RelayQ，这里是你的品牌语音讲解助手。"}
+    ],
+    "stream": false
+  }'`
+
+const audioVoiceCloneExample = `curl ${defaultBaseUrl}/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mimo-v2.5-tts-voiceclone",
+    "audio": {
+      "format": "wav",
+      "voice": "mimo_default"
+    },
+    "messages": [
+      {"role": "user", "content": "请基于提供的音频样本进行声音克隆，保持自然稳定的发音。输出语言：中文。风格：自然讲述。"},
+      {"role": "user", "content": [{"type": "audio_url", "audio_url": {"url": "data:audio/wav;base64,..."}}]},
+      {"role": "assistant", "content": "这是一段用于声音克隆测试的目标文案。"}
+    ],
+    "stream": false
+  }'`
 
 const curlSamples = [
   {
@@ -387,11 +522,17 @@ const curlSamples = [
   },
   {
     title: '视频提交与轮询',
-    code: `${videoTextSubmitExample}\n\n${videoImageSubmitExample}\n\n${videoPollExample}`
+    code: `${videoTextSubmitExample}\n\n${videoImageSubmitExample}\n\n${videoReferenceSubmitExample}\n\n${videoPollExample}`
   },
   {
     title: '音频转写 / 语音合成',
-    code: `${audioTranscriptionExample}\n\n${audioSpeechExample}`
+    code: `${audioTranscriptionExample}
+
+${audioSpeechExample}
+
+${audioVoiceDesignExample}
+
+${audioVoiceCloneExample}`
   }
 ]
 </script>

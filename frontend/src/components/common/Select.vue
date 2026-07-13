@@ -7,7 +7,7 @@
       :disabled="disabled"
       :aria-expanded="isOpen"
       :aria-haspopup="true"
-      aria-label="Select option"
+      :aria-label="placeholderText"
       :class="[
         'select-trigger',
         isOpen && 'select-trigger-open',

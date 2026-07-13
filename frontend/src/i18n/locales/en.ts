@@ -287,6 +287,7 @@ export default {
     critical: 'Critical',
     warning: 'Warning',
     info: 'Info',
+    login: 'Login',
     active: 'Active',
     inactive: 'Inactive',
     more: 'More',
@@ -350,7 +351,7 @@ export default {
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     usage: 'Usage',
-    modelTest: 'Model Test',
+    modelTest: 'Online Experience',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
@@ -395,10 +396,10 @@ export default {
     riskControl: 'Risk Control',
   },
 
-  // Model Test
+  // Online Experience
   modelTest: {
-    title: 'Model Test',
-    description: 'Test streaming chat with your API key and selected model'
+    title: 'Online Experience',
+    description: 'Try selected generative models with your account balance, no API key required'
   },
 
   // Auth
@@ -429,6 +430,13 @@ export default {
     loginFailed: 'Login failed. Please check your credentials and try again.',
     errors: {
       USER_NOT_ACTIVE: 'Account has been disabled.',
+      INVALID_CREDENTIALS: 'Invalid email or password',
+      ACCOUNT_DISABLED: 'Account has been disabled',
+      UNAUTHORIZED: 'Please sign in first',
+      FORBIDDEN: 'You do not have permission for this action',
+      TOO_MANY_REQUESTS: 'Too many requests, please try again later',
+      NETWORK_ERROR: 'Network error, please check your connection',
+      UNKNOWN: 'Something went wrong, please try again later',
     },
     registrationFailed: 'Registration failed. Please try again.',
     emailSuffixNotAllowed: 'This email domain is not allowed for registration.',
