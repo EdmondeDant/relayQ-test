@@ -20,22 +20,17 @@ FROM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontend
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
 
 # Install dependencies first (better caching)
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN pnpm install --no-frozen-lockfile --ignore-scripts
+RUN pnpm config set fetch-retries 5 \
+    && pnpm config set fetch-timeout 120000 \
+    && pnpm install --no-frozen-lockfile --ignore-scripts
 
 # Copy frontend source and build
 COPY frontend/ ./
 RUN pnpm run build
-
-# -----------------------------------------------------------------------------
-# Stage 1.5: Prebuilt Frontend Dist Fallback
-# -----------------------------------------------------------------------------
-FROM ${ALPINE_IMAGE} AS frontend-dist
-WORKDIR /app/backend/internal/web/dist
-COPY backend/internal/web/dist/ ./
 
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder
@@ -64,8 +59,7 @@ RUN go mod download
 # Copy backend source first
 COPY backend/ ./
 
-# Copy frontend dist from prebuilt workspace snapshot first, then prefer freshly built dist when available
-COPY --from=frontend-dist /app/backend/internal/web/dist ./internal/web/dist
+# Copy frontend dist from previous stage (must be after backend copy to avoid being overwritten)
 COPY --from=frontend-builder /app/frontend/dist ./internal/web/dist
 
 # Build the binary (BuildType=release for CI builds, embed frontend)
