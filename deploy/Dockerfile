@@ -31,6 +31,13 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # -----------------------------------------------------------------------------
+# Stage 1.5: Prebuilt Frontend Dist Fallback
+# -----------------------------------------------------------------------------
+FROM ${ALPINE_IMAGE} AS frontend-dist
+WORKDIR /app/backend/internal/web/dist
+COPY backend/internal/web/dist/ ./
+
+# -----------------------------------------------------------------------------
 # Stage 2: Backend Builder
 # -----------------------------------------------------------------------------
 FROM ${GOLANG_IMAGE} AS backend-builder
@@ -57,8 +64,9 @@ RUN go mod download
 # Copy backend source first
 COPY backend/ ./
 
-# Copy frontend dist from previous stage (must be after backend copy to avoid being overwritten)
-COPY --from=frontend-builder /app/backend/internal/web/dist ./internal/web/dist
+# Copy frontend dist from prebuilt workspace snapshot first, then prefer freshly built dist when available
+COPY --from=frontend-dist /app/backend/internal/web/dist ./internal/web/dist
+COPY --from=frontend-builder /app/frontend/dist ./internal/web/dist
 
 # Build the binary (BuildType=release for CI builds, embed frontend)
 RUN CGO_ENABLED=0 GOOS=linux go build \
