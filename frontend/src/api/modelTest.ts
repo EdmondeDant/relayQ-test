@@ -226,7 +226,9 @@ export async function generatePlaygroundImage(options: {
 
   if (isGrokImagineModel(options.model)) {
     body.aspect_ratio = toGrokAspectRatio(options.size)
-    body.resolution = options.quality === 'high' ? '2k' : '1k'
+    body.resolution = options.quality === 'high'
+      ? (options.model === 'grok-imagine-image-quality' ? '4k' : '2k')
+      : '1k'
   } else {
     if (options.size) body.size = options.size
     if (options.quality) body.quality = options.quality
@@ -281,7 +283,9 @@ export async function editPlaygroundImage(options: {
 
   if (isGrokImagineModel(options.model)) {
     body.aspect_ratio = toGrokAspectRatio(options.size)
-    body.resolution = options.quality === 'high' ? '2k' : '1k'
+    body.resolution = options.quality === 'high'
+      ? (options.model === 'grok-imagine-image-quality' ? '4k' : '2k')
+      : '1k'
   } else {
     body.size = options.size || '1:1'
     if (options.quality) body.quality = options.quality

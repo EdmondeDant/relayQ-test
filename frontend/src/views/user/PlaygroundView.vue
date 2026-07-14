@@ -78,7 +78,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k），不支持 style/background。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k；不支持 style/background。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div>
@@ -161,7 +161,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k）。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div><label class="input-label">画质</label><Select v-model="imageQuality" :options="imageQualityOptions" /></div>
@@ -198,7 +198,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k）。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div><label class="input-label">画质</label><Select v-model="imageQuality" :options="imageQualityOptions" /></div>
@@ -438,10 +438,10 @@ const imageQualityOptions = [
   { value: 'medium', label: '中' },
   { value: 'high', label: '高' },
 ]
-// Grok 分辨率映射：UI 仍复用 imageQuality，high→2k，其他→1k
+// Grok 分辨率映射：UI 仍复用 imageQuality，medium→1k，high→普通模型 2k / quality 模型 4k
 const grokResolutionOptions = [
   { value: 'medium', label: '1k 标准' },
-  { value: 'high', label: '2k 高清' },
+  { value: 'high', label: '高画质（普通模型 2k / quality 模型 4k）' },
 ]
 const imageStyleOptions = [
   { value: 'natural', label: '自然 natural' },

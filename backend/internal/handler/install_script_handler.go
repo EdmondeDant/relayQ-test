@@ -36,6 +36,8 @@ func (h *InstallScriptHandler) HermesLinux(c *gin.Context) {
 
 func (h *InstallScriptHandler) buildOpenClawWindows(c *gin.Context) string {
 	baseURL := h.resolveBaseURL(c)
+	nodeDownloadURL := h.resolveScriptURL(c, "/downloads/nodejs-windows-x64-msi")
+	gitDownloadURL := h.resolveScriptURL(c, "/downloads/git-windows-x64-exe")
 	return fmt.Sprintf(`$ErrorActionPreference = 'Stop'
 
 $BaseUrl = if ($base_url) { $base_url } else { '%s' }
@@ -53,8 +55,65 @@ if ([string]::IsNullOrWhiteSpace($ModelName)) {
   Write-Error '请先正确选择模型，再生成安装命令。'
 }
 
+function Download-RelayQFile([string[]]$Urls, [string]$Destination) {
+  foreach ($url in $Urls) {
+    if ([string]::IsNullOrWhiteSpace($url)) { continue }
+    try {
+      if (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue) {
+        Start-BitsTransfer -Source $url -Destination $Destination -Priority Foreground -ErrorAction Stop
+        return $true
+      }
+    } catch {
+    }
+    try {
+      Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $Destination
+      return $true
+    } catch {
+      Write-Warning "下载失败：$url，原因：$($_.Exception.Message)"
+    }
+  }
+  return $false
+}
+
+function Ensure-NodeJsInstalled() {
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    return
+  }
+  $installer = Join-Path $env:TEMP 'relayq-nodejs-x64.msi'
+  if (-not (Download-RelayQFile @('%s', 'https://nodejs.org/dist/v24.15.0/node-v24.15.0-x64.msi') $installer)) {
+    Write-Error 'Node.js 下载失败，无法继续安装 OpenClaw。'
+  }
+  $process = Start-Process msiexec.exe -ArgumentList @('/i', $installer, '/qn', '/norestart') -PassThru -Wait
+  if ($process.ExitCode -ne 0) {
+    Write-Error "Node.js 安装失败，退出码：$($process.ExitCode)"
+  }
+  $env:Path = "$env:ProgramFiles\nodejs;$env:Path"
+}
+
+function Ensure-GitInstalled() {
+  if (Get-Command git -ErrorAction SilentlyContinue) {
+    return
+  }
+  $installer = Join-Path $env:TEMP 'relayq-git-x64.exe'
+  if (-not (Download-RelayQFile @('%s', 'https://github.com/git-for-windows/git/releases/download/v2.49.0.windows.1/Git-2.49.0-64-bit.exe') $installer)) {
+    Write-Error 'Git 下载失败，无法继续安装 OpenClaw。'
+  }
+  $process = Start-Process $installer -ArgumentList @('/VERYSILENT', '/NORESTART', '/NOCANCEL', '/SP-') -PassThru -Wait
+  if ($process.ExitCode -ne 0) {
+    Write-Error "Git 安装失败，退出码：$($process.ExitCode)"
+  }
+  $gitCmdDir = Join-Path $env:ProgramFiles 'Git\cmd'
+  if (Test-Path $gitCmdDir) {
+    $env:Path = "$gitCmdDir;$env:Path"
+  }
+}
+
 Write-Host ''
-Write-Host '[1/4] 安装 OpenClaw...' -ForegroundColor Cyan
+Write-Host '[1/5] 检查 Node.js / Git 依赖...' -ForegroundColor Cyan
+Ensure-NodeJsInstalled
+Ensure-GitInstalled
+
+Write-Host '[2/5] 安装 OpenClaw...' -ForegroundColor Cyan
 & ([scriptblock]::Create((iwr -useb https://openclaw.ai/install.ps1))) -NoOnboard
 
 $openclawCmd = Get-Command 'openclaw.cmd' -ErrorAction SilentlyContinue
@@ -69,7 +128,7 @@ if (-not $openclawCmd) {
 }
 $openclawBin = $openclawCmd.Source
 
-Write-Host '[2/4] 执行官方 onboarding...' -ForegroundColor Cyan
+Write-Host '[3/5] 执行官方 onboarding...' -ForegroundColor Cyan
 & $openclawBin onboard --non-interactive --accept-risk --flow quickstart --mode local --auth-choice custom-api-key --custom-base-url $BaseUrl --custom-model-id $ModelName --custom-api-key $ApiKey --secret-input-mode plaintext --custom-provider-id relayq --custom-compatibility openai --install-daemon
 $onboardExitCode = $LASTEXITCODE
 
@@ -111,7 +170,7 @@ if (-not (Test-Path $stateDbPath)) {
   Write-Error "OpenClaw 状态数据库不存在：$stateDbPath"
 }
 
-Write-Host '[3/4] 检查模型与 Gateway 状态...' -ForegroundColor Cyan
+Write-Host '[4/5] 检查模型与 Gateway 状态...' -ForegroundColor Cyan
 $modelsStatusOutput = (& $openclawBin models status 2>&1 | Out-String).Trim()
 if ($modelsStatusOutput) {
   Write-Host $modelsStatusOutput
@@ -121,14 +180,14 @@ if ($modelsStatusOutput -notmatch '(?m)^- relayq effective=') {
 }
 & $openclawBin gateway status
 
-Write-Host '[4/4] 打开 Control UI...' -ForegroundColor Cyan
+Write-Host '[5/5] 打开 Control UI...' -ForegroundColor Cyan
 & $openclawBin dashboard
 
 Write-Host '安装完成，浏览器已尝试自动打开 OpenClaw Control UI。' -ForegroundColor Green
 Write-Host 'PowerShell 下请优先运行 openclaw.cmd，避免执行策略拦截 openclaw.ps1。' -ForegroundColor Yellow
 Write-Host '以后直接执行：openclaw.cmd dashboard 或 openclaw.cmd gateway status' -ForegroundColor Yellow
 Write-Host '如果仍提示禁止运行脚本，可执行：Set-ExecutionPolicy -Scope CurrentUser RemoteSigned' -ForegroundColor DarkYellow
-`, psSingleQuote(baseURL))
+`, psSingleQuote(baseURL), psSingleQuote(nodeDownloadURL), psSingleQuote(gitDownloadURL))
 }
 
 func (h *InstallScriptHandler) buildOpenClawLinux(c *gin.Context) string {
@@ -213,6 +272,10 @@ echo "以后直接运行：openclaw dashboard 或 openclaw gateway status"
 }
 
 func (h *InstallScriptHandler) buildHermesWindows(c *gin.Context) string {
+	hermesInstallURL := h.resolveScriptURL(c, "/downloads/hermes-install-ps1")
+	hermesRepoZipURL := h.resolveScriptURL(c, "/downloads/hermes-repo-main-zip")
+	nodeDownloadURL := h.resolveScriptURL(c, "/downloads/nodejs-windows-x64-msi")
+	gitDownloadURL := h.resolveScriptURL(c, "/downloads/git-windows-x64-exe")
 	return fmt.Sprintf(`$ErrorActionPreference = 'Stop'
 
 $ApiKey = if ($env:HERMES_API_KEY) { "$env:HERMES_API_KEY".Trim() } else { '' }
@@ -312,14 +375,61 @@ function Download-RelayQFile([string]$Url, [string]$Destination) {
   Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Destination
 }
 
+function Download-RelayQFileWithFallback([string[]]$Urls, [string]$Destination) {
+  foreach ($url in $Urls) {
+    try {
+      Download-RelayQFile $url $Destination
+      return $true
+    } catch {
+      Write-Warning "下载失败：$url，原因：$($_.Exception.Message)"
+    }
+  }
+  return $false
+}
+
+function Ensure-NodeJsInstalled() {
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    return
+  }
+  $installer = Join-Path $env:TEMP 'relayq-nodejs-x64.msi'
+  if (-not (Download-RelayQFileWithFallback @('%s', 'https://nodejs.org/dist/v24.15.0/node-v24.15.0-x64.msi') $installer)) {
+    Write-Error 'Node.js 下载失败，无法继续安装 Hermes。'
+  }
+  $process = Start-Process msiexec.exe -ArgumentList @('/i', $installer, '/qn', '/norestart') -PassThru -Wait
+  if ($process.ExitCode -ne 0) {
+    Write-Error "Node.js 安装失败，退出码：$($process.ExitCode)"
+  }
+  $env:Path = "$env:ProgramFiles\nodejs;$env:Path"
+}
+
+function Ensure-GitInstalled() {
+  if (Get-Command git -ErrorAction SilentlyContinue) {
+    return
+  }
+  $installer = Join-Path $env:TEMP 'relayq-git-x64.exe'
+  if (-not (Download-RelayQFileWithFallback @('%s', 'https://github.com/git-for-windows/git/releases/download/v2.49.0.windows.1/Git-2.49.0-64-bit.exe') $installer)) {
+    Write-Error 'Git 下载失败，无法继续安装 Hermes。'
+  }
+  $process = Start-Process $installer -ArgumentList @('/VERYSILENT', '/NORESTART', '/NOCANCEL', '/SP-') -PassThru -Wait
+  if ($process.ExitCode -ne 0) {
+    Write-Error "Git 安装失败，退出码：$($process.ExitCode)"
+  }
+  $gitCmdDir = Join-Path $env:ProgramFiles 'Git\cmd'
+  if (Test-Path $gitCmdDir) {
+    $env:Path = "$gitCmdDir;$env:Path"
+  }
+}
+
 function Ensure-HermesRepositorySnapshot() {
   if (Test-Path (Join-Path $HermesInstallDir 'pyproject.toml')) {
     return
   }
-  $repoZipUrl = 'https://codeload.github.com/NousResearch/hermes-agent/zip/refs/heads/main'
+  $repoZipUrls = @('%s', 'https://codeload.github.com/NousResearch/hermes-agent/zip/refs/heads/main')
   $repoZip = Join-Path $env:TEMP "relayq-hermes-repo-$([Guid]::NewGuid().ToString('N')).zip"
   $repoExtractDir = Join-Path $env:TEMP "relayq-hermes-repo-$([Guid]::NewGuid().ToString('N'))"
-  Download-RelayQFile $repoZipUrl $repoZip
+  if (-not (Download-RelayQFileWithFallback $repoZipUrls $repoZip)) {
+    Write-Error 'Hermes 源码快照下载失败。'
+  }
   New-Item -ItemType Directory -Force -Path $repoExtractDir | Out-Null
   Expand-Archive -Path $repoZip -DestinationPath $repoExtractDir -Force
   $snapshotRoot = Get-ChildItem -Path $repoExtractDir -Directory | Select-Object -First 1
@@ -383,6 +493,7 @@ exit /b 0
 
 function Install-HermesWindowsNative() {
   $installerUrls = @(
+    '%s',
     'https://hermes-agent.nousresearch.com/install.ps1',
     'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1'
   )
@@ -486,12 +597,16 @@ function Test-ModelsEndpoint([switch]$Quiet) {
 }
 
 Write-Host ''
-Write-Step '[1/7] 安装前校验 RelayQ 接口...'
+Write-Step '[1/8] 安装前校验 RelayQ 接口...'
 if (-not (Test-ModelsEndpoint)) {
   Write-Error '安装已中止：请先修正 API Key、Base URL 或模型权限，再重新生成 Hermes 安装命令。'
 }
 
-Write-Step '[2/7] 安装 Hermes（原生 Windows）...'
+Write-Step '[2/8] 检查 Node.js / Git 依赖...'
+Ensure-NodeJsInstalled
+Ensure-GitInstalled
+
+Write-Step '[3/8] 安装 Hermes（原生 Windows）...'
 Ensure-HermesPortableFFmpeg
 Install-HermesWindowsNative
 Refresh-SessionPath
@@ -518,18 +633,18 @@ Update-DotEnv $EnvFile @{
   OPENAI_BASE_URL = $BaseUrl
 }
 
-Write-Step '[3/7] 写入 Hermes 配置...'
+Write-Step '[4/8] 写入 Hermes 配置...'
 Invoke-HermesChecked @('config', 'set', 'model.provider', 'custom') '设置 model.provider'
 Invoke-HermesChecked @('config', 'set', 'model.base_url', $BaseUrl) '设置 model.base_url'
 Invoke-HermesChecked @('config', 'set', 'model.default', $ModelName) '设置 model.default'
 Invoke-HermesChecked @('config', 'set', 'model.api_key', '${OPENAI_API_KEY}') '设置 model.api_key'
 
-Write-Step '[4/7] 再次验证 /models 接口...'
+Write-Step '[5/8] 再次验证 /models 接口...'
 if (-not (Test-ModelsEndpoint)) {
   Write-Error '配置写入后再次验证 /models 失败，请检查 Key 是否已变更或网关是否可用。'
 }
 
-Write-Step '[5/7] 检查配置目录...'
+Write-Step '[6/8] 检查配置目录...'
 if (-not (Test-Path $ConfigFile)) {
   Write-Error "Hermes 尚未生成 config.yaml：$ConfigFile"
 }
@@ -537,7 +652,7 @@ if (-not (Test-Path $EnvFile)) {
   Write-Error "Hermes 尚未生成 .env：$EnvFile"
 }
 
-Write-Step '[6/7] 运行 Hermes 自检...'
+Write-Step '[7/8] 运行 Hermes 自检...'
 & $HermesBin config check
 if ($LASTEXITCODE -ne 0) {
   Write-Warning 'Hermes config check 返回非零，继续执行 doctor 以输出更多排查信息。'
@@ -547,10 +662,10 @@ if ($LASTEXITCODE -ne 0) {
   Write-Warning 'Hermes doctor 返回非零，请关注上面的自检输出。'
 }
 
-Write-Step '[7/7] 直接启动 Hermes...'
+Write-Step '[8/8] 直接启动 Hermes...'
 Write-Host '说明：脚本已经提前做了接口校验、自检和配置备份；如果当前终端环境有兼容问题，可切换到 WSL2 方案。' -ForegroundColor Yellow
 & $HermesBin
-`, psSingleQuote(h.resolveBaseURL(c)))
+`, psSingleQuote(h.resolveBaseURL(c)), psSingleQuote(nodeDownloadURL), psSingleQuote(gitDownloadURL), psSingleQuote(hermesRepoZipURL), psSingleQuote(hermesInstallURL))
 }
 
 func (h *InstallScriptHandler) buildHermesLinux(c *gin.Context) string {

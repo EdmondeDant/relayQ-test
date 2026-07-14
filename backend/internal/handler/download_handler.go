@@ -220,7 +220,7 @@ func (h *DownloadHandler) validateAsset(asset DownloadAsset) error {
 	if filepath.Base(asset.FileName) != asset.FileName || !downloadFileNamePattern.MatchString(asset.FileName) {
 		return fmt.Errorf("invalid download filename")
 	}
-	if asset.SizeBytes <= 0 || asset.SizeBytes > maxDownloadFileSize {
+	if asset.SizeBytes < 0 || asset.SizeBytes > maxDownloadFileSize {
 		return fmt.Errorf("invalid download size")
 	}
 	if err := h.urlValidator(asset.SourceURL); err != nil {
@@ -640,5 +640,41 @@ var downloadCatalog = map[string]DownloadAsset{
 		FileName:      "node-v24.15.0-linux-arm64.tar.xz",
 		SizeBytes:     30108656,
 		SourceURL:     "https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-arm64.tar.xz",
+	},
+	"git-windows-x64-exe": {
+		Slug:          "git-windows-x64-exe",
+		Product:       "Git for Windows",
+		Title:         "Windows x64 Setup EXE",
+		Version:       "v2.49.0",
+		Platform:      "Windows",
+		Architecture:  "x64",
+		PackageFormat: "EXE",
+		FileName:      "Git-2.49.0-64-bit.exe",
+		SizeBytes:     0,
+		SourceURL:     "https://github.com/git-for-windows/git/releases/download/v2.49.0.windows.1/Git-2.49.0-64-bit.exe",
+	},
+	"hermes-install-ps1": {
+		Slug:          "hermes-install-ps1",
+		Product:       "Hermes",
+		Title:         "Windows Install Script",
+		Version:       "main",
+		Platform:      "Cross-platform",
+		Architecture:  "Any",
+		PackageFormat: "PS1",
+		FileName:      "hermes-install.ps1",
+		SizeBytes:     0,
+		SourceURL:     "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1",
+	},
+	"hermes-repo-main-zip": {
+		Slug:          "hermes-repo-main-zip",
+		Product:       "Hermes",
+		Title:         "Repository Snapshot",
+		Version:       "main",
+		Platform:      "Cross-platform",
+		Architecture:  "Any",
+		PackageFormat: "ZIP",
+		FileName:      "hermes-agent-main.zip",
+		SizeBytes:     0,
+		SourceURL:     "https://codeload.github.com/NousResearch/hermes-agent/zip/refs/heads/main",
 	},
 }

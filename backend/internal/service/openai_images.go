@@ -617,6 +617,8 @@ func normalizeXAIImageResolution(value string) string {
 		return "1k"
 	case "2k", "2K":
 		return "2k"
+	case "4k", "4K", "uhd":
+		return "4k"
 	default:
 		return strings.TrimSpace(value)
 	}
@@ -866,9 +868,13 @@ func buildOpenAIImagesForwardBody(body []byte, parsed *OpenAIImagesRequest, upst
 			}
 		}
 		if _, ok := payload["resolution"]; !ok || strings.TrimSpace(fmt.Sprint(payload["resolution"])) == "" {
-			// high 画质映射 2k，其余默认 1k
+			// quality 型号默认：quality 版 high→4k；普通版 high→2k；其余默认 1k
 			if strings.EqualFold(strings.TrimSpace(parsed.Quality), "high") {
-				payload["resolution"] = "2k"
+				if strings.EqualFold(strings.TrimSpace(upstreamModel), "grok-imagine-image-quality") {
+					payload["resolution"] = "4k"
+				} else {
+					payload["resolution"] = "2k"
+				}
 			} else {
 				payload["resolution"] = "1k"
 			}
