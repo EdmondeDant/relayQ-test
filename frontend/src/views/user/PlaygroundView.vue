@@ -1032,12 +1032,41 @@ async function loadCloudRecords() {
   cloudLoading.value = true
   try {
     const result = await playgroundCloudAPI.listRecords({ page_size: 10 })
-    cloudRecords.value = Array.isArray(result?.items) ? result.items : []
+    const items = Array.isArray(result?.items)
+      ? result.items
+      : (Array.isArray((result as any)?.data?.items) ? (result as any).data.items : [])
+    // 防御：列表接口不应再带大 content；前端再兜底裁掉 data:，避免 UI 被拖垮
+    cloudRecords.value = items.map((item: PlaygroundRecord) => ({
+      ...item,
+      assets: Array.isArray(item.assets)
+        ? item.assets.map((asset) => ({
+            ...asset,
+            content: asset?.kind === 'text'
+              ? asset.content
+              : (String(asset?.content || '').startsWith('data:') ? undefined : asset.content),
+          }))
+        : [],
+      primary_asset: item.primary_asset
+        ? {
+            ...item.primary_asset,
+            content: item.primary_asset.kind === 'text'
+              ? item.primary_asset.content
+              : (String(item.primary_asset.content || '').startsWith('data:') ? undefined : item.primary_asset.content),
+          }
+        : undefined,
+    }))
   } catch (cause) {
     // 列表失败不覆盖刚生成成功的结果提示；只清空列表并给出轻量错误
     cloudRecords.value = []
     console.error('加载创作记录失败', cause)
-    if (!error.value) handleError(cause, '加载创作记录失败。')
+    const message = cause instanceof Error
+      ? cause.message
+      : (typeof cause === 'object' && cause && 'message' in cause ? String((cause as any).message || '') : '')
+    if (!error.value) {
+      error.value = message && message !== '加载创作记录失败。'
+        ? `加载创作记录失败：${message}`
+        : '加载创作记录失败。'
+    }
   } finally {
     cloudLoading.value = false
   }

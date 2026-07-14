@@ -99,8 +99,16 @@ func (r *playgroundRepository) ListRecords(ctx context.Context, userID int64, pa
 						'task_id', a.task_id,
 						'kind', a.kind,
 						'title', a.title,
-						'content', COALESCE(a.content, ''),
-						'url', COALESCE(a.url, ''),
+						-- 列表禁止返回媒体大 content（历史 base64 可到数 MB）；text 保留短文本
+						'content', CASE
+							WHEN a.kind = 'text' THEN LEFT(COALESCE(a.content, ''), 32768)
+							ELSE ''
+						END,
+						'url', CASE
+							WHEN COALESCE(a.url, '') <> '' THEN a.url
+							WHEN COALESCE(a.storage_key, '') <> '' THEN '/api/v1/playground/assets/content/' || a.storage_key
+							ELSE ''
+						END,
 						'storage_key', COALESCE(a.storage_key, ''),
 						'content_type', COALESCE(a.content_type, ''),
 						'byte_size', a.byte_size,

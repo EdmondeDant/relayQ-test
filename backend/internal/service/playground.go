@@ -218,7 +218,48 @@ func (s *PlaygroundService) ListRecords(ctx context.Context, userID int64, param
 	if params.PageSize <= 0 || params.PageSize > PlaygroundRecordLimit {
 		params.PageSize = PlaygroundRecordLimit
 	}
-	return s.repo.ListRecords(ctx, userID, params, strings.TrimSpace(kind))
+	items, total, err := s.repo.ListRecords(ctx, userID, params, strings.TrimSpace(kind))
+	if err != nil {
+		return nil, 0, err
+	}
+	// 列表响应禁止带大 content（尤其历史图片 base64），只保留可引用 URL/storage_key。
+	for i := range items {
+		sanitizePlaygroundRecordAssets(&items[i])
+	}
+	return items, total, nil
+}
+
+func sanitizePlaygroundRecordAssets(record *PlaygroundRecord) {
+	if record == nil {
+		return
+	}
+	for i := range record.Assets {
+		sanitizePlaygroundAsset(&record.Assets[i])
+	}
+	if record.PrimaryAsset != nil {
+		sanitizePlaygroundAsset(record.PrimaryAsset)
+	}
+}
+
+func sanitizePlaygroundAsset(asset *PlaygroundAsset) {
+	if asset == nil {
+		return
+	}
+	kind := strings.TrimSpace(strings.ToLower(asset.Kind))
+	// text 可保留短文本；媒体大 content 一律剥离。
+	if kind == "text" {
+		if len(asset.Content) > 32*1024 {
+			asset.Content = asset.Content[:32*1024]
+		}
+		return
+	}
+	if strings.TrimSpace(asset.URL) == "" && strings.TrimSpace(asset.StorageKey) != "" {
+		asset.URL = buildPlaygroundAssetURL(asset.StorageKey)
+	}
+	// data: 或超长 content 不进入列表响应
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(asset.Content)), "data:") || len(asset.Content) > 256 {
+		asset.Content = ""
+	}
 }
 
 func (s *PlaygroundService) DeleteRecord(ctx context.Context, userID, id int64) error {

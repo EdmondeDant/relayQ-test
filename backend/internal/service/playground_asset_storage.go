@@ -34,16 +34,30 @@ func NewPlaygroundAssetStorage() *PlaygroundAssetStorage {
 }
 
 func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, input CreatePlaygroundAssetInput) (CreatePlaygroundAssetInput, error) {
-	if input.Kind != "audio" && input.Kind != "video" {
+	kind := strings.TrimSpace(strings.ToLower(input.Kind))
+	// image/audio/video 一律落盘；text 继续存 content。
+	if kind != "image" && kind != "audio" && kind != "video" {
 		return input, nil
 	}
 	if strings.TrimSpace(input.StorageKey) != "" {
+		// 已有 storage_key 时，列表侧只保留 content URL，避免大 content 回流。
+		if strings.TrimSpace(input.URL) == "" {
+			input.URL = buildPlaygroundAssetURL(input.StorageKey)
+		}
+		input.Content = ""
 		return input, nil
 	}
 	if data := strings.TrimSpace(input.Content); strings.HasPrefix(strings.ToLower(data), "data:") {
 		return s.persistDataURL(userID, input, data)
 	}
 	if rawURL := strings.TrimSpace(input.URL); rawURL != "" {
+		// 外部 http(s) 直链可直接保存；本机受保护路径再走下载。
+		if strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://") {
+			if !isLocalPlaygroundProtectedURL(rawURL) {
+				input.Content = ""
+				return input, nil
+			}
+		}
 		return s.persistRemoteURL(ctx, userID, input, rawURL)
 	}
 	return input, nil
@@ -66,8 +80,8 @@ func (s *PlaygroundAssetStorage) persistDataURL(userID int64, input CreatePlaygr
 	if err != nil {
 		return input, err
 	}
+	// 落盘后 content 清空，统一用 storage_key + url 引用，避免列表接口返回数 MB base64。
 	stored.Content = ""
-	stored.URL = ""
 	return stored, nil
 }
 

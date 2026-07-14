@@ -108,7 +108,11 @@ export const playgroundCloudAPI = {
   },
 
   async listRecords(params?: { page?: number; page_size?: number; kind?: string }): Promise<PaginatedResult<PlaygroundRecord>> {
-    return unwrapData(apiClient.get('/playground/records', { params }))
+    // 历史记录可能含大图，列表超时要更宽松；后端也会剥离大 content。
+    return unwrapData(apiClient.get('/playground/records', {
+      params,
+      timeout: 60000,
+    }))
   },
 
   async deleteRecord(id: number): Promise<void> {
