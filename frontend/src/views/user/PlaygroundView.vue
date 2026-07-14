@@ -1403,10 +1403,11 @@ async function submitVideo() {
     if (!result.requestId) throw new Error('视频任务未返回 request_id。')
     requestId.value = result.requestId
     videoStatus.value = result.status || 'queued'
-    videoUrl.value = result.videoUrl || ''
+    // 结果页也改成只认本地资产；远程 URL 先用于后台落盘，不直接喂给播放器。
+    videoUrl.value = ''
     lastBilling.value = result.billing
     const task = await playgroundCloudAPI.createTask({ kind: 'video', status: videoUrl.value ? 'succeeded' : 'submitted', model, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), duration: Number(videoDuration.value), aspect_ratio: videoAspectRatio.value, resolution: videoResolution.value, has_image: Boolean(videoImage.value), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, video_url: videoUrl.value || undefined, ...getExecutionMetadata() } }).catch(() => undefined)
-    // 仅当拿到 http(s) 直链时才落视频资产；blob: 与 content 代理地址不能无鉴权落库。
+    // 统一先下载到 RelayQ 本地，再通过 storage 资产展示/下载
     const persistable = String(videoUrl.value || '')
     if (task && /^https?:\/\//i.test(persistable)) {
       await playgroundCloudAPI.createAsset({
@@ -1415,7 +1416,7 @@ async function submitVideo() {
         title: 'AI 视频',
         url: persistable,
         content_type: 'video/mp4',
-        metadata: { request_id: requestId.value, ...getExecutionMetadata() },
+        metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
       }).catch(() => undefined)
     }
     void loadCloudRecords()
@@ -1438,7 +1439,6 @@ async function pollVideoOnce() {
         const task = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, video_url: videoUrl.value, ...getExecutionMetadata() } }).catch(() => undefined)
         taskId = task?.id
       }
-      // 仅持久化 http(s) 直链；blob: 与 /v1/videos/*/content 不能无鉴权落库。
       const persistable = String(videoUrl.value || '')
       if (taskId && /^https?:\/\//i.test(persistable)) {
         await playgroundCloudAPI.createAsset({
@@ -1447,10 +1447,15 @@ async function pollVideoOnce() {
           title: 'AI 视频',
           url: persistable,
           content_type: 'video/mp4',
-          metadata: { request_id: requestId.value, ...getExecutionMetadata() },
+          metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
         }).catch(() => undefined)
       }
       void loadCloudRecords()
+      // 本地资产写入后，从创作记录恢复预览，避免继续使用远程直链
+      setTimeout(() => {
+        const saved = cloudRecords.value.find((item) => item.request_id === requestId.value)
+        if (saved) void restoreRecord(saved)
+      }, 1200)
     } else if (!['failed', 'error'].includes(videoStatus.value.toLowerCase())) {
       scheduleVideoPoll()
     }

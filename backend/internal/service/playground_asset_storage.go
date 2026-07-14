@@ -40,7 +40,6 @@ func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, inpu
 		return input, nil
 	}
 	if strings.TrimSpace(input.StorageKey) != "" {
-		// 已有 storage_key 时，列表侧只保留 content URL，避免大 content 回流。
 		if strings.TrimSpace(input.URL) == "" {
 			input.URL = buildPlaygroundAssetURL(input.StorageKey)
 		}
@@ -51,13 +50,7 @@ func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, inpu
 		return s.persistDataURL(userID, input, data)
 	}
 	if rawURL := strings.TrimSpace(input.URL); rawURL != "" {
-		// 外部 http(s) 直链可直接保存；本机受保护路径再走下载。
-		if strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://") {
-			if !isLocalPlaygroundProtectedURL(rawURL) {
-				input.Content = ""
-				return input, nil
-			}
-		}
+		// 无论本地受保护地址还是外部 http(s) 直链，统一先下载到 RelayQ 本地再入库。
 		return s.persistRemoteURL(ctx, userID, input, rawURL)
 	}
 	return input, nil
