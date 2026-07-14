@@ -28,6 +28,7 @@ export interface PlaygroundAsset {
   created_at: string
   updated_at: string
   expires_at: string
+  _previewUrl?: string
 }
 
 export interface PlaygroundRecord {
@@ -44,6 +45,7 @@ export interface PlaygroundRecord {
   expires_at: string
   assets: PlaygroundAsset[]
   primary_asset?: PlaygroundAsset
+  _previewUrl?: string
 }
 
 export interface PaginatedResult<T> {

@@ -32,7 +32,7 @@
                 </div>
                 <button class="text-sm text-primary-600" type="button" @click="selectTool('history')">查看全部</button>
               </div>
-              <RecordList class="mt-4" :items="cloudRecords.slice(0, 6)" :loading="cloudLoading" :preview-map="recordPreviewUrls" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
+              <RecordList class="mt-4" :items="cloudRecords.slice(0, 6)" :loading="cloudLoading" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
             </section>
           </section>
 
@@ -262,7 +262,7 @@
               </div>
               <button class="btn btn-secondary btn-sm" :disabled="cloudLoading" @click="loadCloudRecords">刷新</button>
             </div>
-            <RecordList class="mt-5" :items="cloudRecords" :loading="cloudLoading" :preview-map="recordPreviewUrls" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
+            <RecordList class="mt-5" :items="cloudRecords" :loading="cloudLoading" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
           </section>
         </main>
       </div>
@@ -335,9 +335,6 @@ const translateSource = ref('自动识别')
 const translateTarget = ref('英文')
 const textResult = ref('')
 const cloudRecords = ref<PlaygroundRecord[]>([])
-// 受保护媒体（/api/v1/playground/assets/content/*）不能直接给 <img>/<audio>/<video>，
-// 浏览器不会自动带 Authorization；这里缓存成 blob: URL 供预览播放。
-const recordPreviewUrls = ref<Record<string, string>>({})
 const mediaBlobCache = new Map<string, string>()
 const cloudLoading = ref(false)
 const batchInputs = ref<BatchImageItem[]>([])
@@ -1039,12 +1036,14 @@ async function loadCloudRecords() {
     const items = Array.isArray(result?.items)
       ? result.items
       : (Array.isArray((result as any)?.data?.items) ? (result as any).data.items : [])
-    // 防御：列表接口不应再带大 content；前端再兜底裁掉 data:，避免 UI 被拖垮
+
     const normalized = items.map((item: PlaygroundRecord) => ({
       ...item,
+      _previewUrl: '',
       assets: Array.isArray(item.assets)
         ? item.assets.map((asset) => ({
             ...asset,
+            _previewUrl: '',
             content: asset?.kind === 'text'
               ? asset.content
               : (String(asset?.content || '').startsWith('data:') ? undefined : asset.content),
@@ -1053,17 +1052,17 @@ async function loadCloudRecords() {
       primary_asset: item.primary_asset
         ? {
             ...item.primary_asset,
+            _previewUrl: '',
             content: item.primary_asset.kind === 'text'
               ? item.primary_asset.content
               : (String(item.primary_asset.content || '').startsWith('data:') ? undefined : item.primary_asset.content),
           }
         : undefined,
     }))
+
     cloudRecords.value = normalized
-    // 异步把受保护媒体转成 blob 预览，不阻塞列表渲染
-    void hydrateRecordPreviews(normalized)
+    void hydrateRecordPreviews(cloudRecords.value)
   } catch (cause) {
-    // 列表失败不覆盖刚生成成功的结果提示；只清空列表并给出轻量错误
     cloudRecords.value = []
     console.error('加载创作记录失败', cause)
     const message = cause instanceof Error
@@ -1161,15 +1160,13 @@ function recordResultUrl(record: PlaygroundRecord) {
   return isPlayableMediaUrl(fallback) ? fallback : ''
 }
 
-function recordPreviewSrc(record: PlaygroundRecord, previewMap?: Record<string, string>) {
+function recordPreviewSrc(record: PlaygroundRecord) {
+  const direct = String(record._previewUrl || '').trim()
+  if (direct) return direct
   const raw = recordResultUrl(record)
   if (!raw) return ''
-  const map = previewMap || recordPreviewUrls.value
-  // 受保护 URL 在 blob 未就绪前不要直接塞给 <img>/<audio>，否则会先 401 且可能不刷新
-  if (isProtectedPlaygroundMediaUrl(raw)) {
-    return map[raw] || ''
-  }
-  return map[raw] || raw
+  if (isProtectedPlaygroundMediaUrl(raw)) return ''
+  return raw
 }
 
 async function resolveProtectedMediaUrl(rawUrl: string): Promise<string> {
@@ -1217,32 +1214,27 @@ async function hydrateRecordPreviews(records: PlaygroundRecord[]) {
   const jobs = records.map(async (record) => {
     const raw = recordResultUrl(record)
     if (!raw) return
-    if (recordPreviewUrls.value[raw] || mediaBlobCache.has(raw)) {
-      if (!recordPreviewUrls.value[raw] && mediaBlobCache.has(raw)) {
-        recordPreviewUrls.value = {
-          ...recordPreviewUrls.value,
-          [raw]: mediaBlobCache.get(raw) || '',
-        }
-      }
-      return
-    }
-    // 非受保护外链无需转换
-    if (!isProtectedPlaygroundMediaUrl(raw) && /^https?:\/\//i.test(raw)) {
-      recordPreviewUrls.value = { ...recordPreviewUrls.value, [raw]: raw }
-      return
-    }
+    if (String(record._previewUrl || '').trim()) return
+
     try {
-      const blobUrl = await resolveProtectedMediaUrl(raw)
-      // 逐条更新，确保 RecordList 通过 preview-map prop 立刻重渲染
-      recordPreviewUrls.value = {
-        ...recordPreviewUrls.value,
-        [raw]: blobUrl,
+      const resolved = await resolveProtectedMediaUrl(raw)
+      record._previewUrl = resolved
+      if (record.primary_asset) {
+        record.primary_asset._previewUrl = resolved
+      }
+      const mediaAsset = record.assets?.find((asset) => {
+        const assetUrl = stableAssetUrl(asset)
+        return assetUrl === raw || (asset.content && String(asset.content).startsWith('data:') && asset.content === raw)
+      })
+      if (mediaAsset) {
+        mediaAsset._previewUrl = resolved
       }
     } catch (cause) {
       console.warn('预览媒体加载失败', raw, cause)
     }
   })
   await Promise.all(jobs)
+  cloudRecords.value = [...cloudRecords.value]
 }
 
 function recordResultText(record: PlaygroundRecord) {
@@ -1503,7 +1495,6 @@ const RecordList = defineComponent({
   props: {
     items: { type: Array as () => PlaygroundRecord[], required: true },
     loading: Boolean,
-    previewMap: { type: Object as () => Record<string, string>, default: () => ({}) },
   },
   emits: ['restore', 'remove', 'download'],
   setup(props, { emit }) {
@@ -1513,7 +1504,7 @@ const RecordList = defineComponent({
       return h('div', { class: 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' }, props.items.map((item) => {
         const prompt = recordPrompt(item)
         const rawUrl = recordResultUrl(item)
-        const resultUrl = recordPreviewSrc(item, props.previewMap)
+        const resultUrl = recordPreviewSrc(item)
         const resultText = recordResultText(item)
         const isAudio = item.kind.includes('audio') || item.primary_asset?.kind === 'audio'
         const isVideo = item.kind === 'video' || item.primary_asset?.kind === 'video'
