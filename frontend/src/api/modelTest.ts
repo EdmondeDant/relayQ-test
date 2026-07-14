@@ -39,6 +39,20 @@ function buildVideoContentUrl(requestId: string): string {
   return value ? `${GATEWAY_BASE_URL}/v1/videos/${encodeURIComponent(value)}/content` : ''
 }
 
+function extractReadyVideoUrl(payload: any): string {
+  const candidates = [
+    payload?.video?.url,
+    payload?.output?.video?.url,
+    payload?.output_url,
+    payload?.url,
+  ]
+  for (const item of candidates) {
+    const value = String(item || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
 export interface PlaygroundAudioResult {
   requestId?: string
   billing?: PlaygroundBilling
@@ -226,9 +240,8 @@ export async function generatePlaygroundImage(options: {
 
   if (isGrokImagineModel(options.model)) {
     body.aspect_ratio = toGrokAspectRatio(options.size)
-    body.resolution = options.quality === 'high'
-      ? (options.model === 'grok-imagine-image-quality' ? '4k' : '2k')
-      : '1k'
+    // xAI 当前只接受 1k/2k；quality 模型的高画质由模型本身体现，high 统一走 2k
+    body.resolution = options.quality === 'high' ? '2k' : '1k'
   } else {
     if (options.size) body.size = options.size
     if (options.quality) body.quality = options.quality
@@ -283,9 +296,8 @@ export async function editPlaygroundImage(options: {
 
   if (isGrokImagineModel(options.model)) {
     body.aspect_ratio = toGrokAspectRatio(options.size)
-    body.resolution = options.quality === 'high'
-      ? (options.model === 'grok-imagine-image-quality' ? '4k' : '2k')
-      : '1k'
+    // xAI 当前只接受 1k/2k；quality 模型 high 统一走 2k
+    body.resolution = options.quality === 'high' ? '2k' : '1k'
   } else {
     body.size = options.size || '1:1'
     if (options.quality) body.quality = options.quality
@@ -340,11 +352,13 @@ export async function createPlaygroundVideo(options: {
   await ensureOk(response)
   const payload = await response.json()
   const requestId = payload.request_id || payload.id || ''
+  // 生成接口通常只返回任务 id；只有上游真返回可直链时才给 videoUrl。
+  // 不要默认塞 /v1/videos/{id}/content：浏览器 <video> 和创作记录落库都带不上 API Key，会 401。
   return {
     requestId,
     status: payload.status,
     progress: payload.progress,
-    videoUrl: requestId ? buildVideoContentUrl(requestId) : (payload.video?.url || ''),
+    videoUrl: extractReadyVideoUrl(payload),
     billing: payload.billing,
   }
 }
@@ -357,17 +371,44 @@ export async function getPlaygroundVideo(auth: PlaygroundAuthContext, requestId:
   await ensureOk(response)
   const payload = await response.json()
   const normalizedRequestId = requestId || payload.request_id || payload.id || ''
-  const isReady = Boolean(
-    payload?.video?.url ||
-    payload?.output?.video?.url ||
-    payload?.output_url ||
-    payload?.url,
-  )
+  const readyUrl = extractReadyVideoUrl(payload)
+  const status = String(payload.status || '').toLowerCase()
+  const isReady = Boolean(readyUrl) || ['completed', 'succeeded', 'ready', 'done'].includes(status)
+
+  let videoUrl = readyUrl
+  // 状态已完成但没有直链时：用鉴权拉取 /content（会 302 到 CDN 或直接返回视频流），再转成 blob URL 供 <video> 播放。
+  if (!videoUrl && isReady && normalizedRequestId) {
+    const contentResp = await fetch(buildVideoContentUrl(normalizedRequestId), {
+      headers: {
+        Authorization: `Bearer ${auth.apiKey}`,
+      },
+      signal,
+      redirect: 'follow',
+    })
+    if (contentResp.ok) {
+      const contentType = String(contentResp.headers.get('content-type') || '').toLowerCase()
+      if (contentType.includes('application/json')) {
+        // 兼容 content 接口仍返回 JSON 的情况
+        try {
+          const contentPayload = await contentResp.json()
+          videoUrl = extractReadyVideoUrl(contentPayload)
+        } catch {
+          videoUrl = ''
+        }
+      } else {
+        const blob = await contentResp.blob()
+        if (blob.size > 0) {
+          videoUrl = URL.createObjectURL(blob)
+        }
+      }
+    }
+  }
+
   return {
     requestId: normalizedRequestId,
     status: payload.status,
     progress: payload.progress,
-    videoUrl: isReady && normalizedRequestId ? buildVideoContentUrl(normalizedRequestId) : '',
+    videoUrl,
     billing: payload.billing,
   }
 }

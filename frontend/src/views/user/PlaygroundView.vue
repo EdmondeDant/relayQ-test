@@ -78,7 +78,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k；不支持 style/background。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k）。quality 模型负责更高画质，分辨率仍按 1k/2k 提交；不支持 style/background。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div>
@@ -161,7 +161,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k）。quality 模型负责更高画质，分辨率仍按 1k/2k 提交。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div><label class="input-label">画质</label><Select v-model="imageQuality" :options="imageQualityOptions" /></div>
@@ -198,7 +198,7 @@
               <div v-if="isGrokImagineSelected" class="mt-5">
                 <label class="input-label">分辨率</label>
                 <Select v-model="imageQuality" :options="grokResolutionOptions" />
-                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution。普通 grok-imagine-image 最高 2k，grok-imagine-image-quality 可到 4k。</p>
+                <p class="mt-2 text-xs text-gray-500">Grok Imagine 使用 aspect_ratio + resolution（1k/2k）。quality 模型负责更高画质，分辨率仍按 1k/2k 提交。</p>
               </div>
               <div v-else class="mt-5 grid grid-cols-3 gap-3">
                 <div><label class="input-label">画质</label><Select v-model="imageQuality" :options="imageQualityOptions" /></div>
@@ -438,10 +438,10 @@ const imageQualityOptions = [
   { value: 'medium', label: '中' },
   { value: 'high', label: '高' },
 ]
-// Grok 分辨率映射：UI 仍复用 imageQuality，medium→1k，high→普通模型 2k / quality 模型 4k
+// Grok 分辨率映射：UI 仍复用 imageQuality，medium→1k，high→2k（xAI 当前仅支持 1k/2k）
 const grokResolutionOptions = [
   { value: 'medium', label: '1k 标准' },
-  { value: 'high', label: '高画质（普通模型 2k / quality 模型 4k）' },
+  { value: 'high', label: '2k 高清' },
 ]
 const imageStyleOptions = [
   { value: 'natural', label: '自然 natural' },
@@ -1034,8 +1034,10 @@ async function loadCloudRecords() {
     const result = await playgroundCloudAPI.listRecords({ page_size: 10 })
     cloudRecords.value = Array.isArray(result?.items) ? result.items : []
   } catch (cause) {
+    // 列表失败不覆盖刚生成成功的结果提示；只清空列表并给出轻量错误
     cloudRecords.value = []
-    handleError(cause, '加载创作记录失败。')
+    console.error('加载创作记录失败', cause)
+    if (!error.value) handleError(cause, '加载创作记录失败。')
   } finally {
     cloudLoading.value = false
   }
@@ -1257,7 +1259,18 @@ async function submitVideo() {
     videoUrl.value = result.videoUrl || ''
     lastBilling.value = result.billing
     const task = await playgroundCloudAPI.createTask({ kind: 'video', status: videoUrl.value ? 'succeeded' : 'submitted', model, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), duration: Number(videoDuration.value), aspect_ratio: videoAspectRatio.value, resolution: videoResolution.value, has_image: Boolean(videoImage.value), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, video_url: videoUrl.value || undefined, ...getExecutionMetadata() } }).catch(() => undefined)
-    if (task && videoUrl.value) await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'video' as any, title: 'AI 视频', url: videoUrl.value, content_type: 'video/mp4', metadata: { request_id: requestId.value, ...getExecutionMetadata() } }).catch(() => undefined)
+    // 仅当拿到 http(s) 直链时才落视频资产；blob: 与 content 代理地址不能无鉴权落库。
+    const persistable = String(videoUrl.value || '')
+    if (task && /^https?:\/\//i.test(persistable)) {
+      await playgroundCloudAPI.createAsset({
+        task_id: task.id,
+        kind: 'video' as any,
+        title: 'AI 视频',
+        url: persistable,
+        content_type: 'video/mp4',
+        metadata: { request_id: requestId.value, ...getExecutionMetadata() },
+      }).catch(() => undefined)
+    }
     void loadCloudRecords()
     if (!videoUrl.value) scheduleVideoPoll()
   } catch (cause) { handleError(cause, '视频体验组尚未配置或任务提交失败。') } finally { endRequest() }
@@ -1278,7 +1291,18 @@ async function pollVideoOnce() {
         const task = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, video_url: videoUrl.value, ...getExecutionMetadata() } }).catch(() => undefined)
         taskId = task?.id
       }
-      if (taskId) await playgroundCloudAPI.createAsset({ task_id: taskId, kind: 'video' as any, title: 'AI 视频', url: videoUrl.value, content_type: 'video/mp4', metadata: { request_id: requestId.value, ...getExecutionMetadata() } }).catch(() => undefined)
+      // 仅持久化 http(s) 直链；blob: 与 /v1/videos/*/content 不能无鉴权落库。
+      const persistable = String(videoUrl.value || '')
+      if (taskId && /^https?:\/\//i.test(persistable)) {
+        await playgroundCloudAPI.createAsset({
+          task_id: taskId,
+          kind: 'video' as any,
+          title: 'AI 视频',
+          url: persistable,
+          content_type: 'video/mp4',
+          metadata: { request_id: requestId.value, ...getExecutionMetadata() },
+        }).catch(() => undefined)
+      }
       void loadCloudRecords()
     } else if (!['failed', 'error'].includes(videoStatus.value.toLowerCase())) {
       scheduleVideoPoll()

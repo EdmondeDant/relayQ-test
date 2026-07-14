@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
@@ -76,11 +77,32 @@ func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID in
 	if err != nil {
 		return input, fmt.Errorf("build asset request: %w", err)
 	}
+	// 本机受保护资源（如 /v1/videos/{id}/content）需要网关 API Key；前端可放在 metadata.auth_token。
+	if token := playgroundAssetAuthToken(input); token != "" && isLocalPlaygroundProtectedURL(resolvedURL) {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return input, fmt.Errorf("download asset: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	// 兼容 /content 代理返回 302 到真实 CDN 的场景。
+	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently || resp.StatusCode == http.StatusTemporaryRedirect || resp.StatusCode == http.StatusPermanentRedirect {
+		location := strings.TrimSpace(resp.Header.Get("Location"))
+		_ = resp.Body.Close()
+		if location == "" {
+			return input, fmt.Errorf("download asset: redirect without location")
+		}
+		redirectReq, redirectErr := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
+		if redirectErr != nil {
+			return input, fmt.Errorf("build asset redirect request: %w", redirectErr)
+		}
+		resp, err = s.httpClient.Do(redirectReq)
+		if err != nil {
+			return input, fmt.Errorf("download asset redirect: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if resp.StatusCode != http.StatusOK {
 		return input, fmt.Errorf("download asset: unexpected status %d", resp.StatusCode)
 	}
@@ -209,6 +231,37 @@ func resolvePlaygroundAssetURL(raw string) string {
 		return "http://127.0.0.1:8080" + trimmed
 	}
 	return trimmed
+}
+
+func playgroundAssetAuthToken(input CreatePlaygroundAssetInput) string {
+	if len(input.Metadata) == 0 {
+		return ""
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(input.Metadata, &meta); err != nil {
+		return ""
+	}
+	for _, key := range []string{"auth_token", "api_key", "bearer_token"} {
+		if value, ok := meta[key]; ok {
+			if token := strings.TrimSpace(fmt.Sprint(value)); token != "" {
+				return token
+			}
+		}
+	}
+	return ""
+}
+
+func isLocalPlaygroundProtectedURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+	if host != "127.0.0.1" && host != "localhost" {
+		return false
+	}
+	path := u.EscapedPath()
+	return strings.HasPrefix(path, "/v1/videos/") || strings.HasPrefix(path, "/api/v1/playground/assets/content/")
 }
 
 func playgroundDataDir() string {

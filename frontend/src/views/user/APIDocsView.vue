@@ -76,7 +76,7 @@
           </div>
         </div>
         <div class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100">
-          只在 agent / SDK 只支持 `chat/completions` 时使用。模型名必须是 `grok-imagine-image*`。支持参数：`n`、`aspect_ratio/aspectRatio`、`resolution`（普通模型 1k/2k，`grok-imagine-image-quality` 可到 4k）、`quality`、`user`，也可放在 `image_options`、`providerOptions.xai` 或 `provider_options.xai` 中。
+          只在 agent / SDK 只支持 `chat/completions` 时使用。模型名必须是 `grok-imagine-image*`。支持参数：`n`、`aspect_ratio/aspectRatio`、`resolution`（1k/2k，更高值会回落到 2k）、`quality`、`user`，也可放在 `image_options`、`providerOptions.xai` 或 `provider_options.xai` 中。
         </div>
       </section>
 
