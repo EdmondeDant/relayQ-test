@@ -184,10 +184,29 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 		response.ErrorFrom(c, statErr)
 		return
 	}
-	if asset.ContentType != "" {
-		c.Header("Content-Type", asset.ContentType)
+	contentType := strings.TrimSpace(asset.ContentType)
+	if contentType == "" {
+		switch {
+		case strings.HasSuffix(strings.ToLower(storageKey), ".png"):
+			contentType = "image/png"
+		case strings.HasSuffix(strings.ToLower(storageKey), ".jpg"), strings.HasSuffix(strings.ToLower(storageKey), ".jpeg"), strings.HasSuffix(strings.ToLower(storageKey), ".jfif"):
+			contentType = "image/jpeg"
+		case strings.HasSuffix(strings.ToLower(storageKey), ".webp"):
+			contentType = "image/webp"
+		case strings.HasSuffix(strings.ToLower(storageKey), ".wav"):
+			contentType = "audio/wav"
+		case strings.HasSuffix(strings.ToLower(storageKey), ".mp3"):
+			contentType = "audio/mpeg"
+		case strings.HasSuffix(strings.ToLower(storageKey), ".mp4"):
+			contentType = "video/mp4"
+		default:
+			contentType = "application/octet-stream"
+		}
 	}
+	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "private, max-age=86400")
+	c.Header("X-Content-Type-Options", "nosniff")
+	// 支持 Range，方便 audio/video 拖动进度
 	c.File(path)
 }
 func (h *PlaygroundHandler) DeleteAsset(c *gin.Context) {

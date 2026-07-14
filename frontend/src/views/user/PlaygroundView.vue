@@ -32,7 +32,7 @@
                 </div>
                 <button class="text-sm text-primary-600" type="button" @click="selectTool('history')">查看全部</button>
               </div>
-              <RecordList class="mt-4" :items="cloudRecords.slice(0, 6)" :loading="cloudLoading" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
+              <RecordList class="mt-4" :items="cloudRecords.slice(0, 6)" :loading="cloudLoading" :preview-map="recordPreviewUrls" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
             </section>
           </section>
 
@@ -262,7 +262,7 @@
               </div>
               <button class="btn btn-secondary btn-sm" :disabled="cloudLoading" @click="loadCloudRecords">刷新</button>
             </div>
-            <RecordList class="mt-5" :items="cloudRecords" :loading="cloudLoading" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
+            <RecordList class="mt-5" :items="cloudRecords" :loading="cloudLoading" :preview-map="recordPreviewUrls" @restore="restoreRecord" @remove="removeRecord" @download="downloadRecord" />
           </section>
         </main>
       </div>
@@ -1161,10 +1161,15 @@ function recordResultUrl(record: PlaygroundRecord) {
   return isPlayableMediaUrl(fallback) ? fallback : ''
 }
 
-function recordPreviewSrc(record: PlaygroundRecord) {
+function recordPreviewSrc(record: PlaygroundRecord, previewMap?: Record<string, string>) {
   const raw = recordResultUrl(record)
   if (!raw) return ''
-  return recordPreviewUrls.value[raw] || raw
+  const map = previewMap || recordPreviewUrls.value
+  // 受保护 URL 在 blob 未就绪前不要直接塞给 <img>/<audio>，否则会先 401 且可能不刷新
+  if (isProtectedPlaygroundMediaUrl(raw)) {
+    return map[raw] || ''
+  }
+  return map[raw] || raw
 }
 
 async function resolveProtectedMediaUrl(rawUrl: string): Promise<string> {
@@ -1179,38 +1184,65 @@ async function resolveProtectedMediaUrl(rawUrl: string): Promise<string> {
   }
 
   const token = localStorage.getItem('auth_token') || ''
+  if (!token) {
+    throw new Error('未登录，无法加载创作媒体')
+  }
   const response = await fetch(value, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    credentials: 'include',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: '*/*',
+    },
+    credentials: 'same-origin',
+    cache: 'no-store',
   })
   if (!response.ok) {
     throw new Error(`媒体资源加载失败（${response.status}）`)
   }
-  const blob = await response.blob()
-  if (!blob || blob.size <= 0) {
+  const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim()
+  const buffer = await response.arrayBuffer()
+  if (!buffer || buffer.byteLength <= 0) {
     throw new Error('媒体资源为空')
   }
+  // 强制带正确 MIME，避免某些浏览器把 wav/jpeg 当 application/octet-stream 无法播放
+  const blob = contentType
+    ? new Blob([buffer], { type: contentType })
+    : new Blob([buffer])
   const blobUrl = URL.createObjectURL(blob)
   mediaBlobCache.set(value, blobUrl)
   return blobUrl
 }
 
 async function hydrateRecordPreviews(records: PlaygroundRecord[]) {
-  const next: Record<string, string> = { ...recordPreviewUrls.value }
   const jobs = records.map(async (record) => {
     const raw = recordResultUrl(record)
-    if (!raw || next[raw]) return
+    if (!raw) return
+    if (recordPreviewUrls.value[raw] || mediaBlobCache.has(raw)) {
+      if (!recordPreviewUrls.value[raw] && mediaBlobCache.has(raw)) {
+        recordPreviewUrls.value = {
+          ...recordPreviewUrls.value,
+          [raw]: mediaBlobCache.get(raw) || '',
+        }
+      }
+      return
+    }
+    // 非受保护外链无需转换
+    if (!isProtectedPlaygroundMediaUrl(raw) && /^https?:\/\//i.test(raw)) {
+      recordPreviewUrls.value = { ...recordPreviewUrls.value, [raw]: raw }
+      return
+    }
     try {
-      next[raw] = await resolveProtectedMediaUrl(raw)
+      const blobUrl = await resolveProtectedMediaUrl(raw)
+      // 逐条更新，确保 RecordList 通过 preview-map prop 立刻重渲染
+      recordPreviewUrls.value = {
+        ...recordPreviewUrls.value,
+        [raw]: blobUrl,
+      }
     } catch (cause) {
       console.warn('预览媒体加载失败', raw, cause)
-      // 保底仍放原 URL，至少下载链路可尝试
-      next[raw] = raw
     }
   })
   await Promise.all(jobs)
-  recordPreviewUrls.value = next
 }
 
 function recordResultText(record: PlaygroundRecord) {
@@ -1471,6 +1503,7 @@ const RecordList = defineComponent({
   props: {
     items: { type: Array as () => PlaygroundRecord[], required: true },
     loading: Boolean,
+    previewMap: { type: Object as () => Record<string, string>, default: () => ({}) },
   },
   emits: ['restore', 'remove', 'download'],
   setup(props, { emit }) {
@@ -1480,19 +1513,22 @@ const RecordList = defineComponent({
       return h('div', { class: 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' }, props.items.map((item) => {
         const prompt = recordPrompt(item)
         const rawUrl = recordResultUrl(item)
-        const resultUrl = recordPreviewSrc(item)
+        const resultUrl = recordPreviewSrc(item, props.previewMap)
         const resultText = recordResultText(item)
         const isAudio = item.kind.includes('audio') || item.primary_asset?.kind === 'audio'
         const isVideo = item.kind === 'video' || item.primary_asset?.kind === 'video'
+        const waitingProtected = Boolean(rawUrl && isProtectedPlaygroundMediaUrl(rawUrl) && !resultUrl)
         const mediaPreview = resultUrl
           ? (isAudio
-            ? h('audio', { class: 'mt-3 w-full', src: resultUrl, controls: true, preload: 'metadata' })
+            ? h('audio', { key: resultUrl, class: 'mt-3 w-full', src: resultUrl, controls: true, preload: 'auto' })
             : isVideo
-              ? h('video', { class: 'mt-3 max-h-40 w-full rounded object-cover bg-black', src: resultUrl, controls: true, preload: 'metadata' })
-              : h('img', { class: 'mt-3 h-40 w-full rounded object-cover bg-gray-50 dark:bg-dark-800', src: resultUrl, alt: taskKindLabel(item.kind) }))
-          : resultText
-            ? h('pre', { class: 'mt-3 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-dark-300' }, resultText)
-            : h('p', { class: 'mt-3 line-clamp-2 text-sm text-gray-600 dark:text-dark-300' }, prompt || '暂无可预览内容')
+              ? h('video', { key: resultUrl, class: 'mt-3 max-h-40 w-full rounded object-cover bg-black', src: resultUrl, controls: true, preload: 'metadata' })
+              : h('img', { key: resultUrl, class: 'mt-3 h-40 w-full rounded object-cover bg-gray-50 dark:bg-dark-800', src: resultUrl, alt: taskKindLabel(item.kind) }))
+          : waitingProtected
+            ? h('div', { class: 'mt-3 flex h-24 items-center justify-center rounded bg-gray-50 text-xs text-gray-500 dark:bg-dark-800' }, '媒体加载中…')
+            : resultText
+              ? h('pre', { class: 'mt-3 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-dark-300' }, resultText)
+              : h('p', { class: 'mt-3 line-clamp-2 text-sm text-gray-600 dark:text-dark-300' }, prompt || '暂无可预览内容')
         return h('div', { class: 'rounded-lg border border-gray-200 p-4 dark:border-dark-700' }, [
           h('div', { class: 'flex items-start justify-between gap-3' }, [
             h('div', [
