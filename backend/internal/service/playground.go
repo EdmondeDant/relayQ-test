@@ -93,6 +93,7 @@ const PlaygroundRecordLimit = 10
 type PlaygroundRepository interface {
 	CreateTask(context.Context, int64, CreatePlaygroundTaskInput) (*PlaygroundTask, error)
 	ListTasks(context.Context, int64, pagination.PaginationParams, string) ([]PlaygroundTask, int64, error)
+	ListRecords(context.Context, int64, pagination.PaginationParams, string) ([]PlaygroundRecord, int64, error)
 	GetTask(context.Context, int64, int64) (*PlaygroundTask, error)
 	CancelTask(context.Context, int64, int64) error
 	DeleteTask(context.Context, int64, int64) error
@@ -106,12 +107,13 @@ type PlaygroundRepository interface {
 }
 
 type PlaygroundService struct {
-	repo   PlaygroundRepository
-	stopCh chan struct{}
+	repo    PlaygroundRepository
+	storage *PlaygroundAssetStorage
+	stopCh  chan struct{}
 }
 
 func NewPlaygroundService(repo PlaygroundRepository) *PlaygroundService {
-	s := &PlaygroundService{repo: repo, stopCh: make(chan struct{})}
+	s := &PlaygroundService{repo: repo, storage: NewPlaygroundAssetStorage(), stopCh: make(chan struct{})}
 	s.Start()
 	return s
 }
@@ -187,7 +189,11 @@ func (s *PlaygroundService) CreateAsset(ctx context.Context, userID int64, input
 	if len(input.Metadata) == 0 {
 		input.Metadata = json.RawMessage(`{}`)
 	}
-	item, err := s.repo.CreateAsset(ctx, userID, input)
+	persisted, err := s.storage.Persist(ctx, userID, input)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.repo.CreateAsset(ctx, userID, persisted)
 	if err != nil {
 		return nil, err
 	}
@@ -212,52 +218,7 @@ func (s *PlaygroundService) ListRecords(ctx context.Context, userID int64, param
 	if params.PageSize <= 0 || params.PageSize > PlaygroundRecordLimit {
 		params.PageSize = PlaygroundRecordLimit
 	}
-	tasks, total, err := s.repo.ListTasks(ctx, userID, params, strings.TrimSpace(kind))
-	if err != nil {
-		return nil, 0, err
-	}
-	if len(tasks) == 0 {
-		return []PlaygroundRecord{}, total, nil
-	}
-	ids := make([]int64, 0, len(tasks))
-	for _, task := range tasks {
-		ids = append(ids, task.ID)
-	}
-	assets, err := s.repo.ListAssetsByTaskIDs(ctx, userID, ids)
-	if err != nil {
-		return nil, 0, err
-	}
-	assetsByTask := map[int64][]PlaygroundAsset{}
-	for _, asset := range assets {
-		if asset.TaskID == nil {
-			continue
-		}
-		assetsByTask[*asset.TaskID] = append(assetsByTask[*asset.TaskID], asset)
-	}
-	records := make([]PlaygroundRecord, 0, len(tasks))
-	for _, task := range tasks {
-		taskAssets := assetsByTask[task.ID]
-		if taskAssets == nil {
-			taskAssets = []PlaygroundAsset{}
-		}
-		record := PlaygroundRecord{
-			ID:             task.ID,
-			Kind:           task.Kind,
-			Status:         task.Status,
-			Model:          task.Model,
-			RequestID:      task.RequestID,
-			RequestPayload: task.RequestPayload,
-			ResultPayload:  task.ResultPayload,
-			ErrorMessage:   task.ErrorMessage,
-			CreatedAt:      task.CreatedAt,
-			UpdatedAt:      task.UpdatedAt,
-			ExpiresAt:      task.ExpiresAt,
-			Assets:         taskAssets,
-			PrimaryAsset:   pickPrimaryAsset(taskAssets),
-		}
-		records = append(records, record)
-	}
-	return records, total, nil
+	return s.repo.ListRecords(ctx, userID, params, strings.TrimSpace(kind))
 }
 
 func (s *PlaygroundService) DeleteRecord(ctx context.Context, userID, id int64) error {

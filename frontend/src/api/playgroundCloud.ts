@@ -21,7 +21,9 @@ export interface PlaygroundAsset {
   title: string
   content?: string
   url?: string
+  storage_key?: string
   content_type?: string
+  byte_size?: number
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string

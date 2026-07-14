@@ -1090,20 +1090,26 @@ function recordPrompt(record: PlaygroundRecord) {
 
 function isPlayableMediaUrl(url: string) {
   const value = String(url || '').trim()
-  if (!value) return false
-  // 浏览器直连临时图床常 502/超时（xAI、Azure、外联 codesonline 签名链），旧记录不再尝试加载。
-  if (/imgen\.x\.ai|vidgen\.x\.ai|xai-imgen|xai-vidgen|oaidalleapiprodscus|blob\.core\.windows\.net|image\.codesonline\.dev|codesonline\.dev\/p\/img/i.test(value)) return false
-  return true
+  return Boolean(value)
+}
+
+function stableAssetUrl(asset: PlaygroundRecord['primary_asset'] | PlaygroundRecord['assets'][number] | undefined) {
+  const value = String(asset?.url || '').trim()
+  if (!value) return ''
+  if (value.startsWith('/')) return value
+  return value
 }
 
 function recordResultUrl(record: PlaygroundRecord) {
   const payload = normalizeRecord(record.result_payload)
   const primary = record.primary_asset
   if (primary?.content && String(primary.content).startsWith('data:')) return primary.content
-  if (primary?.url && isPlayableMediaUrl(primary.url)) return primary.url
-  const media = record.assets?.find((asset) => (asset.content && String(asset.content).startsWith('data:')) || (asset.url && isPlayableMediaUrl(asset.url)))
+  const primaryUrl = stableAssetUrl(primary)
+  if (primaryUrl && isPlayableMediaUrl(primaryUrl)) return primaryUrl
+  const media = record.assets?.find((asset) => (asset.content && String(asset.content).startsWith('data:')) || Boolean(stableAssetUrl(asset)))
   if (media?.content && String(media.content).startsWith('data:')) return media.content
-  if (media?.url && isPlayableMediaUrl(media.url)) return media.url
+  const mediaUrl = stableAssetUrl(media)
+  if (mediaUrl && isPlayableMediaUrl(mediaUrl)) return mediaUrl
   const fallback = String(payload.url || payload.audio_url || payload.video_url || '')
   return isPlayableMediaUrl(fallback) ? fallback : ''
 }

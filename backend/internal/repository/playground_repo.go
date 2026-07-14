@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -65,6 +66,176 @@ func (r *playgroundRepository) ListTasks(ctx context.Context, userID int64, para
 
 func (r *playgroundRepository) GetTask(ctx context.Context, userID, id int64) (*service.PlaygroundTask, error) {
 	return scanPlaygroundTask(r.db.QueryRowContext(ctx, `SELECT id,user_id,kind,status,model,COALESCE(request_id,''),request_payload,result_payload,COALESCE(error_message,''),started_at,completed_at,created_at,updated_at,expires_at FROM playground_tasks WHERE id=$1 AND user_id=$2 AND expires_at>NOW()`, id, userID))
+}
+
+func (r *playgroundRepository) ListRecords(ctx context.Context, userID int64, params pagination.PaginationParams, kind string) ([]service.PlaygroundRecord, int64, error) {
+	where, args := "t.user_id=$1 AND t.expires_at>NOW()", []any{userID}
+	if kind != "" {
+		where += " AND t.kind=$2"
+		args = append(args, kind)
+	}
+	var total int64
+	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM playground_tasks t WHERE "+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	args = append(args, params.Limit(), params.Offset())
+	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
+		SELECT
+			t.id,
+			t.kind,
+			t.status,
+			t.model,
+			COALESCE(t.request_id, ''),
+			t.request_payload,
+			t.result_payload,
+			COALESCE(t.error_message, ''),
+			t.created_at,
+			t.updated_at,
+			t.expires_at,
+			COALESCE(
+				json_agg(
+					json_build_object(
+						'id', a.id,
+						'task_id', a.task_id,
+						'kind', a.kind,
+						'title', a.title,
+						'content', COALESCE(a.content, ''),
+						'url', COALESCE(a.url, ''),
+						'storage_key', COALESCE(a.storage_key, ''),
+						'content_type', COALESCE(a.content_type, ''),
+						'byte_size', a.byte_size,
+						'metadata', a.metadata,
+						'created_at', a.created_at,
+						'updated_at', a.updated_at,
+						'expires_at', a.expires_at
+					)
+					ORDER BY a.created_at DESC, a.id DESC
+				) FILTER (WHERE a.id IS NOT NULL),
+				'[]'::json
+			)
+		FROM playground_tasks t
+		LEFT JOIN playground_assets a ON a.task_id = t.id AND a.user_id = t.user_id AND a.expires_at > NOW()
+		WHERE %s
+		GROUP BY t.id
+		ORDER BY t.created_at DESC, t.id DESC
+		LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args)), args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	items := make([]service.PlaygroundRecord, 0)
+	for rows.Next() {
+		var item service.PlaygroundRecord
+		var requestPayload, resultPayload, assetsJSON []byte
+		if err := rows.Scan(
+			&item.ID,
+			&item.Kind,
+			&item.Status,
+			&item.Model,
+			&item.RequestID,
+			&requestPayload,
+			&resultPayload,
+			&item.ErrorMessage,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.ExpiresAt,
+			&assetsJSON,
+		); err != nil {
+			return nil, 0, err
+		}
+		item.RequestPayload = json.RawMessage(requestPayload)
+		item.ResultPayload = json.RawMessage(resultPayload)
+		if len(assetsJSON) == 0 {
+			assetsJSON = []byte("[]")
+		}
+		if err := decodePlaygroundRecordAssets(assetsJSON, &item.Assets); err != nil {
+			return nil, 0, err
+		}
+		item.PrimaryAsset = pickPrimaryPlaygroundAsset(item.Assets)
+		items = append(items, item)
+	}
+	return items, total, rows.Err()
+}
+
+func decodePlaygroundRecordAssets(raw []byte, dest *[]service.PlaygroundAsset) error {
+	var payloads []struct {
+		ID          int64           `json:"id"`
+		TaskID      *int64          `json:"task_id"`
+		Kind        string          `json:"kind"`
+		Title       string          `json:"title"`
+		Content     string          `json:"content"`
+		URL         string          `json:"url"`
+		StorageKey  string          `json:"storage_key"`
+		ContentType string          `json:"content_type"`
+		ByteSize    *int64          `json:"byte_size"`
+		Metadata    json.RawMessage `json:"metadata"`
+		CreatedAt   string          `json:"created_at"`
+		UpdatedAt   string          `json:"updated_at"`
+		ExpiresAt   string          `json:"expires_at"`
+	}
+	if err := json.Unmarshal(raw, &payloads); err != nil {
+		return err
+	}
+	items := make([]service.PlaygroundAsset, 0, len(payloads))
+	for _, payload := range payloads {
+		createdAt, err := parsePlaygroundTime(payload.CreatedAt)
+		if err != nil {
+			return err
+		}
+		updatedAt, err := parsePlaygroundTime(payload.UpdatedAt)
+		if err != nil {
+			return err
+		}
+		expiresAt, err := parsePlaygroundTime(payload.ExpiresAt)
+		if err != nil {
+			return err
+		}
+		items = append(items, service.PlaygroundAsset{
+			ID:          payload.ID,
+			TaskID:      payload.TaskID,
+			Kind:        payload.Kind,
+			Title:       payload.Title,
+			Content:     payload.Content,
+			URL:         payload.URL,
+			StorageKey:  payload.StorageKey,
+			ContentType: payload.ContentType,
+			ByteSize:    payload.ByteSize,
+			Metadata:    payload.Metadata,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
+			ExpiresAt:   expiresAt,
+		})
+	}
+	*dest = items
+	return nil
+}
+
+func parsePlaygroundTime(raw string) (time.Time, error) {
+	if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return parsed, nil
+	}
+	return time.Parse("2006-01-02T15:04:05.999999999Z07:00", raw)
+}
+
+func pickPrimaryPlaygroundAsset(assets []service.PlaygroundAsset) *service.PlaygroundAsset {
+	if len(assets) == 0 {
+		return nil
+	}
+	priority := map[string]int{"image": 1, "video": 1, "audio": 2, "text": 3}
+	best := 0
+	bestScore := 99
+	for i, asset := range assets {
+		score, ok := priority[asset.Kind]
+		if !ok {
+			score = 50
+		}
+		if score < bestScore {
+			best = i
+			bestScore = score
+		}
+	}
+	item := assets[best]
+	return &item
 }
 
 func (r *playgroundRepository) CancelTask(ctx context.Context, userID, id int64) error {

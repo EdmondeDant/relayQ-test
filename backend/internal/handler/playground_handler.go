@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -13,10 +15,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type PlaygroundHandler struct{ service *service.PlaygroundService }
+type PlaygroundHandler struct {
+	service *service.PlaygroundService
+	storage *service.PlaygroundAssetStorage
+}
 
 func NewPlaygroundHandler(s *service.PlaygroundService) *PlaygroundHandler {
-	return &PlaygroundHandler{service: s}
+	return &PlaygroundHandler{service: s, storage: service.NewPlaygroundAssetStorage()}
 }
 
 type createPlaygroundTaskRequest struct {
@@ -139,6 +144,51 @@ func (h *PlaygroundHandler) GetAsset(c *gin.Context) {
 		return
 	}
 	response.Success(c, item)
+}
+
+func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
+	subject, ok := playgroundSubject(c)
+	if !ok {
+		return
+	}
+	storageKey := strings.TrimSpace(c.Param("storageKey"))
+	if storageKey == "" {
+		response.BadRequest(c, "Invalid storage key")
+		return
+	}
+	assets, _, err := h.service.ListAssets(c.Request.Context(), subject.UserID, pagination.PaginationParams{Page: 1, PageSize: 1000}, "")
+	if writePlaygroundResourceError(c, err) {
+		return
+	}
+	var asset *service.PlaygroundAsset
+	for i := range assets {
+		if strings.TrimSpace(assets[i].StorageKey) == storageKey {
+			asset = &assets[i]
+			break
+		}
+	}
+	if asset == nil {
+		response.NotFound(c, "Resource not found")
+		return
+	}
+	path, ok := h.storage.ResolvePath(storageKey)
+	if !ok {
+		response.NotFound(c, "Resource not found")
+		return
+	}
+	if _, statErr := os.Stat(path); statErr != nil {
+		if os.IsNotExist(statErr) {
+			response.NotFound(c, "Resource not found")
+			return
+		}
+		response.ErrorFrom(c, statErr)
+		return
+	}
+	if asset.ContentType != "" {
+		c.Header("Content-Type", asset.ContentType)
+	}
+	c.Header("Cache-Control", "private, max-age=86400")
+	c.File(path)
 }
 func (h *PlaygroundHandler) DeleteAsset(c *gin.Context) {
 	subject, ok := playgroundSubject(c)
