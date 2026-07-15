@@ -335,7 +335,6 @@ const translateSource = ref('自动识别')
 const translateTarget = ref('英文')
 const textResult = ref('')
 const cloudRecords = ref<PlaygroundRecord[]>([])
-const mediaBlobCache = new Map<string, string>()
 const cloudLoading = ref(false)
 const batchInputs = ref<BatchImageItem[]>([])
 const batchPrompt = ref('生成专业电商商品主图，商品主体居中，保留真实材质、颜色和比例，背景干净，光线均匀，无文字和水印。')
@@ -1039,11 +1038,9 @@ async function loadCloudRecords() {
 
     const normalized = items.map((item: PlaygroundRecord) => ({
       ...item,
-      _previewUrl: '',
       assets: Array.isArray(item.assets)
         ? item.assets.map((asset) => ({
             ...asset,
-            _previewUrl: '',
             content: asset?.kind === 'text'
               ? asset.content
               : (String(asset?.content || '').startsWith('data:') ? undefined : asset.content),
@@ -1052,7 +1049,6 @@ async function loadCloudRecords() {
       primary_asset: item.primary_asset
         ? {
             ...item.primary_asset,
-            _previewUrl: '',
             content: item.primary_asset.kind === 'text'
               ? item.primary_asset.content
               : (String(item.primary_asset.content || '').startsWith('data:') ? undefined : item.primary_asset.content),
@@ -1060,8 +1056,8 @@ async function loadCloudRecords() {
         : undefined,
     }))
 
+
     cloudRecords.value = normalized
-    void hydrateRecordPreviews(cloudRecords.value)
   } catch (cause) {
     cloudRecords.value = []
     console.error('加载创作记录失败', cause)
@@ -1130,20 +1126,12 @@ function isPlayableMediaUrl(url: string) {
   return Boolean(value)
 }
 
-function isProtectedPlaygroundMediaUrl(url: string) {
-  const value = String(url || '').trim()
-  if (!value) return false
-  return value.includes('/api/v1/playground/assets/content/') || value.startsWith('/api/v1/playground/assets/content/')
-}
-
 function stableAssetUrl(asset: PlaygroundRecord['primary_asset'] | PlaygroundRecord['assets'][number] | undefined) {
-  const value = String(asset?.url || '').trim()
-  if (!value) {
-    const key = String(asset?.storage_key || '').trim()
-    return key ? `/api/v1/playground/assets/content/${encodeURIComponent(key)}` : ''
+  const assetId = Number((asset as any)?.id || 0)
+  if (assetId > 0) {
+    return `/api/v1/playground/assets/${assetId}/content`
   }
-  if (value.startsWith('/')) return value
-  return value
+  return ''
 }
 
 function recordResultUrl(record: PlaygroundRecord) {
@@ -1160,83 +1148,6 @@ function recordResultUrl(record: PlaygroundRecord) {
   return isPlayableMediaUrl(fallback) ? fallback : ''
 }
 
-function recordPreviewSrc(record: PlaygroundRecord) {
-  const direct = String(record._previewUrl || '').trim()
-  if (direct) return direct
-  const raw = recordResultUrl(record)
-  if (!raw) return ''
-  if (isProtectedPlaygroundMediaUrl(raw)) return ''
-  return raw
-}
-
-async function resolveProtectedMediaUrl(rawUrl: string): Promise<string> {
-  const value = String(rawUrl || '').trim()
-  if (!value) return ''
-  if (value.startsWith('data:') || value.startsWith('blob:')) return value
-  if (mediaBlobCache.has(value)) return mediaBlobCache.get(value) || value
-
-  // 外部直链（如 xAI CDN）优先直接播；受保护的本站 content 必须带 token 拉 blob
-  if (!isProtectedPlaygroundMediaUrl(value) && /^https?:\/\//i.test(value)) {
-    return value
-  }
-
-  const token = localStorage.getItem('auth_token') || ''
-  if (!token) {
-    throw new Error('未登录，无法加载创作媒体')
-  }
-  const response = await fetch(value, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: '*/*',
-    },
-    credentials: 'same-origin',
-    cache: 'no-store',
-  })
-  if (!response.ok) {
-    throw new Error(`媒体资源加载失败（${response.status}）`)
-  }
-  const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim()
-  const buffer = await response.arrayBuffer()
-  if (!buffer || buffer.byteLength <= 0) {
-    throw new Error('媒体资源为空')
-  }
-  // 强制带正确 MIME，避免某些浏览器把 wav/jpeg 当 application/octet-stream 无法播放
-  const blob = contentType
-    ? new Blob([buffer], { type: contentType })
-    : new Blob([buffer])
-  const blobUrl = URL.createObjectURL(blob)
-  mediaBlobCache.set(value, blobUrl)
-  return blobUrl
-}
-
-async function hydrateRecordPreviews(records: PlaygroundRecord[]) {
-  const jobs = records.map(async (record) => {
-    const raw = recordResultUrl(record)
-    if (!raw) return
-    if (String(record._previewUrl || '').trim()) return
-
-    try {
-      const resolved = await resolveProtectedMediaUrl(raw)
-      record._previewUrl = resolved
-      if (record.primary_asset) {
-        record.primary_asset._previewUrl = resolved
-      }
-      const mediaAsset = record.assets?.find((asset) => {
-        const assetUrl = stableAssetUrl(asset)
-        return assetUrl === raw || (asset.content && String(asset.content).startsWith('data:') && asset.content === raw)
-      })
-      if (mediaAsset) {
-        mediaAsset._previewUrl = resolved
-      }
-    } catch (cause) {
-      console.warn('预览媒体加载失败', raw, cause)
-    }
-  })
-  await Promise.all(jobs)
-  cloudRecords.value = [...cloudRecords.value]
-}
-
 function recordResultText(record: PlaygroundRecord) {
   const payload = normalizeRecord(record.result_payload)
   const textAsset = record.assets?.find((asset) => asset.kind === 'text' && asset.content)
@@ -1250,15 +1161,8 @@ function recordDownloadUrl(record: PlaygroundRecord) {
 async function downloadRecord(record: PlaygroundRecord) {
   const raw = recordDownloadUrl(record)
   if (raw) {
-    try {
-      const playable = await resolveProtectedMediaUrl(raw)
-      downloadImage(playable, `relayq-${record.kind}-${record.id}`)
-      return
-    } catch (cause) {
-      console.warn('下载媒体失败，尝试原始链接', cause)
-      downloadImage(raw, `relayq-${record.kind}-${record.id}`)
-      return
-    }
+    downloadImage(raw, `relayq-${record.kind}-${record.id}`)
+    return
   }
   const text = recordResultText(record)
   if (!text) return
@@ -1304,7 +1208,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     translateTarget.value = String(payload.target_language || translateTarget.value || '英文')
     // 旧版文本翻译记录兼容展示；新版以图片结果为主
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { resultImage.value = url }).catch(() => { resultImage.value = resultUrl })
+      resultImage.value = resultUrl
     } else if (resultText) {
       textResult.value = resultText
     }
@@ -1314,7 +1218,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'video'
     videoPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { videoUrl.value = url }).catch(() => { videoUrl.value = resultUrl })
+      videoUrl.value = resultUrl
     } else if (record.request_id) {
       scheduleVideoPoll()
     }
@@ -1324,7 +1228,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'audio-generate'
     ttsText.value = String(payload.text || payload.prompt || prompt)
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { ttsResultUrl.value = url }).catch(() => { ttsResultUrl.value = resultUrl })
+      ttsResultUrl.value = resultUrl
     } else {
       ttsResultUrl.value = ''
     }
@@ -1344,7 +1248,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'watermark'
     watermarkPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { resultImage.value = url }).catch(() => { resultImage.value = resultUrl })
+      resultImage.value = resultUrl
     } else {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1354,7 +1258,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'edit'
     imagePrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { resultImage.value = url }).catch(() => { resultImage.value = resultUrl })
+      resultImage.value = resultUrl
     } else {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1365,7 +1269,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     imagePrompt.value = String(payload.prompt || prompt)
     batchPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      void resolveProtectedMediaUrl(resultUrl).then((url) => { resultImage.value = url }).catch(() => { resultImage.value = resultUrl })
+      resultImage.value = resultUrl
     } else if (kind === 'image') {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1509,19 +1413,27 @@ const RecordList = defineComponent({
       return h('div', { class: 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' }, props.items.map((item) => {
         const prompt = recordPrompt(item)
         const rawUrl = recordResultUrl(item)
-        const resultUrl = recordPreviewSrc(item)
         const resultText = recordResultText(item)
         const isAudio = item.kind.includes('audio') || item.primary_asset?.kind === 'audio'
         const isVideo = item.kind === 'video' || item.primary_asset?.kind === 'video'
-        const waitingProtected = Boolean(rawUrl && isProtectedPlaygroundMediaUrl(rawUrl) && !resultUrl)
-        const mediaPreview = resultUrl
+        const mediaPreview = rawUrl && (isAudio || isVideo)
           ? (isAudio
-            ? h('audio', { key: resultUrl, class: 'mt-3 w-full', src: resultUrl, controls: true, preload: 'auto' })
-            : isVideo
-              ? h('video', { key: resultUrl, class: 'mt-3 max-h-40 w-full rounded object-cover bg-black', src: resultUrl, controls: true, preload: 'metadata' })
-              : h('img', { key: resultUrl, class: 'mt-3 h-40 w-full rounded object-cover bg-gray-50 dark:bg-dark-800', src: resultUrl, alt: taskKindLabel(item.kind) }))
-          : waitingProtected
-            ? h('div', { class: 'mt-3 flex h-24 items-center justify-center rounded bg-gray-50 text-xs text-gray-500 dark:bg-dark-800' }, '媒体加载中…')
+            ? h('audio', {
+                key: rawUrl || `audio-${item.id}`,
+                class: 'mt-3 w-full',
+                src: rawUrl,
+                controls: true,
+                preload: 'auto',
+              })
+            : h('video', {
+                key: rawUrl || `video-${item.id}`,
+                class: 'mt-3 max-h-40 w-full rounded object-cover bg-black',
+                src: rawUrl,
+                controls: true,
+                preload: 'metadata',
+              }))
+          : rawUrl
+            ? h('img', { key: rawUrl, class: 'mt-3 h-40 w-full rounded object-cover bg-gray-50 dark:bg-dark-800', src: rawUrl, alt: taskKindLabel(item.kind) })
             : resultText
               ? h('pre', { class: 'mt-3 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-dark-300' }, resultText)
               : h('p', { class: 'mt-3 line-clamp-2 text-sm text-gray-600 dark:text-dark-300' }, prompt || '暂无可预览内容')

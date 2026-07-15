@@ -59,8 +59,8 @@ RUN go mod download
 # Copy backend source first
 COPY backend/ ./
 
-# Copy frontend dist from previous stage (must be after backend copy to avoid being overwritten)
-COPY --from=frontend-builder /app/frontend/dist ./internal/web/dist
+# Copy built frontend assets from Vite output location
+COPY --from=frontend-builder /app/backend/internal/web/dist ./internal/web/dist
 
 # Build the binary (BuildType=release for CI builds, embed frontend)
 RUN CGO_ENABLED=0 GOOS=linux go build \

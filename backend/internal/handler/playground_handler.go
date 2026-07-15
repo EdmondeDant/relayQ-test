@@ -146,28 +146,21 @@ func (h *PlaygroundHandler) GetAsset(c *gin.Context) {
 	response.Success(c, item)
 }
 
-func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
+func (h *PlaygroundHandler) ServeAssetByID(c *gin.Context) {
 	subject, ok := playgroundSubject(c)
 	if !ok {
 		return
 	}
-	storageKey := strings.TrimSpace(c.Param("storageKey"))
-	if storageKey == "" {
-		response.BadRequest(c, "Invalid storage key")
+	id, ok := playgroundID(c)
+	if !ok {
 		return
 	}
-	assets, _, err := h.service.ListAssets(c.Request.Context(), subject.UserID, pagination.PaginationParams{Page: 1, PageSize: 1000}, "")
+	asset, err := h.service.GetAsset(c.Request.Context(), subject.UserID, id)
 	if writePlaygroundResourceError(c, err) {
 		return
 	}
-	var asset *service.PlaygroundAsset
-	for i := range assets {
-		if strings.TrimSpace(assets[i].StorageKey) == storageKey {
-			asset = &assets[i]
-			break
-		}
-	}
-	if asset == nil {
+	storageKey := strings.TrimSpace(asset.StorageKey)
+	if storageKey == "" {
 		response.NotFound(c, "Resource not found")
 		return
 	}
@@ -176,11 +169,18 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 		response.NotFound(c, "Resource not found")
 		return
 	}
-	if _, statErr := os.Stat(path); statErr != nil {
-		if os.IsNotExist(statErr) {
+	file, openErr := os.Open(path)
+	if openErr != nil {
+		if os.IsNotExist(openErr) {
 			response.NotFound(c, "Resource not found")
 			return
 		}
+		response.ErrorFrom(c, openErr)
+		return
+	}
+	defer func() { _ = file.Close() }()
+	info, statErr := file.Stat()
+	if statErr != nil {
 		response.ErrorFrom(c, statErr)
 		return
 	}
@@ -206,8 +206,11 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "private, max-age=86400")
 	c.Header("X-Content-Type-Options", "nosniff")
-	// 支持 Range，方便 audio/video 拖动进度
-	c.File(path)
+	http.ServeContent(c.Writer, c.Request, storageKey, info.ModTime(), file)
+}
+
+func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
+	response.NotFound(c, "Resource not found")
 }
 func (h *PlaygroundHandler) DeleteAsset(c *gin.Context) {
 	subject, ok := playgroundSubject(c)
