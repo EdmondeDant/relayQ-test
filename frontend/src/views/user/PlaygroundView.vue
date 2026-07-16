@@ -1127,6 +1127,12 @@ function isPlayableMediaUrl(url: string) {
 }
 
 function stableAssetUrl(asset: PlaygroundRecord['primary_asset'] | PlaygroundRecord['assets'][number] | undefined) {
+  const storageKey = String((asset as any)?.storage_key || '').trim()
+  if (storageKey) {
+    return `/api/v1/playground/assets/content/${encodeURIComponent(storageKey)}`
+  }
+  const directUrl = String((asset as any)?.url || '').trim()
+  if (directUrl) return directUrl
   const assetId = Number((asset as any)?.id || 0)
   if (assetId > 0) {
     return `/api/v1/playground/assets/${assetId}/content`

@@ -62,6 +62,41 @@ export interface PlaygroundAudioResult {
   transcript?: string
 }
 
+function pickAudioUrl(candidate: any): string | undefined {
+  const value = candidate?.url || candidate?.audio_url || candidate?.path || candidate?.src
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function pickAudioBase64(candidate: any): string | undefined {
+  const value = candidate?.b64_json || candidate?.data || candidate?.audio_base64 || candidate?.base64
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function extractAudioFromContentParts(content: any): { url?: string; base64?: string; format?: string; textParts: string[] } {
+  const parts = Array.isArray(content) ? content : []
+  let url: string | undefined
+  let base64: string | undefined
+  let format: string | undefined
+  const textParts: string[] = []
+
+  for (const part of parts) {
+    if (!part || typeof part !== 'object') continue
+    const type = String(part.type || '').toLowerCase()
+    if (!url) url = pickAudioUrl(part) || pickAudioUrl(part.audio) || pickAudioUrl(part.output_audio)
+    if (!base64) base64 = pickAudioBase64(part) || pickAudioBase64(part.audio) || pickAudioBase64(part.output_audio)
+    if (!format) {
+      const rawFormat = part.format || part.audio?.format || part.output_audio?.format
+      if (typeof rawFormat === 'string' && rawFormat.trim()) format = rawFormat.trim()
+    }
+    if (type === 'text' || typeof part.text === 'string') {
+      const value = typeof part.text === 'string' ? part.text : ''
+      if (value) textParts.push(value)
+    }
+  }
+
+  return { url, base64, format, textParts }
+}
+
 export interface PlaygroundAuthContext {
   apiKey: string
 }
@@ -183,12 +218,18 @@ export async function runPlaygroundAudio(options: {
   })
   await ensureOk(response)
   const payload = await response.json()
-  const content = payload?.choices?.[0]?.message?.content
-  const text = typeof content === 'string' ? content : Array.isArray(content) ? content.map((item: any) => item?.text || '').join('') : ''
-  const audio = payload?.audio || payload?.data?.audio || payload?.output_audio || payload?.choices?.[0]?.message?.audio
-  const audioUrl = audio?.url || payload?.audio_url || payload?.url
-  const audioBase64 = audio?.b64_json || audio?.data || payload?.audio_base64
-  const format = audio?.format || options.audio?.format || 'wav'
+  const message = payload?.choices?.[0]?.message
+  const content = message?.content
+  const extracted = extractAudioFromContentParts(content)
+  const text = typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? extracted.textParts.join('')
+      : ''
+  const audio = payload?.audio || payload?.data?.audio || payload?.output_audio || message?.audio
+  const audioUrl = pickAudioUrl(audio) || pickAudioUrl(payload) || extracted.url
+  const audioBase64 = pickAudioBase64(audio) || pickAudioBase64(payload) || extracted.base64
+  const format = extracted.format || audio?.format || options.audio?.format || 'wav'
   const mimeType = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`
   return {
     requestId: payload?.request_id || response.headers.get('x-request-id') || undefined,

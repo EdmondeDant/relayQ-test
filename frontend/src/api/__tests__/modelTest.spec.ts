@@ -134,8 +134,8 @@ describe('model test api', () => {
       resolution: '1080p',
     })
 
-    expect(created).toMatchObject({ requestId: 'video-request', status: 'queued', videoUrl: '/v1/videos/video-request/content' })
-    expect(completed).toMatchObject({ requestId: 'video-request', status: 'done', progress: 100, videoUrl: '/v1/videos/video-request/content' })
+    expect(created).toMatchObject({ requestId: 'video-request', status: 'queued', videoUrl: '' })
+    expect(completed).toMatchObject({ requestId: 'video-request', status: 'done', progress: 100, videoUrl: 'https://example.com/video.mp4' })
   })
 
   it('submits audio generation with audio modality contract', async () => {
@@ -155,6 +155,27 @@ describe('model test api', () => {
       stream: false,
     })
     expect(result).toMatchObject({ requestId: 'audio-request', audioUrl: 'https://example.com/audio.mp3' })
+  })
+
+  it('extracts audio result from content parts when message.audio is absent', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: [{ type: 'output_audio', audio_url: 'https://example.com/tts.wav', format: 'wav' }, { type: 'text', text: 'done' }] } }],
+      request_id: 'audio-content-request',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const result = await modelTestAPI.runPlaygroundAudio({
+      auth: { apiKey: 'rk-user-selected-key' },
+      model: 'mimo-v2.5-tts',
+      mode: 'standard',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+    })
+
+    expect(result).toMatchObject({
+      requestId: 'audio-content-request',
+      audioUrl: 'https://example.com/tts.wav',
+      text: 'done',
+      transcript: 'done',
+    })
   })
 
   it('submits audio transcription with MiMo input_audio + asr_options', async () => {

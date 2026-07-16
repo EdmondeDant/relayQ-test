@@ -42,13 +42,22 @@ describe('playground cloud api', () => {
     expect(apiClient.delete).toHaveBeenCalledWith('/playground/assets/8')
   })
 
-  it('lists records from response.data', async () => {
+  it('prefers storage_key content route for stable asset playback', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({
-      data: { items: [{ id: 1, kind: 'audio-generate', assets: [] }], total: 1, page: 1, page_size: 10 },
+      data: {
+        items: [{
+          id: 1,
+          kind: 'audio-generate',
+          assets: [{ id: 2, kind: 'audio', storage_key: 'tts/result.wav', url: '/api/v1/playground/assets/content/tts/result.wav' }],
+          primary_asset: { id: 2, kind: 'audio', storage_key: 'tts/result.wav', url: '/api/v1/playground/assets/content/tts/result.wav' },
+        }],
+        total: 1,
+        page: 1,
+        page_size: 10,
+      },
     })
 
     const result = await playgroundCloudAPI.listRecords({ page_size: 10 })
-    expect(result.items).toHaveLength(1)
-    expect(result.items[0].id).toBe(1)
+    expect(result.items[0].primary_asset?.storage_key).toBe('tts/result.wav')
   })
 })
