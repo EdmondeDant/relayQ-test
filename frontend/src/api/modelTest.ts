@@ -60,6 +60,19 @@ export interface PlaygroundAudioResult {
   audioUrl?: string
   dataUrl?: string
   transcript?: string
+  audioFormat?: string
+}
+
+function base64ToObjectUrl(base64: string, mimeType: string): string | undefined {
+  try {
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    const blob = new Blob([bytes], { type: mimeType })
+    return URL.createObjectURL(blob)
+  } catch {
+    return undefined
+  }
 }
 
 function pickAudioUrl(candidate: any): string | undefined {
@@ -231,13 +244,15 @@ export async function runPlaygroundAudio(options: {
   const audioBase64 = pickAudioBase64(audio) || pickAudioBase64(payload) || extracted.base64
   const format = extracted.format || audio?.format || options.audio?.format || 'wav'
   const mimeType = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`
+  const objectUrl = audioBase64 ? base64ToObjectUrl(audioBase64, mimeType) : undefined
   return {
     requestId: payload?.request_id || response.headers.get('x-request-id') || undefined,
     billing: payload?.billing,
     text,
     transcript: payload?.transcript || payload?.text || text,
-    audioUrl,
+    audioUrl: audioUrl || objectUrl,
     dataUrl: audioBase64 ? `data:${mimeType};base64,${audioBase64}` : undefined,
+    audioFormat: format,
   }
 }
 

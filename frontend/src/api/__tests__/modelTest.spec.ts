@@ -5,6 +5,10 @@ describe('model test api', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
     vi.stubGlobal('crypto', { randomUUID: () => 'request-key' })
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:https://example.com/test-audio'),
+      revokeObjectURL: vi.fn(),
+    })
   })
 
   it('sends image generations with codesonline gpt-image contract', async () => {
@@ -158,6 +162,7 @@ describe('model test api', () => {
   })
 
   it('extracts audio result from content parts when message.audio is absent', async () => {
+    const objectUrlSpy = vi.mocked(URL.createObjectURL)
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
       choices: [{ message: { content: [{ type: 'output_audio', audio_url: 'https://example.com/tts.wav', format: 'wav' }, { type: 'text', text: 'done' }] } }],
       request_id: 'audio-content-request',
@@ -176,6 +181,31 @@ describe('model test api', () => {
       text: 'done',
       transcript: 'done',
     })
+    expect(objectUrlSpy).not.toHaveBeenCalled()
+  })
+
+  it('creates a blob url when upstream only returns audio base64', async () => {
+    const objectUrlSpy = vi.mocked(URL.createObjectURL)
+    objectUrlSpy.mockReturnValue('blob:https://example.com/generated-audio')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: '', audio: { data: 'UklGRg==', id: 'audio-id' } } }],
+      request_id: 'audio-base64-request',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const result = await modelTestAPI.runPlaygroundAudio({
+      auth: { apiKey: 'rk-user-selected-key' },
+      model: 'mimo-v2.5-tts',
+      mode: 'standard',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+    })
+
+    expect(result).toMatchObject({
+      requestId: 'audio-base64-request',
+      audioUrl: 'blob:https://example.com/generated-audio',
+      audioFormat: 'wav',
+    })
+    expect(result.dataUrl?.startsWith('data:audio/wav;base64,')).toBe(true)
+    expect(objectUrlSpy).toHaveBeenCalledTimes(1)
   })
 
   it('submits audio transcription with MiMo input_audio + asr_options', async () => {
