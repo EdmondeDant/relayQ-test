@@ -251,7 +251,7 @@
               <div class="mt-5 rounded-lg bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-dark-800">首版默认值已预设为中文、自然讲述和通用女声。填写文案后可直接生成；声音克隆模式下还需要上传参考音频并确认授权。</div>
               <button class="btn btn-primary mt-5 w-full" :disabled="!canSubmitAudioGeneration" @click="submitAudioGeneration">{{ submitting ? '生成中…' : '生成配音' }}</button>
             </div>
-            <ResultPanel :loading="submitting" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestId : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><audio v-if="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button></div></template></ResultPanel>
+            <ResultPanel :loading="submitting" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestIdLabel : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><audio v-if="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button><p v-if="ttsResultUrl" class="break-all text-xs text-red-500 dark:text-red-300">播放地址：{{ ttsResultUrl }}</p><div v-if="ttsDebug" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">{{ ttsDebug }}</div></div></template></ResultPanel>
           </section>
 
           <section v-else class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
@@ -374,9 +374,19 @@ const ttsReferenceAudioName = ref('')
 const ttsAuthorizationConfirmed = ref(false)
 const ttsResultUrl = ref('')
 const ttsResultText = ref('')
+const ttsDebug = ref('')
 const submitting = ref(false)
 const error = ref('')
 const requestId = ref('')
+const audioGenerationRevision = 1
+const requestIdLabel = computed(() => {
+  const value = requestId.value.trim()
+  if (!value) return ''
+  const lines = [value]
+  if (ttsResultUrl.value) lines.push(`播放地址：${ttsResultUrl.value}`)
+  lines.push(`修改次数：第${audioGenerationRevision}次`)
+  return lines.join('\n')
+})
 const lastBilling = ref<PlaygroundBilling>()
 let abortController: AbortController | null = null
 let pollTimer: number | null = null
@@ -885,7 +895,7 @@ async function submitAudioTranscription() {
 async function submitAudioGeneration() {
   if (!canSubmitAudioGeneration.value || submitting.value) return
   const balanceBefore = balance.value
-  startRequest(); ttsResultUrl.value = ''; ttsResultText.value = ''
+  startRequest(); ttsResultUrl.value = ''; ttsResultText.value = ''; ttsDebug.value = ''
   try {
     const styleInstruction = audioGenerateMode.value === 'voicedesign'
       ? `${ttsVoiceDescription.value.trim()}。角色设定：${ttsPersona.value.trim() || '自然旁白'}。输出语言：${ttsLanguage.value}。`
@@ -897,15 +907,16 @@ async function submitAudioGeneration() {
     if (audioGenerateMode.value === 'voiceclone' && ttsReferenceAudio.value) messages.push({ role: 'user', content: [{ type: 'audio_url', audio_url: { url: ttsReferenceAudio.value } }] })
     messages.push({ role: 'assistant', content: ttsText.value.trim() })
     const result = await modelTestAPI.runPlaygroundAudio({ auth: getAuthContext(), model: selectedTtsModel.value, mode: audioGenerateMode.value, signal: abortController?.signal, audio: audioGenerateMode.value === 'voicedesign' ? { format: 'wav', optimize_text_preview: true } : { format: 'wav', voice: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : ttsReferenceAudio.value || 'mimo_default' }, messages })
-    ttsResultUrl.value = result.audioUrl || result.dataUrl || ''
+    ttsResultUrl.value = ''
     ttsResultText.value = result.text || ''
     requestId.value = result.requestId || ''
     lastBilling.value = await resolveBilling(result.billing, balanceBefore)
     const taskKind = audioGenerateMode.value === 'voiceclone' ? 'audio-voice-clone' : audioGenerateMode.value === 'voicedesign' ? 'audio-voice-design' : 'audio-generate'
     const title = audioGenerateMode.value === 'voiceclone' ? '声音克隆配音' : audioGenerateMode.value === 'voicedesign' ? '音色设计配音' : '标准配音'
     try {
-      const audioSrc = ttsResultUrl.value || ''
-      const persistentAudioUrl = audioSrc && !audioSrc.startsWith('data:') ? audioSrc : undefined
+      const playbackAudioSrc = ttsResultUrl.value || ''
+      const persistedAudioContent = result.dataUrl || ''
+      const persistentAudioUrl = playbackAudioSrc && /^https?:\/\//i.test(playbackAudioSrc) ? playbackAudioSrc : undefined
       const task = await playgroundCloudAPI.createTask({
         kind: taskKind,
         status: 'succeeded',
@@ -925,7 +936,7 @@ async function submitAudioGeneration() {
         },
         result_payload: {
           audio_url: persistentAudioUrl,
-          has_inline_audio: Boolean(audioSrc && !persistentAudioUrl),
+          has_inline_audio: Boolean(persistedAudioContent && !persistentAudioUrl),
           text: ttsResultText.value || undefined,
           mode: audioGenerateMode.value,
           ...getExecutionMetadata(),
@@ -934,23 +945,22 @@ async function submitAudioGeneration() {
       const taskId = Number(task?.id || 0)
       if (!taskId) throw new Error('创作记录创建失败：未返回任务 ID')
 
-      // 优先落音频资产；data URL 也写入 content，保证创作记录可下载
       if (persistentAudioUrl) {
         await playgroundCloudAPI.createAsset({
           task_id: taskId,
           kind: 'audio',
           title,
           url: persistentAudioUrl,
-          content_type: 'audio/wav',
+          content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
           metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, ...getExecutionMetadata() },
         })
-      } else if (audioSrc) {
+      } else if (persistedAudioContent) {
         await playgroundCloudAPI.createAsset({
           task_id: taskId,
           kind: 'audio',
           title,
-          content: audioSrc,
-          content_type: 'audio/wav',
+          content: persistedAudioContent,
+          content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
           metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, inline: true, ...getExecutionMetadata() },
         })
       }
@@ -966,7 +976,14 @@ async function submitAudioGeneration() {
         })
       }
 
-      await loadCloudRecords()
+      const saved = await waitForAudioRecord(requestId.value)
+      if (saved) {
+        ttsDebug.value = `已命中创作记录并回填播放：request_id=${requestId.value}`
+        await restoreRecord(saved)
+      } else {
+        ttsDebug.value = `未在记录中等到音频资产：request_id=${requestId.value}`
+        error.value = '配音已生成，但结果音频还未成功回填到结果区。请打开创作记录查看这条结果。'
+      }
     } catch (persistError) {
       console.error('保存配音创作记录失败', persistError)
       error.value = '配音已生成，但写入创作记录失败，请稍后刷新创作记录重试。'
@@ -1028,6 +1045,94 @@ async function persistTextCreation(kind: string, title: string, prompt: string, 
   void loadCloudRecords()
 }
 
+async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob: Blob }> {
+  const value = String(url || '').trim()
+  if (!value) throw new Error('媒体地址为空')
+  if (value.startsWith('blob:')) return { objectUrl: value, blob: new Blob() }
+  if (value.startsWith('data:')) {
+    const response = await fetch(value)
+    const blob = await response.blob()
+    return { objectUrl: value, blob }
+  }
+  if (/^https?:\/\//i.test(value)) {
+    const response = await fetch(value, { credentials: 'include' })
+    if (!response.ok) throw new Error(`加载媒体失败：${response.status}`)
+    const blob = await response.blob()
+    return { objectUrl: URL.createObjectURL(blob), blob }
+  }
+  const token = localStorage.getItem('auth_token')
+  const response = await fetch(value, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  })
+  if (!response.ok) throw new Error(`加载媒体失败：${response.status}`)
+  const blob = await response.blob()
+  return { objectUrl: URL.createObjectURL(blob), blob }
+}
+
+async function fetchAuthedAssetUrl(url: string): Promise<string> {
+  const value = String(url || '').trim()
+  if (!value || value.startsWith('data:') || value.startsWith('blob:')) return value
+  const { objectUrl } = await fetchAuthedAsset(value)
+  return objectUrl
+}
+
+function inferExtension(contentType: string, fallback = 'bin') {
+  const value = String(contentType || '').toLowerCase()
+  if (value.includes('image/png')) return 'png'
+  if (value.includes('image/jpeg')) return 'jpg'
+  if (value.includes('image/webp')) return 'webp'
+  if (value.includes('image/gif')) return 'gif'
+  if (value.includes('video/mp4')) return 'mp4'
+  if (value.includes('video/webm')) return 'webm'
+  if (value.includes('audio/mpeg')) return 'mp3'
+  if (value.includes('audio/mp3')) return 'mp3'
+  if (value.includes('audio/wav') || value.includes('audio/x-wav') || value.includes('audio/wave')) return 'wav'
+  if (value.includes('audio/mp4') || value.includes('audio/m4a')) return 'm4a'
+  return fallback
+}
+
+function recordMediaAsset(record: PlaygroundRecord, kinds?: string[]) {
+  const allow = Array.isArray(kinds) && kinds.length ? new Set(kinds) : null
+  const matches = (asset: any) => {
+    if (!asset) return false
+    if (allow && !allow.has(String(asset.kind || ''))) return false
+    return (asset.content && String(asset.content).startsWith('data:')) || Boolean(stableAssetUrl(asset))
+  }
+  const primary = record.primary_asset
+  if (matches(primary)) return primary
+  return record.assets?.find((asset) => matches(asset))
+}
+
+async function hydrateRecordMedia(record: PlaygroundRecord): Promise<PlaygroundRecord> {
+  const rawUrl = recordResultUrl(record)
+  if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return record
+  const objectUrl = await fetchAuthedAssetUrl(rawUrl)
+  const patchAsset = (asset: any) => asset && stableAssetUrl(asset) === rawUrl ? { ...asset, url: objectUrl } : asset
+  const payload = normalizeRecord(record.result_payload)
+  const resultPayload = ['url', 'audio_url', 'video_url'].some((key) => String(payload[key] || '').trim() === rawUrl)
+    ? { ...payload, url: payload.url === rawUrl ? objectUrl : payload.url, audio_url: payload.audio_url === rawUrl ? objectUrl : payload.audio_url, video_url: payload.video_url === rawUrl ? objectUrl : payload.video_url }
+    : payload
+  return {
+    ...record,
+    result_payload: resultPayload,
+    assets: Array.isArray(record.assets) ? record.assets.map((asset) => patchAsset(asset)) : [],
+    primary_asset: record.primary_asset ? patchAsset(record.primary_asset) : record.primary_asset,
+  }
+}
+
+async function waitForAudioRecord(targetRequestId: string, attempts = 8, delayMs = 800): Promise<PlaygroundRecord | null> {
+  const wanted = String(targetRequestId || '').trim()
+  if (!wanted) return null
+  for (let index = 0; index < attempts; index += 1) {
+    await loadCloudRecords()
+    const record = cloudRecords.value.find((item) => item.request_id === wanted)
+    if (record && recordMediaAsset(record, ['audio'])) return record
+    if (index < attempts - 1) await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+  }
+  return null
+}
+
 async function loadCloudRecords() {
   cloudLoading.value = true
   try {
@@ -1057,7 +1162,7 @@ async function loadCloudRecords() {
     }))
 
 
-    cloudRecords.value = normalized
+    cloudRecords.value = await Promise.all(normalized.map((item: PlaygroundRecord) => hydrateRecordMedia(item).catch(() => item)))
   } catch (cause) {
     cloudRecords.value = []
     console.error('加载创作记录失败', cause)
@@ -1167,8 +1272,22 @@ function recordDownloadUrl(record: PlaygroundRecord) {
 async function downloadRecord(record: PlaygroundRecord) {
   const raw = recordDownloadUrl(record)
   if (raw) {
-    downloadImage(raw, `relayq-${record.kind}-${record.id}`)
-    return
+    if (raw.startsWith('blob:') || raw.startsWith('data:')) {
+      const asset = recordMediaAsset(record)
+      const ext = inferExtension(String((asset as any)?.content_type || ''), record.kind === 'video' ? 'mp4' : record.kind.includes('audio') ? 'mp3' : 'png')
+      downloadImage(raw, `relayq-${record.kind}-${record.id}.${ext}`)
+      return
+    }
+    try {
+      const { objectUrl, blob } = await fetchAuthedAsset(raw)
+      const asset = recordMediaAsset(record)
+      const ext = inferExtension(blob.type || String((asset as any)?.content_type || ''), record.kind === 'video' ? 'mp4' : record.kind.includes('audio') ? 'mp3' : 'png')
+      downloadImage(objectUrl, `relayq-${record.kind}-${record.id}.${ext}`)
+      if (objectUrl.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+      return
+    } catch (cause) {
+      console.error('下载媒体失败', cause)
+    }
   }
   const text = recordResultText(record)
   if (!text) return

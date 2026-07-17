@@ -61,6 +61,7 @@ export interface PlaygroundAudioResult {
   dataUrl?: string
   transcript?: string
   audioFormat?: string
+  audioBlob?: Blob
 }
 
 function base64ToObjectUrl(base64: string, mimeType: string): string | undefined {
@@ -77,12 +78,43 @@ function base64ToObjectUrl(base64: string, mimeType: string): string | undefined
 
 function pickAudioUrl(candidate: any): string | undefined {
   const value = candidate?.url || candidate?.audio_url || candidate?.path || candidate?.src
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  const trimmed = value.trim()
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (trimmed.startsWith('/')) return `${GATEWAY_BASE_URL}${trimmed}`
+  return trimmed
 }
 
 function pickAudioBase64(candidate: any): string | undefined {
   const value = candidate?.b64_json || candidate?.data || candidate?.audio_base64 || candidate?.base64
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function resolveAudioMimeType(format: string) {
+  const normalized = String(format || '').trim().toLowerCase()
+  if (normalized === 'mp3' || normalized === 'mpeg') return 'audio/mpeg'
+  if (normalized === 'wav' || normalized === 'wave' || normalized === 'x-wav') return 'audio/wav'
+  if (normalized === 'm4a' || normalized === 'mp4') return 'audio/mp4'
+  if (normalized === 'ogg') return 'audio/ogg'
+  return normalized ? `audio/${normalized}` : 'audio/wav'
+}
+
+async function fetchProtectedAudioAsBlob(url: string, auth: PlaygroundAuthContext, signal?: AbortSignal): Promise<Blob | undefined> {
+  const value = String(url || '').trim()
+  if (!value) return undefined
+  const response = await fetch(value, {
+    headers: {
+      Authorization: `Bearer ${auth.apiKey}`,
+    },
+    credentials: 'include',
+    signal,
+    redirect: 'follow',
+  })
+  await ensureOk(response)
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase()
+  if (contentType.includes('application/json')) return undefined
+  const blob = await response.blob()
+  return blob.size > 0 ? blob : undefined
 }
 
 function extractAudioFromContentParts(content: any): { url?: string; base64?: string; format?: string; textParts: string[] } {
@@ -243,16 +275,36 @@ export async function runPlaygroundAudio(options: {
   const audioUrl = pickAudioUrl(audio) || pickAudioUrl(payload) || extracted.url
   const audioBase64 = pickAudioBase64(audio) || pickAudioBase64(payload) || extracted.base64
   const format = extracted.format || audio?.format || options.audio?.format || 'wav'
-  const mimeType = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`
-  const objectUrl = audioBase64 ? base64ToObjectUrl(audioBase64, mimeType) : undefined
+  const mimeType = resolveAudioMimeType(format)
+  let audioBlob: Blob | undefined
+  let objectUrl: string | undefined
+
+  if (audioBase64) {
+    objectUrl = base64ToObjectUrl(audioBase64, mimeType)
+    try {
+      const response = await fetch(`data:${mimeType};base64,${audioBase64}`)
+      audioBlob = await response.blob()
+    } catch {
+      audioBlob = undefined
+    }
+  } else if (audioUrl) {
+    try {
+      audioBlob = await fetchProtectedAudioAsBlob(audioUrl, options.auth, options.signal)
+      if (audioBlob) objectUrl = URL.createObjectURL(audioBlob)
+    } catch {
+      audioBlob = undefined
+    }
+  }
+
   return {
     requestId: payload?.request_id || response.headers.get('x-request-id') || undefined,
     billing: payload?.billing,
     text,
     transcript: payload?.transcript || payload?.text || text,
-    audioUrl: audioUrl || objectUrl,
+    audioUrl: objectUrl || audioUrl,
     dataUrl: audioBase64 ? `data:${mimeType};base64,${audioBase64}` : undefined,
     audioFormat: format,
+    audioBlob,
   }
 }
 

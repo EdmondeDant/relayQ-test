@@ -159,6 +159,31 @@ func (h *PlaygroundHandler) ServeAssetByID(c *gin.Context) {
 	if writePlaygroundResourceError(c, err) {
 		return
 	}
+	h.serveStoredAsset(c, asset)
+}
+
+func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
+	subject, ok := playgroundSubject(c)
+	if !ok {
+		return
+	}
+	storageKey := strings.TrimSpace(c.Param("key"))
+	if storageKey == "" {
+		response.NotFound(c, "Resource not found")
+		return
+	}
+	asset, err := h.service.GetAssetByStorageKey(c.Request.Context(), subject.UserID, storageKey)
+	if writePlaygroundResourceError(c, err) {
+		return
+	}
+	h.serveStoredAsset(c, asset)
+}
+
+func (h *PlaygroundHandler) serveStoredAsset(c *gin.Context, asset *service.PlaygroundAsset) {
+	if asset == nil {
+		response.NotFound(c, "Resource not found")
+		return
+	}
 	storageKey := strings.TrimSpace(asset.StorageKey)
 	if storageKey == "" {
 		response.NotFound(c, "Resource not found")
@@ -207,10 +232,6 @@ func (h *PlaygroundHandler) ServeAssetByID(c *gin.Context) {
 	c.Header("Cache-Control", "private, max-age=86400")
 	c.Header("X-Content-Type-Options", "nosniff")
 	http.ServeContent(c.Writer, c.Request, storageKey, info.ModTime(), file)
-}
-
-func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
-	response.NotFound(c, "Resource not found")
 }
 func (h *PlaygroundHandler) DeleteAsset(c *gin.Context) {
 	subject, ok := playgroundSubject(c)
