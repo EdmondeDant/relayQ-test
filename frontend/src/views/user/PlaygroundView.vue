@@ -655,7 +655,7 @@ async function submitImage() {
         contentType: 'image/png',
         metadata: { request_id: requestId.value, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
       }).catch(() => null)
-      if (mediaRef?.url) resultImage.value = mediaRef.url
+      if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
     }
     void loadCloudRecords()
   } catch (cause) { handleError(cause, '图片处理失败，本次不应扣费。') } finally { endRequest() }
@@ -752,7 +752,7 @@ async function translateImageText() {
         contentType: 'image/png',
         metadata: { request_id: requestId.value || undefined, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
       }).catch(() => null)
-      if (mediaRef?.url) resultImage.value = mediaRef.url
+      if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
       void loadCloudRecords()
     }
   } catch (cause) {
@@ -959,7 +959,7 @@ async function submitAudioGeneration() {
     }
 
     if (mediaRef?.url) {
-      ttsResultUrl.value = mediaRef.url
+      ttsResultUrl.value = await toPlayableMediaUrl(mediaRef.url)
     }
     ttsResultText.value = result.text || ''
 
@@ -1032,7 +1032,7 @@ async function processWatermark() {
       contentType: 'image/png',
       metadata: { request_id: requestId.value, mode: watermarkMode.value, inline: output.startsWith('data:'), ...getExecutionMetadata() },
     }).catch(() => null)
-    if (mediaRef?.url) resultImage.value = mediaRef.url
+    if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
     void loadCloudRecords()
   } catch (cause) { handleError(cause, watermarkMode.value === 'remove' ? '水印去除失败，本次不应扣费。' : '添加水印失败，本次不应扣费。') } finally { endRequest() }
 }
@@ -1073,6 +1073,14 @@ async function fetchAuthedAssetUrl(url: string): Promise<string> {
   if (!value || value.startsWith('data:') || value.startsWith('blob:')) return value
   const { objectUrl } = await fetchAuthedAsset(value)
   return objectUrl
+}
+
+async function toPlayableMediaUrl(url: string): Promise<string> {
+  return fetchAuthedAssetUrl(url)
+}
+
+async function toDisplayImageUrl(url: string): Promise<string> {
+  return fetchAuthedAssetUrl(url)
 }
 
 function inferExtension(contentType: string, fallback = 'bin') {
@@ -1353,7 +1361,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     translateTarget.value = String(payload.target_language || translateTarget.value || '英文')
     // 旧版文本翻译记录兼容展示；新版以图片结果为主
     if (resultUrl) {
-      resultImage.value = resultUrl
+      resultImage.value = await toDisplayImageUrl(resultUrl)
     } else if (resultText) {
       textResult.value = resultText
     }
@@ -1363,7 +1371,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'video'
     videoPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      videoUrl.value = resultUrl
+      videoUrl.value = await toPlayableMediaUrl(resultUrl)
     } else if (record.request_id) {
       scheduleVideoPoll()
     }
@@ -1373,7 +1381,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'audio-generate'
     ttsText.value = String(payload.text || payload.prompt || prompt)
     if (resultUrl) {
-      ttsResultUrl.value = resultUrl
+      ttsResultUrl.value = await toPlayableMediaUrl(resultUrl)
     } else {
       ttsResultUrl.value = ''
     }
@@ -1393,7 +1401,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'watermark'
     watermarkPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      resultImage.value = resultUrl
+      resultImage.value = await toDisplayImageUrl(resultUrl)
     } else {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1403,7 +1411,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'edit'
     imagePrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      resultImage.value = resultUrl
+      resultImage.value = await toDisplayImageUrl(resultUrl)
     } else {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1414,7 +1422,7 @@ async function restoreRecord(record: PlaygroundRecord) {
     imagePrompt.value = String(payload.prompt || prompt)
     batchPrompt.value = String(payload.prompt || prompt)
     if (resultUrl) {
-      resultImage.value = resultUrl
+      resultImage.value = await toDisplayImageUrl(resultUrl)
     } else if (kind === 'image') {
       error.value = '已恢复参数，未找到可回显的图片结果，请重新生成。'
     }
@@ -1501,7 +1509,7 @@ async function pollVideoOnce() {
           }).catch(() => null)
         : null
       if (mediaRef?.url) {
-        videoUrl.value = mediaRef.url
+        videoUrl.value = await toPlayableMediaUrl(mediaRef.url)
       }
       void loadCloudRecords()
       setTimeout(() => {
