@@ -173,6 +173,11 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 		return
 	}
 	asset, err := h.service.GetAssetByStorageKey(c.Request.Context(), subject.UserID, storageKey)
+	if err != nil {
+		if role, ok := servermiddleware.GetUserRoleFromContext(c); ok && role == "admin" {
+			asset, err = h.service.GetAssetByStorageKeyAnyUser(c.Request.Context(), storageKey)
+		}
+	}
 	if writePlaygroundResourceError(c, err) {
 		return
 	}

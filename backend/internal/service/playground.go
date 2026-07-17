@@ -102,6 +102,7 @@ type PlaygroundRepository interface {
 	ListAssetsByTaskIDs(context.Context, int64, []int64) ([]PlaygroundAsset, error)
 	GetAsset(context.Context, int64, int64) (*PlaygroundAsset, error)
 	GetAssetByStorageKey(context.Context, int64, string) (*PlaygroundAsset, error)
+	GetAssetByStorageKeyAnyUser(context.Context, string) (*PlaygroundAsset, error)
 	DeleteAsset(context.Context, int64, int64) error
 	EnforceUserTaskLimit(context.Context, int64, int) error
 	DeleteExpired(context.Context) (int64, int64, error)
@@ -212,6 +213,10 @@ func (s *PlaygroundService) GetAsset(ctx context.Context, userID, id int64) (*Pl
 
 func (s *PlaygroundService) GetAssetByStorageKey(ctx context.Context, userID int64, storageKey string) (*PlaygroundAsset, error) {
 	return s.repo.GetAssetByStorageKey(ctx, userID, strings.TrimSpace(storageKey))
+}
+
+func (s *PlaygroundService) GetAssetByStorageKeyAnyUser(ctx context.Context, storageKey string) (*PlaygroundAsset, error) {
+	return s.repo.GetAssetByStorageKeyAnyUser(ctx, strings.TrimSpace(storageKey))
 }
 
 func (s *PlaygroundService) DeleteAsset(ctx context.Context, userID, id int64) error {

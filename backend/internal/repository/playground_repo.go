@@ -381,6 +381,10 @@ func (r *playgroundRepository) GetAssetByStorageKey(ctx context.Context, userID 
 	return scanPlaygroundAsset(r.db.QueryRowContext(ctx, `SELECT id,user_id,task_id,kind,title,COALESCE(content,''),COALESCE(url,''),COALESCE(storage_key,''),COALESCE(content_type,''),byte_size,metadata,created_at,updated_at,expires_at FROM playground_assets WHERE storage_key=$1 AND user_id=$2 AND expires_at>NOW() ORDER BY created_at DESC, id DESC LIMIT 1`, storageKey, userID))
 }
 
+func (r *playgroundRepository) GetAssetByStorageKeyAnyUser(ctx context.Context, storageKey string) (*service.PlaygroundAsset, error) {
+	return scanPlaygroundAsset(r.db.QueryRowContext(ctx, `SELECT id,user_id,task_id,kind,title,COALESCE(content,''),COALESCE(url,''),COALESCE(storage_key,''),COALESCE(content_type,''),byte_size,metadata,created_at,updated_at,expires_at FROM playground_assets WHERE storage_key=$1 AND expires_at>NOW() ORDER BY created_at DESC, id DESC LIMIT 1`, storageKey))
+}
+
 func (r *playgroundRepository) DeleteExpired(ctx context.Context) (int64, int64, error) {
 	assetResult, err := r.db.ExecContext(ctx, `DELETE FROM playground_assets WHERE expires_at<=NOW()`)
 	if err != nil {
