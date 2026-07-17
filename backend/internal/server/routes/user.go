@@ -153,7 +153,7 @@ func RegisterUserRoutes(
 			{
 				assets.POST("", h.Playground.CreateAsset)
 				assets.GET("", h.Playground.ListAssets)
-				assets.GET("/content/:storageKey", h.Playground.ServeAssetContent)
+				assets.GET("/content/*storageKey", h.Playground.ServeAssetContent)
 				assets.GET("/:id/content", h.Playground.ServeAssetByID)
 				assets.GET("/:id", h.Playground.GetAsset)
 				assets.DELETE("/:id", h.Playground.DeleteAsset)

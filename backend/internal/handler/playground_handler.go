@@ -169,7 +169,7 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 	if !ok {
 		return
 	}
-	storageKey := strings.TrimSpace(c.Param("storageKey"))
+	storageKey := strings.TrimPrefix(strings.TrimSpace(c.Param("storageKey")), "/")
 	role, _ := servermiddleware.GetUserRoleFromContext(c)
 	logger.L().Info("playground.asset.content.request",
 		zap.Int64("subject_user_id", subject.UserID),
