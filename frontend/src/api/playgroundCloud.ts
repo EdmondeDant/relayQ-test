@@ -91,6 +91,7 @@ function toPersistedMediaRef(asset: PlaygroundAsset | null | undefined): Persist
 }
 
 export const playgroundCloudAPI = {
+  toPersistedMediaRef,
   async createTask(payload: {
     kind: string
     status?: string

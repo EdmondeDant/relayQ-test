@@ -276,7 +276,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
 import { modelTestAPI, type ChatMessage, type PlaygroundBilling } from '@/api/modelTest'
-import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef, type PlaygroundAsset } from '@/api/playgroundCloud'
+import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef } from '@/api/playgroundCloud'
 import { keysAPI } from '@/api/keys'
 import { userChannelsAPI, type UserAvailableChannel, type UserAvailableGroup, type UserSupportedModel } from '@/api/channels'
 import { useAuthStore } from '@/stores/auth'
@@ -1119,18 +1119,6 @@ async function hydrateRecordMedia(record: PlaygroundRecord): Promise<PlaygroundR
   }
 }
 
-async function waitForAudioRecord(targetRequestId: string, attempts = 8, delayMs = 800): Promise<PlaygroundRecord | null> {
-  const wanted = String(targetRequestId || '').trim()
-  if (!wanted) return null
-  for (let index = 0; index < attempts; index += 1) {
-    await loadCloudRecords()
-    const record = cloudRecords.value.find((item) => item.request_id === wanted)
-    if (record && recordMediaAsset(record, ['audio'])) return record
-    if (index < attempts - 1) await new Promise((resolve) => window.setTimeout(resolve, delayMs))
-  }
-  return null
-}
-
 async function persistMediaAsset(input: {
   taskId: number
   kind: 'image' | 'audio' | 'video'
@@ -1163,17 +1151,6 @@ async function persistMediaAsset(input: {
     return playgroundCloudAPI.toPersistedMediaRef(asset)
   }
   return null
-}
-
-function resultPayloadWithPersistedMedia(kind: 'image' | 'audio' | 'video', mediaRef: PersistedMediaRef | null, extra: Record<string, unknown> = {}) {
-  const payload: Record<string, unknown> = { ...extra }
-  if (!mediaRef?.url) return payload
-  if (kind === 'audio') payload.audio_url = mediaRef.url
-  else if (kind === 'video') payload.video_url = mediaRef.url
-  else payload.url = mediaRef.url
-  payload.storage_key = mediaRef.storageKey
-  payload.asset_id = mediaRef.assetId
-  return payload
 }
 
 async function loadCloudRecords() {
@@ -1510,8 +1487,8 @@ async function pollVideoOnce() {
     if (result.videoUrl) {
       let taskId = cloudRecords.value.find((item) => item.request_id === requestId.value)?.id
       if (!taskId) {
-        const task = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, ...getExecutionMetadata() } }).catch(() => undefined)
-        taskId = task?.id
+        const created = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, ...getExecutionMetadata() } }).catch(() => undefined)
+        taskId = created?.id
       }
       const mediaRef = taskId
         ? await persistMediaAsset({
