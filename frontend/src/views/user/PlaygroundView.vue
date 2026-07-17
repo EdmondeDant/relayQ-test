@@ -1448,7 +1448,7 @@ async function submitVideo() {
   try {
     const model = selectedVideoModel.value
     if (!model) throw new Error('当前 API Key 所属分组没有可用的视频模型。')
-    const task = await playgroundCloudAPI.createTask({
+    await playgroundCloudAPI.createTask({
       kind: 'video',
       status: 'submitted',
       model,
