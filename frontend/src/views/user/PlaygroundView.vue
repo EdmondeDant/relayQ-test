@@ -251,7 +251,7 @@
               <div class="mt-5 rounded-lg bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-dark-800">首版默认值已预设为中文、自然讲述和通用女声。填写文案后可直接生成；声音克隆模式下还需要上传参考音频并确认授权。</div>
               <button class="btn btn-primary mt-5 w-full" :disabled="!canSubmitAudioGeneration" @click="submitAudioGeneration">{{ submitting ? '生成中…' : '生成配音' }}</button>
             </div>
-            <ResultPanel :loading="submitting" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestIdLabel : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><audio v-if="ttsResultUrl" :key="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls preload="auto" /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button><p v-if="ttsResultUrl" class="break-all text-xs text-red-500 dark:text-red-300">播放地址：{{ ttsResultUrl }}</p><div v-if="ttsDebug" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">{{ ttsDebug }}</div></div></template></ResultPanel>
+            <ResultPanel :loading="submitting || audioPreviewLoading" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestIdLabel : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><div v-if="audioPreviewLoading" class="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-800">音频已生成，正在下载并解析媒体元数据…</div><audio v-if="ttsResultUrl && !audioPreviewLoading" :key="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls preload="auto" /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl && !audioPreviewLoading" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button><p v-if="ttsResultUrl" class="break-all text-xs text-red-500 dark:text-red-300">播放地址：{{ ttsResultUrl }}</p><div v-if="ttsDebug" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">{{ ttsDebug }}</div></div></template></ResultPanel>
           </section>
 
           <section v-else class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
@@ -375,6 +375,7 @@ const ttsAuthorizationConfirmed = ref(false)
 const ttsResultUrl = ref('')
 const ttsResultText = ref('')
 const ttsDebug = ref('')
+const audioPreviewLoading = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const requestId = ref('')
@@ -895,7 +896,7 @@ async function submitAudioTranscription() {
 async function submitAudioGeneration() {
   if (!canSubmitAudioGeneration.value || submitting.value) return
   const balanceBefore = balance.value
-  startRequest(); ttsResultUrl.value = ''; ttsResultText.value = ''; ttsDebug.value = ''
+  startRequest(); ttsResultUrl.value = ''; ttsResultText.value = ''; ttsDebug.value = ''; audioPreviewLoading.value = false
   try {
     const styleInstruction = audioGenerateMode.value === 'voicedesign'
       ? `${ttsVoiceDescription.value.trim()}。角色设定：${ttsPersona.value.trim() || '自然旁白'}。输出语言：${ttsLanguage.value}。`
@@ -959,7 +960,9 @@ async function submitAudioGeneration() {
     }
 
     if (mediaRef?.url) {
-      ttsResultUrl.value = await toPlayableMediaUrl(mediaRef.url)
+      audioPreviewLoading.value = true
+      ttsResultUrl.value = await resolvePlayableAudioUrl(mediaRef.url)
+      audioPreviewLoading.value = false
     }
     ttsResultText.value = result.text || ''
 
@@ -983,7 +986,9 @@ async function submitAudioGeneration() {
     await loadCloudRecords()
     const saved = cloudRecords.value.find((item) => item.request_id === requestId.value)
     if (saved) {
+      audioPreviewLoading.value = true
       await restoreRecord(saved)
+      audioPreviewLoading.value = false
     }
   } catch (cause) { handleError(cause, 'AI 配音失败。') } finally { endRequest() }
 }
@@ -1081,6 +1086,32 @@ async function fetchAuthedAssetUrl(url: string): Promise<string> {
 
 async function toPlayableMediaUrl(url: string): Promise<string> {
   return fetchAuthedAssetUrl(url)
+}
+
+async function waitForAudioMetadata(url: string): Promise<void> {
+  const value = String(url || '').trim()
+  if (!value) return
+  await new Promise<void>((resolve) => {
+    const audio = new Audio()
+    const done = () => {
+      audio.onloadedmetadata = null
+      audio.oncanplaythrough = null
+      audio.onerror = null
+      resolve()
+    }
+    audio.onloadedmetadata = done
+    audio.oncanplaythrough = done
+    audio.onerror = done
+    audio.preload = 'auto'
+    audio.src = value
+    audio.load()
+  })
+}
+
+async function resolvePlayableAudioUrl(url: string): Promise<string> {
+  const playable = await toPlayableMediaUrl(url)
+  await waitForAudioMetadata(playable)
+  return playable
 }
 
 async function toDisplayImageUrl(url: string): Promise<string> {
@@ -1385,7 +1416,9 @@ async function restoreRecord(record: PlaygroundRecord) {
     activeTool.value = 'audio-generate'
     ttsText.value = String(payload.text || payload.prompt || prompt)
     if (resultUrl) {
-      ttsResultUrl.value = await toPlayableMediaUrl(resultUrl)
+      audioPreviewLoading.value = true
+      ttsResultUrl.value = await resolvePlayableAudioUrl(resultUrl)
+      audioPreviewLoading.value = false
     } else {
       ttsResultUrl.value = ''
     }
