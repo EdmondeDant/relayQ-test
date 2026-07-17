@@ -215,7 +215,14 @@ func (s *PlaygroundService) GetAssetByStorageKey(ctx context.Context, userID int
 }
 
 func (s *PlaygroundService) DeleteAsset(ctx context.Context, userID, id int64) error {
-	return s.repo.DeleteAsset(ctx, userID, id)
+	asset, err := s.repo.GetAsset(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.DeleteAsset(ctx, userID, id); err != nil {
+		return err
+	}
+	return s.storage.Remove(asset.StorageKey)
 }
 
 func (s *PlaygroundService) ListRecords(ctx context.Context, userID int64, params pagination.PaginationParams, kind string) ([]PlaygroundRecord, int64, error) {
@@ -264,6 +271,18 @@ func sanitizePlaygroundAsset(asset *PlaygroundAsset) {
 }
 
 func (s *PlaygroundService) DeleteRecord(ctx context.Context, userID, id int64) error {
+	records, _, err := s.repo.ListRecords(ctx, userID, pagination.PaginationParams{Page: 1, PageSize: PlaygroundRecordLimit}, "")
+	if err == nil {
+		for _, record := range records {
+			if record.ID != id {
+				continue
+			}
+			for _, asset := range record.Assets {
+				_ = s.storage.Remove(asset.StorageKey)
+			}
+			break
+		}
+	}
 	return s.repo.DeleteTask(ctx, userID, id)
 }
 

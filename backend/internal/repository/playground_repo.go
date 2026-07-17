@@ -105,8 +105,8 @@ func (r *playgroundRepository) ListRecords(ctx context.Context, userID int64, pa
 							ELSE ''
 						END,
 						'url', CASE
+							WHEN COALESCE(a.storage_key, '') <> '' THEN '/api/v1/playground/assets/content/' || replace(a.storage_key, '/', '%%2F')
 							WHEN COALESCE(a.url, '') <> '' THEN a.url
-							WHEN COALESCE(a.storage_key, '') <> '' THEN '/api/v1/playground/assets/content/' || a.storage_key
 							ELSE ''
 						END,
 						'storage_key', COALESCE(a.storage_key, ''),

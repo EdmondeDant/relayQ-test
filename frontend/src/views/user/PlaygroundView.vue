@@ -276,7 +276,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
 import { modelTestAPI, type ChatMessage, type PlaygroundBilling } from '@/api/modelTest'
-import { playgroundCloudAPI, type PlaygroundRecord } from '@/api/playgroundCloud'
+import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef, type PlaygroundAsset } from '@/api/playgroundCloud'
 import { keysAPI } from '@/api/keys'
 import { userChannelsAPI, type UserAvailableChannel, type UserAvailableGroup, type UserSupportedModel } from '@/api/channels'
 import { useAuthStore } from '@/stores/auth'
@@ -642,17 +642,20 @@ async function submitImage() {
         ...getExecutionMetadata(),
       },
       result_payload: {
-        url: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
-        has_inline_image: resultImage.value.startsWith('data:'),
         ...getExecutionMetadata(),
       },
     }).catch(() => undefined)
     if (task) {
-      if (resultImage.value.startsWith('data:')) {
-        await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title, content: resultImage.value, content_type: 'image/png', metadata: { request_id: requestId.value, inline: true, ...getExecutionMetadata() } }).catch(() => undefined)
-      } else {
-        await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title, url: resultImage.value, content_type: 'image/png', metadata: { request_id: requestId.value, ...getExecutionMetadata() } }).catch(() => undefined)
-      }
+      const mediaRef = await persistMediaAsset({
+        taskId: task.id,
+        kind: 'image',
+        title,
+        sourceContent: resultImage.value.startsWith('data:') ? resultImage.value : undefined,
+        sourceUrl: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
+        contentType: 'image/png',
+        metadata: { request_id: requestId.value, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
+      }).catch(() => null)
+      if (mediaRef?.url) resultImage.value = mediaRef.url
     }
     void loadCloudRecords()
   } catch (cause) { handleError(cause, '图片处理失败，本次不应扣费。') } finally { endRequest() }
@@ -734,31 +737,22 @@ async function translateImageText() {
         ...getExecutionMetadata(),
       },
       result_payload: {
-        url: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
-        has_inline_image: resultImage.value.startsWith('data:'),
+        source_language: translateSource.value,
+        target_language: translateTarget.value,
         ...getExecutionMetadata(),
       },
     }).catch(() => undefined)
     if (task) {
-      if (resultImage.value.startsWith('data:')) {
-        await playgroundCloudAPI.createAsset({
-          task_id: task.id,
-          kind: 'image',
-          title: `图片翻译 · ${translateTarget.value}`,
-          content: resultImage.value,
-          content_type: 'image/png',
-          metadata: { request_id: requestId.value || undefined, inline: true, ...getExecutionMetadata() },
-        }).catch(() => undefined)
-      } else {
-        await playgroundCloudAPI.createAsset({
-          task_id: task.id,
-          kind: 'image',
-          title: `图片翻译 · ${translateTarget.value}`,
-          url: resultImage.value,
-          content_type: 'image/png',
-          metadata: { request_id: requestId.value || undefined, ...getExecutionMetadata() },
-        }).catch(() => undefined)
-      }
+      const mediaRef = await persistMediaAsset({
+        taskId: task.id,
+        kind: 'image',
+        title: `图片翻译 · ${translateTarget.value}`,
+        sourceContent: resultImage.value.startsWith('data:') ? resultImage.value : undefined,
+        sourceUrl: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
+        contentType: 'image/png',
+        metadata: { request_id: requestId.value || undefined, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
+      }).catch(() => null)
+      if (mediaRef?.url) resultImage.value = mediaRef.url
       void loadCloudRecords()
     }
   } catch (cause) {
@@ -786,11 +780,17 @@ async function runBatchImages() {
   batchRunning.value = false
   const task = await playgroundCloudAPI.createTask({ kind: taskKind, status: batchSuccessCount.value > 0 ? 'succeeded' : 'failed', model: selectedImageModel.value, request_payload: { prompt: batchPrompt.value, count: batchInputs.value.length, size: imageSize.value, quality: imageQuality.value, style: imageStyle.value, background: imageBackground.value, ...getExecutionMetadata() }, result_payload: { succeeded: batchSuccessCount.value, failed: batchInputs.value.filter((item) => item.status === 'failed').length, canceled: batchInputs.value.filter((item) => item.status === 'canceled').length, ...getExecutionMetadata() } }).catch(() => undefined)
   if (task) {
-    await Promise.all(batchInputs.value.filter((item) => item.output).map((item) => {
-      if (item.output!.startsWith('data:')) {
-        return playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title: taskKindLabel(taskKind), content: item.output, content_type: 'image/png', metadata: { request_id: item.requestId, inline: true, ...getExecutionMetadata() } }).catch(() => undefined)
-      }
-      return playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title: taskKindLabel(taskKind), url: item.output, content_type: 'image/png', metadata: { request_id: item.requestId, ...getExecutionMetadata() } }).catch(() => undefined)
+    await Promise.all(batchInputs.value.filter((item) => item.output).map(async (item) => {
+      const mediaRef = await persistMediaAsset({
+        taskId: task.id,
+        kind: 'image',
+        title: taskKindLabel(taskKind),
+        sourceContent: item.output!.startsWith('data:') ? item.output : undefined,
+        sourceUrl: item.output!.startsWith('data:') ? undefined : item.output,
+        contentType: 'image/png',
+        metadata: { request_id: item.requestId, inline: item.output!.startsWith('data:'), ...getExecutionMetadata() },
+      }).catch(() => null)
+      if (mediaRef?.url) item.output = mediaRef.url
     }))
   }
   void loadCloudRecords()
@@ -907,87 +907,80 @@ async function submitAudioGeneration() {
     if (audioGenerateMode.value === 'voiceclone' && ttsReferenceAudio.value) messages.push({ role: 'user', content: [{ type: 'audio_url', audio_url: { url: ttsReferenceAudio.value } }] })
     messages.push({ role: 'assistant', content: ttsText.value.trim() })
     const result = await modelTestAPI.runPlaygroundAudio({ auth: getAuthContext(), model: selectedTtsModel.value, mode: audioGenerateMode.value, signal: abortController?.signal, audio: audioGenerateMode.value === 'voicedesign' ? { format: 'wav', optimize_text_preview: true } : { format: 'wav', voice: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : ttsReferenceAudio.value || 'mimo_default' }, messages })
-    ttsResultUrl.value = ''
-    ttsResultText.value = result.text || ''
     requestId.value = result.requestId || ''
     lastBilling.value = await resolveBilling(result.billing, balanceBefore)
     const taskKind = audioGenerateMode.value === 'voiceclone' ? 'audio-voice-clone' : audioGenerateMode.value === 'voicedesign' ? 'audio-voice-design' : 'audio-generate'
     const title = audioGenerateMode.value === 'voiceclone' ? '声音克隆配音' : audioGenerateMode.value === 'voicedesign' ? '音色设计配音' : '标准配音'
-    try {
-      const playbackAudioSrc = ttsResultUrl.value || ''
-      const persistedAudioContent = result.dataUrl || ''
-      const persistentAudioUrl = playbackAudioSrc && /^https?:\/\//i.test(playbackAudioSrc) ? playbackAudioSrc : undefined
-      const task = await playgroundCloudAPI.createTask({
-        kind: taskKind,
-        status: 'succeeded',
-        model: selectedTtsModel.value,
-        request_id: requestId.value || undefined,
-        request_payload: {
-          mode: audioGenerateMode.value,
-          text: ttsText.value.trim(),
-          language: ttsLanguage.value,
-          style: ttsStyle.value,
-          voice_preset: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : undefined,
-          voice_description: audioGenerateMode.value === 'voicedesign' ? ttsVoiceDescription.value : undefined,
-          persona: audioGenerateMode.value === 'voicedesign' ? ttsPersona.value : undefined,
-          has_reference_audio: audioGenerateMode.value === 'voiceclone' ? Boolean(ttsReferenceAudio.value) : undefined,
-          authorization_confirmed: audioGenerateMode.value === 'voiceclone' ? ttsAuthorizationConfirmed.value : undefined,
-          ...getExecutionMetadata(),
-        },
-        result_payload: {
-          audio_url: persistentAudioUrl,
-          has_inline_audio: Boolean(persistedAudioContent && !persistentAudioUrl),
-          text: ttsResultText.value || undefined,
-          mode: audioGenerateMode.value,
-          ...getExecutionMetadata(),
-        },
+    const task = await playgroundCloudAPI.createTask({
+      kind: taskKind,
+      status: 'succeeded',
+      model: selectedTtsModel.value,
+      request_id: requestId.value || undefined,
+      request_payload: {
+        mode: audioGenerateMode.value,
+        text: ttsText.value.trim(),
+        language: ttsLanguage.value,
+        style: ttsStyle.value,
+        voice_preset: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : undefined,
+        voice_description: audioGenerateMode.value === 'voicedesign' ? ttsVoiceDescription.value : undefined,
+        persona: audioGenerateMode.value === 'voicedesign' ? ttsPersona.value : undefined,
+        has_reference_audio: audioGenerateMode.value === 'voiceclone' ? Boolean(ttsReferenceAudio.value) : undefined,
+        authorization_confirmed: audioGenerateMode.value === 'voiceclone' ? ttsAuthorizationConfirmed.value : undefined,
+        ...getExecutionMetadata(),
+      },
+      result_payload: {
+        text: result.text || undefined,
+        mode: audioGenerateMode.value,
+        ...getExecutionMetadata(),
+      },
+    })
+
+    let mediaRef: PersistedMediaRef | null = null
+    if (result.dataUrl) {
+      const asset = await playgroundCloudAPI.createAsset({
+        task_id: task.id,
+        kind: 'audio',
+        title,
+        content: result.dataUrl,
+        content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
+        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, inline: true, ...getExecutionMetadata() },
       })
-      const taskId = Number(task?.id || 0)
-      if (!taskId) throw new Error('创作记录创建失败：未返回任务 ID')
-
-      if (persistentAudioUrl) {
-        await playgroundCloudAPI.createAsset({
-          task_id: taskId,
-          kind: 'audio',
-          title,
-          url: persistentAudioUrl,
-          content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
-          metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, ...getExecutionMetadata() },
-        })
-      } else if (persistedAudioContent) {
-        await playgroundCloudAPI.createAsset({
-          task_id: taskId,
-          kind: 'audio',
-          title,
-          content: persistedAudioContent,
-          content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
-          metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, inline: true, ...getExecutionMetadata() },
-        })
-      }
-
-      if (ttsResultText.value) {
-        await playgroundCloudAPI.createAsset({
-          task_id: taskId,
-          kind: 'text',
-          title: '配音文本',
-          content: ttsResultText.value,
-          content_type: 'text/plain',
-          metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, ...getExecutionMetadata() },
-        })
-      }
-
-      const saved = await waitForAudioRecord(requestId.value)
-      if (saved) {
-        ttsDebug.value = `已命中创作记录并回填播放：request_id=${requestId.value}`
-        await restoreRecord(saved)
-      } else {
-        ttsDebug.value = `未在记录中等到音频资产：request_id=${requestId.value}`
-        error.value = '配音已生成，但结果音频还未成功回填到结果区。请打开创作记录查看这条结果。'
-      }
-    } catch (persistError) {
-      console.error('保存配音创作记录失败', persistError)
-      error.value = '配音已生成，但写入创作记录失败，请稍后刷新创作记录重试。'
+      mediaRef = playgroundCloudAPI.toPersistedMediaRef(asset)
+    } else if (result.audioUrl) {
+      const asset = await playgroundCloudAPI.createAsset({
+        task_id: task.id,
+        kind: 'audio',
+        title,
+        url: result.audioUrl,
+        content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
+        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
+      })
+      mediaRef = playgroundCloudAPI.toPersistedMediaRef(asset)
     }
+
+    if (mediaRef?.url) {
+      ttsResultUrl.value = mediaRef.url
+    }
+    ttsResultText.value = result.text || ''
+
+    if (ttsResultText.value) {
+      await playgroundCloudAPI.createAsset({
+        task_id: task.id,
+        kind: 'text',
+        title: '配音文本',
+        content: ttsResultText.value,
+        content_type: 'text/plain',
+        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, ...getExecutionMetadata() },
+      })
+    }
+
+    if (mediaRef?.url) {
+      ttsDebug.value = `媒体已统一持久化：${mediaRef.storageKey || mediaRef.url}`
+    } else {
+      ttsDebug.value = `未拿到可持久化媒体：request_id=${requestId.value}`
+      error.value = '配音已生成，但媒体持久化失败，请检查上游返回。'
+    }
+    void loadCloudRecords()
   } catch (cause) { handleError(cause, 'AI 配音失败。') } finally { endRequest() }
 }
 
@@ -1029,12 +1022,17 @@ async function processWatermark() {
     requestId.value = result.requestId || ''
     lastBilling.value = await resolveBilling(result.billing, balanceBefore)
     const title = watermarkMode.value === 'remove' ? '水印去除' : '添加水印'
-    const task = await playgroundCloudAPI.createTask({ kind: 'watermark', status: 'succeeded', model: selectedImageModel.value, request_id: requestId.value || undefined, request_payload: { prompt: buildWatermarkPrompt(), has_mask: watermarkMode.value === 'remove' && Boolean(watermarkMask.value), mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, watermark_text: watermarkMode.value === 'add' && watermarkAssetType.value === 'text' ? watermarkText.value.trim() : undefined, has_logo: watermarkMode.value === 'add' && watermarkAssetType.value === 'logo' ? Boolean(watermarkLogo.value) : undefined, watermark_position: watermarkMode.value === 'add' ? watermarkPosition.value : undefined, watermark_style: watermarkMode.value === 'add' ? watermarkStyle.value : undefined, ...getExecutionMetadata() }, result_payload: { url: output.startsWith('data:') ? undefined : output, mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, ...getExecutionMetadata() } })
-    if (output.startsWith('data:')) {
-      await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title, content: output, content_type: 'image/png', metadata: { request_id: requestId.value, mode: watermarkMode.value, inline: true, ...getExecutionMetadata() } }).catch(() => undefined)
-    } else {
-      await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'image', title, url: output, content_type: 'image/png', metadata: { request_id: requestId.value, mode: watermarkMode.value, ...getExecutionMetadata() } }).catch(() => undefined)
-    }
+    const task = await playgroundCloudAPI.createTask({ kind: 'watermark', status: 'succeeded', model: selectedImageModel.value, request_id: requestId.value || undefined, request_payload: { prompt: buildWatermarkPrompt(), has_mask: watermarkMode.value === 'remove' && Boolean(watermarkMask.value), mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, watermark_text: watermarkMode.value === 'add' && watermarkAssetType.value === 'text' ? watermarkText.value.trim() : undefined, has_logo: watermarkMode.value === 'add' && watermarkAssetType.value === 'logo' ? Boolean(watermarkLogo.value) : undefined, watermark_position: watermarkMode.value === 'add' ? watermarkPosition.value : undefined, watermark_style: watermarkMode.value === 'add' ? watermarkStyle.value : undefined, ...getExecutionMetadata() }, result_payload: { mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, ...getExecutionMetadata() } })
+    const mediaRef = await persistMediaAsset({
+      taskId: task.id,
+      kind: 'image',
+      title,
+      sourceContent: output.startsWith('data:') ? output : undefined,
+      sourceUrl: output.startsWith('data:') ? undefined : output,
+      contentType: 'image/png',
+      metadata: { request_id: requestId.value, mode: watermarkMode.value, inline: output.startsWith('data:'), ...getExecutionMetadata() },
+    }).catch(() => null)
+    if (mediaRef?.url) resultImage.value = mediaRef.url
     void loadCloudRecords()
   } catch (cause) { handleError(cause, watermarkMode.value === 'remove' ? '水印去除失败，本次不应扣费。' : '添加水印失败，本次不应扣费。') } finally { endRequest() }
 }
@@ -1131,6 +1129,51 @@ async function waitForAudioRecord(targetRequestId: string, attempts = 8, delayMs
     if (index < attempts - 1) await new Promise((resolve) => window.setTimeout(resolve, delayMs))
   }
   return null
+}
+
+async function persistMediaAsset(input: {
+  taskId: number
+  kind: 'image' | 'audio' | 'video'
+  title: string
+  sourceUrl?: string
+  sourceContent?: string
+  contentType?: string
+  metadata?: Record<string, unknown>
+}): Promise<PersistedMediaRef | null> {
+  if (input.sourceContent) {
+    const asset = await playgroundCloudAPI.createAsset({
+      task_id: input.taskId,
+      kind: input.kind,
+      title: input.title,
+      content: input.sourceContent,
+      content_type: input.contentType,
+      metadata: input.metadata,
+    })
+    return playgroundCloudAPI.toPersistedMediaRef(asset)
+  }
+  if (input.sourceUrl) {
+    const asset = await playgroundCloudAPI.createAsset({
+      task_id: input.taskId,
+      kind: input.kind,
+      title: input.title,
+      url: input.sourceUrl,
+      content_type: input.contentType,
+      metadata: input.metadata,
+    })
+    return playgroundCloudAPI.toPersistedMediaRef(asset)
+  }
+  return null
+}
+
+function resultPayloadWithPersistedMedia(kind: 'image' | 'audio' | 'video', mediaRef: PersistedMediaRef | null, extra: Record<string, unknown> = {}) {
+  const payload: Record<string, unknown> = { ...extra }
+  if (!mediaRef?.url) return payload
+  if (kind === 'audio') payload.audio_url = mediaRef.url
+  else if (kind === 'video') payload.video_url = mediaRef.url
+  else payload.url = mediaRef.url
+  payload.storage_key = mediaRef.storageKey
+  payload.asset_id = mediaRef.assetId
+  return payload
 }
 
 async function loadCloudRecords() {
@@ -1428,26 +1471,29 @@ async function submitVideo() {
   try {
     const model = selectedVideoModel.value
     if (!model) throw new Error('当前 API Key 所属分组没有可用的视频模型。')
+    const task = await playgroundCloudAPI.createTask({
+      kind: 'video',
+      status: 'submitted',
+      model,
+      request_payload: {
+        prompt: videoPrompt.value.trim(),
+        duration: Number(videoDuration.value),
+        aspect_ratio: videoAspectRatio.value,
+        resolution: videoResolution.value,
+        has_image: Boolean(videoImage.value),
+        ...getExecutionMetadata(),
+      },
+      result_payload: {
+        status: 'queued',
+        ...getExecutionMetadata(),
+      },
+    })
     const result = await modelTestAPI.createPlaygroundVideo({ auth: getAuthContext(), model, prompt: videoPrompt.value.trim(), image: videoImage.value || undefined, duration: Number(videoDuration.value), aspectRatio: videoAspectRatio.value, resolution: videoResolution.value, signal: abortController?.signal })
     if (!result.requestId) throw new Error('视频任务未返回 request_id。')
     requestId.value = result.requestId
     videoStatus.value = result.status || 'queued'
-    // 结果页也改成只认本地资产；远程 URL 先用于后台落盘，不直接喂给播放器。
     videoUrl.value = ''
     lastBilling.value = result.billing
-    const task = await playgroundCloudAPI.createTask({ kind: 'video', status: videoUrl.value ? 'succeeded' : 'submitted', model, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), duration: Number(videoDuration.value), aspect_ratio: videoAspectRatio.value, resolution: videoResolution.value, has_image: Boolean(videoImage.value), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, video_url: videoUrl.value || undefined, ...getExecutionMetadata() } }).catch(() => undefined)
-    // 统一先下载到 RelayQ 本地，再通过 storage 资产展示/下载
-    const persistable = String(videoUrl.value || '')
-    if (task && /^https?:\/\//i.test(persistable)) {
-      await playgroundCloudAPI.createAsset({
-        task_id: task.id,
-        kind: 'video' as any,
-        title: 'AI 视频',
-        url: persistable,
-        content_type: 'video/mp4',
-        metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
-      }).catch(() => undefined)
-    }
     void loadCloudRecords()
     if (!videoUrl.value) scheduleVideoPoll()
   } catch (cause) { handleError(cause, '视频体验组尚未配置或任务提交失败。') } finally { endRequest() }
@@ -1460,27 +1506,27 @@ async function pollVideoOnce() {
     const result = await modelTestAPI.getPlaygroundVideo(getAuthContext(), requestId.value)
     videoStatus.value = result.status || videoStatus.value
     videoProgress.value = result.progress
-    videoUrl.value = result.videoUrl || ''
     lastBilling.value = result.billing || lastBilling.value
-    if (videoUrl.value) {
+    if (result.videoUrl) {
       let taskId = cloudRecords.value.find((item) => item.request_id === requestId.value)?.id
       if (!taskId) {
-        const task = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, video_url: videoUrl.value, ...getExecutionMetadata() } }).catch(() => undefined)
+        const task = await playgroundCloudAPI.createTask({ kind: 'video', status: 'succeeded', model: selectedVideoModel.value, request_id: requestId.value || undefined, request_payload: { prompt: videoPrompt.value.trim(), ...getExecutionMetadata() }, result_payload: { status: videoStatus.value, progress: videoProgress.value, ...getExecutionMetadata() } }).catch(() => undefined)
         taskId = task?.id
       }
-      const persistable = String(videoUrl.value || '')
-      if (taskId && /^https?:\/\//i.test(persistable)) {
-        await playgroundCloudAPI.createAsset({
-          task_id: taskId,
-          kind: 'video' as any,
-          title: 'AI 视频',
-          url: persistable,
-          content_type: 'video/mp4',
-          metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
-        }).catch(() => undefined)
+      const mediaRef = taskId
+        ? await persistMediaAsset({
+            taskId,
+            kind: 'video',
+            title: 'AI 视频',
+            sourceUrl: result.videoUrl,
+            contentType: 'video/mp4',
+            metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
+          }).catch(() => null)
+        : null
+      if (mediaRef?.url) {
+        videoUrl.value = mediaRef.url
       }
       void loadCloudRecords()
-      // 本地资产写入后，从创作记录恢复预览，避免继续使用远程直链
       setTimeout(() => {
         const saved = cloudRecords.value.find((item) => item.request_id === requestId.value)
         if (saved) void restoreRecord(saved)

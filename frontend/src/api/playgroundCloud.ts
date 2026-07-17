@@ -30,6 +30,14 @@ export interface PlaygroundAsset {
   expires_at: string
 }
 
+export interface PersistedMediaRef {
+  assetId?: number
+  storageKey?: string
+  url: string
+  contentType?: string
+  byteSize?: number
+}
+
 export interface PlaygroundRecord {
   id: number
   kind: string
@@ -62,6 +70,24 @@ export interface PaginatedResult<T> {
 async function unwrapData<T>(promise: Promise<{ data: T }>): Promise<T> {
   const { data } = await promise
   return data
+}
+
+function buildStoredAssetUrl(storageKey: string): string {
+  return `/api/v1/playground/assets/content/${encodeURIComponent(String(storageKey || '').trim())}`
+}
+
+function toPersistedMediaRef(asset: PlaygroundAsset | null | undefined): PersistedMediaRef | null {
+  if (!asset) return null
+  const storageKey = String(asset.storage_key || '').trim()
+  const url = storageKey ? buildStoredAssetUrl(storageKey) : String(asset.url || '').trim()
+  if (!url) return null
+  return {
+    assetId: Number(asset.id || 0) || undefined,
+    storageKey: storageKey || undefined,
+    url,
+    contentType: asset.content_type,
+    byteSize: asset.byte_size,
+  }
 }
 
 export const playgroundCloudAPI = {

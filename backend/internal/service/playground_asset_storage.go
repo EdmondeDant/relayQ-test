@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -34,14 +35,14 @@ func NewPlaygroundAssetStorage() *PlaygroundAssetStorage {
 }
 
 func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, input CreatePlaygroundAssetInput) (CreatePlaygroundAssetInput, error) {
-	kind := strings.TrimSpace(strings.ToLower(input.Kind))
-	// image/audio/video 一律落盘；text 继续存 content。
+	kind := normalizePlaygroundAssetKind(input.Kind)
 	if kind != "image" && kind != "audio" && kind != "video" {
 		return input, nil
 	}
-	if strings.TrimSpace(input.StorageKey) != "" {
+	input.Kind = kind
+	if storageKey := strings.TrimSpace(input.StorageKey); storageKey != "" {
 		if strings.TrimSpace(input.URL) == "" {
-			input.URL = buildPlaygroundAssetURL(input.StorageKey)
+			input.URL = buildPlaygroundAssetURL(storageKey)
 		}
 		input.Content = ""
 		return input, nil
@@ -50,18 +51,29 @@ func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, inpu
 		return s.persistDataURL(userID, input, data)
 	}
 	if rawURL := strings.TrimSpace(input.URL); rawURL != "" {
-		// 无论本地受保护地址还是外部 http(s) 直链，统一先下载到 RelayQ 本地再入库。
 		return s.persistRemoteURL(ctx, userID, input, rawURL)
 	}
 	return input, nil
 }
 
 func (s *PlaygroundAssetStorage) ResolvePath(storageKey string) (string, bool) {
-	key := strings.TrimSpace(storageKey)
-	if key == "" || filepath.Base(key) != key {
+	meta := parseStorageKey(storageKey)
+	if meta == nil {
 		return "", false
 	}
-	return filepath.Join(s.baseDir, key), true
+	return filepath.Join(s.baseDir, meta.Kind, meta.UserDir, meta.FileName), true
+}
+
+func (s *PlaygroundAssetStorage) Remove(storageKey string) error {
+	path, ok := s.ResolvePath(storageKey)
+	if !ok {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+		_ = cleanupEmptyParentDirs(path, s.baseDir)
+	return nil
 }
 
 func (s *PlaygroundAssetStorage) persistDataURL(userID int64, input CreatePlaygroundAssetInput, dataURL string) (CreatePlaygroundAssetInput, error) {
@@ -73,7 +85,6 @@ func (s *PlaygroundAssetStorage) persistDataURL(userID int64, input CreatePlaygr
 	if err != nil {
 		return input, err
 	}
-	// 落盘后 content 清空，统一用 storage_key + url 引用，避免列表接口返回数 MB base64。
 	stored.Content = ""
 	return stored, nil
 }
@@ -84,7 +95,6 @@ func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID in
 	if err != nil {
 		return input, fmt.Errorf("build asset request: %w", err)
 	}
-	// 本机受保护资源（如 /v1/videos/{id}/content）需要网关 API Key；前端可放在 metadata.auth_token。
 	if token := playgroundAssetAuthToken(input); token != "" && isLocalPlaygroundProtectedURL(resolvedURL) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -93,7 +103,6 @@ func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID in
 		return input, fmt.Errorf("download asset: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	// 兼容 /content 代理返回 302 到真实 CDN 的场景。
 	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently || resp.StatusCode == http.StatusTemporaryRedirect || resp.StatusCode == http.StatusPermanentRedirect {
 		location := strings.TrimSpace(resp.Header.Get("Location"))
 		_ = resp.Body.Close()
@@ -137,22 +146,58 @@ func (s *PlaygroundAssetStorage) writeAssetBytes(userID int64, input CreatePlayg
 	if len(payload) == 0 {
 		return input, fmt.Errorf("empty asset payload")
 	}
-	if err := os.MkdirAll(s.baseDir, 0o755); err != nil {
-		return input, fmt.Errorf("create playground asset dir: %w", err)
-	}
 	contentType = normalizePlaygroundContentType(contentType, payload, input.Kind)
 	ext := playgroundAssetExtension(contentType, input.Kind)
-	fileName := fmt.Sprintf("u%d_%s_%s%s", userID, sanitizePlaygroundAssetName(input.Kind), strconv.FormatInt(time.Now().UnixNano(), 10), ext)
-	path := filepath.Join(s.baseDir, fileName)
+	hash := sha256.Sum256(payload)
+	hashHex := hex.EncodeToString(hash[:])
+	userDir := fmt.Sprintf("u%d", userID)
+	kindDir := normalizePlaygroundAssetKind(input.Kind)
+	fileName := fmt.Sprintf("%d_%s%s", time.Now().UnixMilli(), hashHex[:12], ext)
+	storageKey := strings.Join([]string{kindDir, userDir, fileName}, "/")
+	dir := filepath.Join(s.baseDir, kindDir, userDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return input, fmt.Errorf("create playground asset dir: %w", err)
+	}
+	path := filepath.Join(dir, fileName)
 	if err := os.WriteFile(path, payload, 0o644); err != nil {
 		return input, fmt.Errorf("write asset file: %w", err)
 	}
 	byteSize := int64(len(payload))
-	input.StorageKey = fileName
+	input.StorageKey = storageKey
 	input.ContentType = contentType
 	input.ByteSize = &byteSize
-	input.URL = buildPlaygroundAssetURL(fileName)
+	input.URL = buildPlaygroundAssetURL(storageKey)
+	input.Content = ""
+	input.Metadata = mergePlaygroundAssetMetadata(input.Metadata, map[string]any{
+		"storage_source": "managed_file",
+		"storage_sha256": hashHex,
+		"storage_path":   storageKey,
+	})
 	return input, nil
+}
+
+type playgroundStorageMeta struct {
+	Kind     string
+	UserDir  string
+	FileName string
+}
+
+func parseStorageKey(storageKey string) *playgroundStorageMeta {
+	cleaned := strings.Trim(strings.TrimSpace(storageKey), "/")
+	if cleaned == "" {
+		return nil
+	}
+	parts := strings.Split(cleaned, "/")
+	if len(parts) != 3 {
+		return nil
+	}
+	kind := sanitizePlaygroundAssetName(parts[0])
+	userDir := sanitizePlaygroundAssetName(parts[1])
+	fileName := filepath.Base(parts[2])
+	if kind == "" || userDir == "" || fileName == "." || fileName == "" || fileName != parts[2] {
+		return nil
+	}
+	return &playgroundStorageMeta{Kind: kind, UserDir: userDir, FileName: fileName}
 }
 
 func decodePlaygroundDataURL(raw string) (string, []byte, error) {
@@ -186,6 +231,9 @@ func normalizePlaygroundContentType(contentType string, payload []byte, kind str
 	if kind == "video" {
 		return "video/mp4"
 	}
+	if kind == "image" {
+		return "image/png"
+	}
 	return "application/octet-stream"
 }
 
@@ -199,7 +247,20 @@ func playgroundAssetExtension(contentType string, kind string) string {
 	if kind == "video" {
 		return ".mp4"
 	}
+	if kind == "image" {
+		return ".png"
+	}
 	return ".bin"
+}
+
+func normalizePlaygroundAssetKind(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	switch value {
+	case "image", "audio", "video", "text":
+		return value
+	default:
+		return sanitizePlaygroundAssetName(value)
+	}
 }
 
 func sanitizePlaygroundAssetName(value string) string {
@@ -258,6 +319,21 @@ func playgroundAssetAuthToken(input CreatePlaygroundAssetInput) string {
 	return ""
 }
 
+func mergePlaygroundAssetMetadata(raw json.RawMessage, extra map[string]any) json.RawMessage {
+	payload := map[string]any{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &payload)
+	}
+	for key, value := range extra {
+		payload[key] = value
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return raw
+	}
+	return encoded
+}
+
 func isLocalPlaygroundProtectedURL(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
@@ -279,4 +355,25 @@ func playgroundDataDir() string {
 		return "/app/data"
 	}
 	return "."
+}
+
+func cleanupEmptyParentDirs(path string, stopDir string) error {
+	current := filepath.Dir(path)
+	stop := filepath.Clean(stopDir)
+	for {
+		if current == stop || current == "." || current == string(filepath.Separator) {
+			return nil
+		}
+		entries, err := os.ReadDir(current)
+		if err != nil {
+			return err
+		}
+		if len(entries) > 0 {
+			return nil
+		}
+		if err := os.Remove(current); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		current = filepath.Dir(current)
+	}
 }
