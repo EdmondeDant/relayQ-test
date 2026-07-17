@@ -167,7 +167,7 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 	if !ok {
 		return
 	}
-	storageKey := strings.TrimSpace(c.Param("key"))
+	storageKey := strings.TrimSpace(c.Param("storageKey"))
 	if storageKey == "" {
 		response.NotFound(c, "Resource not found")
 		return
