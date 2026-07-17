@@ -8,11 +8,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type PlaygroundHandler struct {
@@ -168,17 +170,42 @@ func (h *PlaygroundHandler) ServeAssetContent(c *gin.Context) {
 		return
 	}
 	storageKey := strings.TrimSpace(c.Param("storageKey"))
+	role, _ := servermiddleware.GetUserRoleFromContext(c)
+	logger.L().Info("playground.asset.content.request",
+		zap.Int64("subject_user_id", subject.UserID),
+		zap.String("role", role),
+		zap.String("raw_path", c.Request.URL.Path),
+		zap.String("storage_key_param", storageKey),
+	)
 	if storageKey == "" {
 		response.NotFound(c, "Resource not found")
 		return
 	}
 	asset, err := h.service.GetAssetByStorageKey(c.Request.Context(), subject.UserID, storageKey)
 	if err != nil {
-		if role, ok := servermiddleware.GetUserRoleFromContext(c); ok && role == "admin" {
+		if role == "admin" {
+			logger.L().Info("playground.asset.content.admin_fallback",
+				zap.Int64("subject_user_id", subject.UserID),
+				zap.String("storage_key", storageKey),
+			)
 			asset, err = h.service.GetAssetByStorageKeyAnyUser(c.Request.Context(), storageKey)
 		}
 	}
+	if err == nil && asset != nil {
+		logger.L().Info("playground.asset.content.asset_hit",
+			zap.Int64("asset_id", asset.ID),
+			zap.Int64("asset_user_id", asset.UserID),
+			zap.String("asset_kind", asset.Kind),
+			zap.String("asset_storage_key", asset.StorageKey),
+			zap.String("asset_url", asset.URL),
+		)
+	}
 	if writePlaygroundResourceError(c, err) {
+		logger.L().Warn("playground.asset.content.lookup_failed",
+			zap.Int64("subject_user_id", subject.UserID),
+			zap.String("storage_key", storageKey),
+			zap.Error(err),
+		)
 		return
 	}
 	h.serveStoredAsset(c, asset)
@@ -195,12 +222,25 @@ func (h *PlaygroundHandler) serveStoredAsset(c *gin.Context, asset *service.Play
 		return
 	}
 	path, ok := h.storage.ResolvePath(storageKey)
+	logger.L().Info("playground.asset.content.resolve",
+		zap.Int64("asset_id", asset.ID),
+		zap.Int64("asset_user_id", asset.UserID),
+		zap.String("storage_key", storageKey),
+		zap.String("resolved_path", path),
+		zap.Bool("resolve_ok", ok),
+	)
 	if !ok {
 		response.NotFound(c, "Resource not found")
 		return
 	}
 	file, openErr := os.Open(path)
 	if openErr != nil {
+		logger.L().Warn("playground.asset.content.open_failed",
+			zap.Int64("asset_id", asset.ID),
+			zap.String("storage_key", storageKey),
+			zap.String("resolved_path", path),
+			zap.Error(openErr),
+		)
 		if os.IsNotExist(openErr) {
 			response.NotFound(c, "Resource not found")
 			return

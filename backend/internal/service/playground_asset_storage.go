@@ -16,6 +16,9 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"go.uber.org/zap"
 )
 
 const playgroundMaxStoredAssetBytes = 64 * 1024 * 1024
@@ -59,9 +62,20 @@ func (s *PlaygroundAssetStorage) Persist(ctx context.Context, userID int64, inpu
 func (s *PlaygroundAssetStorage) ResolvePath(storageKey string) (string, bool) {
 	meta := parseStorageKey(storageKey)
 	if meta == nil {
+		logger.L().Warn("playground.asset.resolve_path.invalid_key",
+			zap.String("storage_key", strings.TrimSpace(storageKey)),
+		)
 		return "", false
 	}
-	return filepath.Join(s.baseDir, meta.Kind, meta.UserDir, meta.FileName), true
+	resolved := filepath.Join(s.baseDir, meta.Kind, meta.UserDir, meta.FileName)
+	logger.L().Info("playground.asset.resolve_path",
+		zap.String("storage_key", strings.TrimSpace(storageKey)),
+		zap.String("kind", meta.Kind),
+		zap.String("user_dir", meta.UserDir),
+		zap.String("file_name", meta.FileName),
+		zap.String("resolved_path", resolved),
+	)
+	return resolved, true
 }
 
 func (s *PlaygroundAssetStorage) Remove(storageKey string) error {
