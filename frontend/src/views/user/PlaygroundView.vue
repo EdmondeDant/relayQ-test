@@ -251,7 +251,7 @@
               <div class="mt-5 rounded-lg bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-dark-800">首版默认值已预设为中文、自然讲述和通用女声。填写文案后可直接生成；声音克隆模式下还需要上传参考音频并确认授权。</div>
               <button class="btn btn-primary mt-5 w-full" :disabled="!canSubmitAudioGeneration" @click="submitAudioGeneration">{{ submitting ? '生成中…' : '生成配音' }}</button>
             </div>
-            <ResultPanel :loading="submitting || audioPreviewLoading" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestIdLabel : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><div v-if="audioPreviewLoading" class="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-800">音频已生成，正在下载并解析媒体元数据…</div><audio v-if="ttsResultUrl && !audioPreviewLoading" :key="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls preload="auto" /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl && !audioPreviewLoading" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button><p v-if="ttsResultUrl" class="break-all text-xs text-red-500 dark:text-red-300">播放地址：{{ ttsResultUrl }}</p><div v-if="ttsDebug" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">{{ ttsDebug }}</div></div></template></ResultPanel>
+            <ResultPanel :loading="submitting || audioPreviewLoading" :error="error" :request-id="ttsResultUrl || ttsResultText ? requestIdLabel : ''" :billing="lastBilling"><template #result><div v-if="ttsResultUrl || ttsResultText" class="space-y-4"><div v-if="audioPreviewLoading" class="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-dark-800">音频已生成，正在下载并解析媒体元数据…</div><audio v-if="ttsResultUrl && !audioPreviewLoading" :key="ttsResultUrl" class="w-full" :src="ttsResultUrl" controls preload="auto" @loadedmetadata="onPreviewAudioLoadedMetadata" @canplaythrough="onPreviewAudioCanPlayThrough" @error="onPreviewAudioError" /><pre v-if="ttsResultText" class="whitespace-pre-wrap rounded-lg bg-gray-50 p-5 text-sm leading-7 dark:bg-dark-800">{{ ttsResultText }}</pre><button v-if="ttsResultUrl && !audioPreviewLoading" class="btn btn-secondary" type="button" @click="downloadImage(ttsResultUrl, 'relayq-audio-result.mp3')">下载音频</button><p v-if="ttsResultUrl" class="break-all text-xs text-red-500 dark:text-red-300">播放地址：{{ ttsResultUrl }}</p><div v-if="ttsDebug" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">{{ ttsDebug }}</div></div></template></ResultPanel>
           </section>
 
           <section v-else class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
@@ -1091,17 +1091,26 @@ async function toPlayableMediaUrl(url: string): Promise<string> {
 async function waitForAudioMetadata(url: string): Promise<void> {
   const value = String(url || '').trim()
   if (!value) return
+  console.info('[playground-audio] waitForAudioMetadata:start', { url: value })
   await new Promise<void>((resolve) => {
     const audio = new Audio()
-    const done = () => {
+    const done = (event: string) => {
+      console.info('[playground-audio] waitForAudioMetadata:done', {
+        event,
+        url: value,
+        duration: Number.isFinite(audio.duration) ? audio.duration : null,
+        readyState: audio.readyState,
+        networkState: audio.networkState,
+        error: audio.error ? { code: audio.error.code, message: audio.error.message } : null,
+      })
       audio.onloadedmetadata = null
       audio.oncanplaythrough = null
       audio.onerror = null
       resolve()
     }
-    audio.onloadedmetadata = done
-    audio.oncanplaythrough = done
-    audio.onerror = done
+    audio.onloadedmetadata = () => done('loadedmetadata')
+    audio.oncanplaythrough = () => done('canplaythrough')
+    audio.onerror = () => done('error')
     audio.preload = 'auto'
     audio.src = value
     audio.load()
@@ -1109,8 +1118,11 @@ async function waitForAudioMetadata(url: string): Promise<void> {
 }
 
 async function resolvePlayableAudioUrl(url: string): Promise<string> {
+  console.info('[playground-audio] resolvePlayableAudioUrl:start', { url })
   const playable = await toPlayableMediaUrl(url)
+  console.info('[playground-audio] resolvePlayableAudioUrl:fetched', { url, playable })
   await waitForAudioMetadata(playable)
+  console.info('[playground-audio] resolvePlayableAudioUrl:ready', { url, playable })
   return playable
 }
 
@@ -1569,6 +1581,37 @@ function endRequest() { submitting.value = false; abortController = null }
 function stopRequest() { abortController?.abort(); abortController = null; submitting.value = false; if (pollTimer !== null) window.clearTimeout(pollTimer); pollTimer = null; videoPolling.value = false }
 function handleError(cause: unknown, fallback: string) { if (!isAbortError(cause)) error.value = cause instanceof Error ? cause.message : fallback }
 async function resolveBilling(billing: PlaygroundBilling | undefined, before: number) { try { const user = await authStore.refreshUser(); const after = user.balance ?? balance.value; const amount = billing?.amount ?? Math.max(0, Number((before - after).toFixed(6))); return { ...billing, amount: amount || billing?.amount, balance_after: billing?.balance_after ?? after } } catch { return billing } }
+
+function onPreviewAudioLoadedMetadata(event: Event) {
+  const audio = event.target as HTMLAudioElement | null
+  console.info('[playground-audio] preview:loadedmetadata', {
+    src: audio?.currentSrc || audio?.src || '',
+    duration: audio && Number.isFinite(audio.duration) ? audio.duration : null,
+    readyState: audio?.readyState,
+    networkState: audio?.networkState,
+  })
+}
+
+function onPreviewAudioCanPlayThrough(event: Event) {
+  const audio = event.target as HTMLAudioElement | null
+  console.info('[playground-audio] preview:canplaythrough', {
+    src: audio?.currentSrc || audio?.src || '',
+    duration: audio && Number.isFinite(audio.duration) ? audio.duration : null,
+    readyState: audio?.readyState,
+    networkState: audio?.networkState,
+  })
+}
+
+function onPreviewAudioError(event: Event) {
+  const audio = event.target as HTMLAudioElement | null
+  console.info('[playground-audio] preview:error', {
+    src: audio?.currentSrc || audio?.src || '',
+    duration: audio && Number.isFinite(audio.duration) ? audio.duration : null,
+    readyState: audio?.readyState,
+    networkState: audio?.networkState,
+    error: audio?.error ? { code: audio.error.code, message: audio.error.message } : null,
+  })
+}
 
 async function readImageFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return ''; if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('仅支持 JPG、PNG 和 WEBP。'); if (file.size > 8 * 1024 * 1024) throw new Error('图片不能超过 8MB。'); return await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '')); reader.onerror = () => reject(new Error('读取图片失败。')); reader.readAsDataURL(file) }) }
 async function handleImageFile(event: Event) { try { editImage.value = await readImageFile(event) } catch (cause) { error.value = cause instanceof Error ? cause.message : '读取图片失败。' } }
