@@ -980,7 +980,11 @@ async function submitAudioGeneration() {
       ttsDebug.value = `未拿到可持久化媒体：request_id=${requestId.value}`
       error.value = '配音已生成，但媒体持久化失败，请检查上游返回。'
     }
-    void loadCloudRecords()
+    await loadCloudRecords()
+    const saved = cloudRecords.value.find((item) => item.request_id === requestId.value)
+    if (saved) {
+      await restoreRecord(saved)
+    }
   } catch (cause) { handleError(cause, 'AI 配音失败。') } finally { endRequest() }
 }
 
