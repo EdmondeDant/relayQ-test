@@ -1057,9 +1057,7 @@ async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob:
   if (!value) throw new Error('媒体地址为空')
   if (value.startsWith('blob:')) return { objectUrl: value, blob: new Blob() }
   if (value.startsWith('data:')) {
-    const response = await fetch(value)
-    const blob = await response.blob()
-    return { objectUrl: value, blob }
+    return { objectUrl: value, blob: new Blob() }
   }
   if (/^https?:\/\//i.test(value)) {
     const response = await fetch(value, { credentials: 'include' })
