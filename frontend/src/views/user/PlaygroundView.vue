@@ -28,7 +28,7 @@
               <div class="flex items-center justify-between">
                 <div>
                   <h2 class="font-semibold text-gray-950 dark:text-dark-50">最近创作</h2>
-                  <p class="mt-1 text-sm text-gray-500">服务端默认保存，最多 10 条，5 天后自动删除。</p>
+                  <p class="mt-1 text-sm text-gray-500">服务端默认保存最近 10 条；超过 10 条时会自动删除最早 1 条；所有记录会在 2 天后自动清理。</p>
                 </div>
                 <button class="text-sm text-primary-600" type="button" @click="selectTool('history')">查看全部</button>
               </div>
@@ -258,7 +258,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <h2 class="text-lg font-semibold">创作记录</h2>
-                <p class="mt-1 text-sm text-gray-500">图片、视频、音频、文案统一保存在服务端，最多 10 条，5 天后自动删除。可直接恢复参数或下载结果。</p>
+                <p class="mt-1 text-sm text-gray-500">图片、视频、音频、文案统一保存在服务端：最多保留最近 10 条，超过 10 条会自动删除最早 1 条，且所有记录会在 2 天后自动清理。可直接恢复参数或下载结果。</p>
               </div>
               <button class="btn btn-secondary btn-sm" :disabled="cloudLoading" @click="loadCloudRecords">刷新</button>
             </div>

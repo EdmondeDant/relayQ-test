@@ -474,6 +474,7 @@ func (s *OpenAIGatewayService) maybeRefreshXAIOAuthAccount(ctx context.Context, 
 	}
 	tokenInfo, err := s.xaiOAuthService.RefreshAccountToken(ctx, account)
 	if err != nil {
+		s.handleXAIOAuthRefreshFailure(ctx, account, err)
 		return "", err
 	}
 	newCredentials := s.xaiOAuthService.BuildAccountCredentials(tokenInfo)
@@ -488,6 +489,25 @@ func (s *OpenAIGatewayService) maybeRefreshXAIOAuthAccount(ctx context.Context, 
 	}
 	return account.GetOpenAIAccessToken(), nil
 }
+
+func (s *OpenAIGatewayService) handleXAIOAuthRefreshFailure(ctx context.Context, account *Account, err error) {
+	if s == nil || account == nil || err == nil {
+		return
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if !strings.Contains(msg, "invalid_grant") && !strings.Contains(msg, "user account is blocked") {
+		return
+	}
+	s.BlockAccountScheduling(account, time.Time{}, "xai_oauth_refresh_failed")
+	if s.accountRepo == nil {
+		return
+	}
+	errorMsg := fmt.Sprintf("XAI OAuth refresh failed: %v", err)
+	if setErr := s.accountRepo.SetTempUnschedulable(ctx, account.ID, time.Now().Add(openAIStopSchedulingBridgeCooldown), errorMsg); setErr != nil {
+		slog.Warn("xai_oauth_refresh_temp_unschedulable_failed", "account_id", account.ID, "error", setErr)
+	}
+}
+
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
@@ -2336,6 +2356,12 @@ func (s *OpenAIGatewayService) GetAccessToken(ctx context.Context, account *Acco
 		if account.Platform == PlatformXAI {
 			accessToken, err := s.maybeRefreshXAIOAuthAccount(ctx, account)
 			if err != nil {
+				if s.shouldFailoverOnXAIOAuthRefreshError(err) {
+					return "", "", &UpstreamFailoverError{
+						StatusCode:   http.StatusUnauthorized,
+						ResponseBody: []byte(err.Error()),
+					}
+				}
 				return "", "", err
 			}
 			if strings.TrimSpace(accessToken) == "" {
@@ -2367,6 +2393,15 @@ func (s *OpenAIGatewayService) GetAccessToken(ctx context.Context, account *Acco
 		return "", "", fmt.Errorf("unsupported account type: %s", account.Type)
 	}
 }
+
+func (s *OpenAIGatewayService) shouldFailoverOnXAIOAuthRefreshError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "invalid_grant") || strings.Contains(msg, "user account is blocked")
+}
+
 
 func (s *OpenAIGatewayService) shouldFailoverUpstreamError(statusCode int) bool {
 	switch statusCode {
