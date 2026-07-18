@@ -13,8 +13,10 @@ import (
 	"net/textproto"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
@@ -25,6 +27,22 @@ type failingOpenAIImageWriter struct {
 	gin.ResponseWriter
 	failAfter int
 	writes    int
+}
+
+type stubXAIOAuthClient struct {
+	refreshErr error
+}
+
+func (s *stubXAIOAuthClient) ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI, proxyURL, clientID string) (*xai.TokenResponse, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubXAIOAuthClient) RefreshToken(ctx context.Context, refreshToken, proxyURL string) (*xai.TokenResponse, error) {
+	return nil, s.refreshErr
+}
+
+func (s *stubXAIOAuthClient) RefreshTokenWithClientID(ctx context.Context, refreshToken, proxyURL string, clientID string) (*xai.TokenResponse, error) {
+	return nil, s.refreshErr
 }
 
 func TestConvertOpenAIImagesB64JSONToDataURL(t *testing.T) {
@@ -175,6 +193,26 @@ func TestOpenAIImagesRequestModerationBody_MultipartEditIncludesUploadsInMemory(
 	log := (&ContentModerationService{}).buildLog(ContentModerationCheckInput{}, defaultContentModerationConfig(), ContentModerationActionAllow, false, "", 0, nil, input.ExcerptText(), nil, nil, "")
 	require.Equal(t, "replace background", log.InputExcerpt)
 	require.NotContains(t, log.InputExcerpt, "ZmFrZS")
+}
+
+func TestOpenAIGatewayServiceGetAccessToken_FailoverOnXAIOAuthRefreshInvalidGrant(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	account := &Account{
+		ID:       48,
+		Platform: PlatformXAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"refresh_token": "***",
+			"expires_at":    time.Now().Add(-time.Minute).Format(time.RFC3339),
+		},
+	}
+	svc.SetXAIOAuthService(&XAIOAuthService{oauthClient: &stubXAIOAuthClient{refreshErr: errors.New("token refresh failed: status 400, body: {\"error\":\"invalid_grant\",\"error_description\":\"User account is blocked\"}")}})
+
+	_, _, err := svc.GetAccessToken(context.Background(), account)
+	require.Error(t, err)
+	var failoverErr *UpstreamFailoverError
+	require.True(t, errors.As(err, &failoverErr))
+	require.Equal(t, http.StatusUnauthorized, failoverErr.StatusCode)
 }
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_NormalizesOfficialAndCustomSizes(t *testing.T) {

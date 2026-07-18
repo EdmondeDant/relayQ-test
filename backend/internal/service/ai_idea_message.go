@@ -71,4 +71,6 @@ type IdeaMessageRepository interface {
 	GetByID(ctx context.Context, id int64) (*IdeaMessage, error)
 	Update(ctx context.Context, message *IdeaMessage) error
 	List(ctx context.Context, params pagination.PaginationParams, filters IdeaMessageListFilters) ([]IdeaMessage, *pagination.PaginationResult, error)
+	DeleteExpiredByAuthor(ctx context.Context, authorID int64, olderThan time.Time) (int, error)
+	DeleteOldestExcessByAuthor(ctx context.Context, authorID int64, keep int) (int, error)
 }

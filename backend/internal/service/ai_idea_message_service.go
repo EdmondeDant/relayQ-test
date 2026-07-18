@@ -9,6 +9,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
+const (
+	ideaMessageRetentionDays = 2
+	ideaMessageMaxPerAuthor  = 10
+)
+
 type IdeaMessageService struct {
 	repo     IdeaMessageRepository
 	userRepo UserRepository
@@ -83,6 +88,12 @@ func (s *IdeaMessageService) Create(ctx context.Context, input *CreateIdeaMessag
 
 	if err := s.repo.Create(ctx, message); err != nil {
 		return nil, fmt.Errorf("create idea message: %w", err)
+	}
+	if _, err := s.repo.DeleteExpiredByAuthor(ctx, input.AuthorID, time.Now().Add(-ideaMessageRetentionDays*24*time.Hour)); err != nil {
+		return nil, fmt.Errorf("cleanup expired idea messages: %w", err)
+	}
+	if _, err := s.repo.DeleteOldestExcessByAuthor(ctx, input.AuthorID, ideaMessageMaxPerAuthor); err != nil {
+		return nil, fmt.Errorf("trim idea messages: %w", err)
 	}
 
 	view := buildIdeaMessageView(*message, input.AuthorID, author.Role == RoleAdmin)

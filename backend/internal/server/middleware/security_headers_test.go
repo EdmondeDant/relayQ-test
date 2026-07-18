@@ -233,6 +233,20 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Equal(t, 2, count, "both placeholders should be replaced with same nonce")
 	})
 
+	t.Run("csp_includes_blob_media_src", func(t *testing.T) {
+		cfg := config.CSPConfig{Enabled: true, Policy: "default-src 'self'; media-src 'self'"}
+		middleware := SecurityHeaders(cfg, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+		middleware(c)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Contains(t, csp, "media-src 'self' blob:")
+	})
+
 	t.Run("calls_next_handler", func(t *testing.T) {
 		cfg := config.CSPConfig{Enabled: true, Policy: "default-src 'self'"}
 		middleware := SecurityHeaders(cfg, nil)

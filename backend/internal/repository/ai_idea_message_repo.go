@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
@@ -132,6 +133,59 @@ func (r *ideaMessageRepository) List(
 		}
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *ideaMessageRepository) DeleteExpiredByAuthor(ctx context.Context, authorID int64, olderThan time.Time) (int, error) {
+	client := clientFromContext(ctx, r.client)
+	affected, err := client.IdeaMessage.Update().
+		Where(
+			ideamessage.AuthorIDEQ(authorID),
+			ideamessage.StatusEQ(service.IdeaMessageStatusActive),
+			ideamessage.CreatedAtLT(olderThan),
+		).
+		SetStatus(service.IdeaMessageStatusUserDeleted).
+		SetDeletedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
+}
+
+func (r *ideaMessageRepository) DeleteOldestExcessByAuthor(ctx context.Context, authorID int64, keep int) (int, error) {
+	if keep <= 0 {
+		keep = 0
+	}
+	client := clientFromContext(ctx, r.client)
+	items, err := client.IdeaMessage.Query().
+		Where(
+			ideamessage.AuthorIDEQ(authorID),
+			ideamessage.StatusEQ(service.IdeaMessageStatusActive),
+		).
+		Order(
+			dbent.Desc(ideamessage.FieldCreatedAt),
+			dbent.Desc(ideamessage.FieldID),
+		).
+		All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if len(items) <= keep {
+		return 0, nil
+	}
+	excessIDs := make([]int64, 0, len(items)-keep)
+	for _, item := range items[keep:] {
+		excessIDs = append(excessIDs, item.ID)
+	}
+	affected, err := client.IdeaMessage.Update().
+		Where(ideamessage.IDIn(excessIDs...)).
+		SetStatus(service.IdeaMessageStatusUserDeleted).
+		SetDeletedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
 }
 
 func applyIdeaMessageEntityToService(dst *service.IdeaMessage, src *dbent.IdeaMessage) {

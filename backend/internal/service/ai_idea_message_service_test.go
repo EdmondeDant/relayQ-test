@@ -84,6 +84,48 @@ func (s *ideaMessageRepoStub) List(_ context.Context, params pagination.Paginati
 	}, nil
 }
 
+func (s *ideaMessageRepoStub) DeleteExpiredByAuthor(_ context.Context, authorID int64, olderThan time.Time) (int, error) {
+	affected := 0
+	now := time.Now()
+	for _, item := range s.items {
+		if item.AuthorID != authorID || item.Status != IdeaMessageStatusActive || item.DeletedAt != nil {
+			continue
+		}
+		if item.CreatedAt.Before(olderThan) {
+			affected++
+			item.Status = IdeaMessageStatusUserDeleted
+			item.DeletedAt = &now
+		}
+	}
+	return affected, nil
+}
+
+func (s *ideaMessageRepoStub) DeleteOldestExcessByAuthor(_ context.Context, authorID int64, keep int) (int, error) {
+	active := make([]*IdeaMessage, 0)
+	for _, item := range s.items {
+		if item.AuthorID == authorID && item.Status == IdeaMessageStatusActive && item.DeletedAt == nil {
+			active = append(active, item)
+		}
+	}
+	for i := 0; i < len(active)-1; i++ {
+		for j := i + 1; j < len(active); j++ {
+			if active[i].CreatedAt.Before(active[j].CreatedAt) {
+				active[i], active[j] = active[j], active[i]
+			}
+		}
+	}
+	if len(active) <= keep {
+		return 0, nil
+	}
+	now := time.Now()
+	affected := 0
+	for _, item := range active[keep:] {
+		affected++
+		item.Status = IdeaMessageStatusUserDeleted
+		item.DeletedAt = &now
+	}
+	return affected, nil
+}
 
 func paginateIdeaMessages(items []IdeaMessage, params pagination.PaginationParams) []IdeaMessage {
 	offset := params.Offset()
@@ -187,6 +229,43 @@ func (s *ideaMessageUserRepoStub) EnableTotp(context.Context, int64) error {
 }
 func (s *ideaMessageUserRepoStub) DisableTotp(context.Context, int64) error {
 	panic("unexpected DisableTotp call")
+}
+
+func TestIdeaMessageServiceCreatePrunesExpiredAndExcessMessages(t *testing.T) {
+	now := time.Now()
+	repo := &ideaMessageRepoStub{
+		items: map[int64]*IdeaMessage{
+			1: {ID: 1, AuthorID: 7, AuthorName: "maker", Title: "old", Content: "expired", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-49 * time.Hour), UpdatedAt: now.Add(-49 * time.Hour)},
+			2: {ID: 2, AuthorID: 7, AuthorName: "maker", Title: "2", Content: "c2", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-10 * time.Hour), UpdatedAt: now.Add(-10 * time.Hour)},
+			3: {ID: 3, AuthorID: 7, AuthorName: "maker", Title: "3", Content: "c3", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-9 * time.Hour), UpdatedAt: now.Add(-9 * time.Hour)},
+			4: {ID: 4, AuthorID: 7, AuthorName: "maker", Title: "4", Content: "c4", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-8 * time.Hour), UpdatedAt: now.Add(-8 * time.Hour)},
+			5: {ID: 5, AuthorID: 7, AuthorName: "maker", Title: "5", Content: "c5", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-7 * time.Hour), UpdatedAt: now.Add(-7 * time.Hour)},
+			6: {ID: 6, AuthorID: 7, AuthorName: "maker", Title: "6", Content: "c6", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-6 * time.Hour), UpdatedAt: now.Add(-6 * time.Hour)},
+			7: {ID: 7, AuthorID: 7, AuthorName: "maker", Title: "7", Content: "c7", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-5 * time.Hour), UpdatedAt: now.Add(-5 * time.Hour)},
+			8: {ID: 8, AuthorID: 7, AuthorName: "maker", Title: "8", Content: "c8", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-4 * time.Hour), UpdatedAt: now.Add(-4 * time.Hour)},
+			9: {ID: 9, AuthorID: 7, AuthorName: "maker", Title: "9", Content: "c9", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+			10: {ID: 10, AuthorID: 7, AuthorName: "maker", Title: "10", Content: "c10", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
+			11: {ID: 11, AuthorID: 7, AuthorName: "maker", Title: "11", Content: "c11", Status: IdeaMessageStatusActive, CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour)},
+		},
+		nextID: 11,
+	}
+	userRepo := &ideaMessageUserRepoStub{users: map[int64]*User{7: {ID: 7, Role: RoleUser, Username: "maker"}}}
+	svc := NewIdeaMessageService(repo, userRepo)
+
+	_, err := svc.Create(context.Background(), &CreateIdeaMessageInput{AuthorID: 7, Title: "new", Content: "new content"})
+	require.NoError(t, err)
+
+	activeCount := 0
+	for _, item := range repo.items {
+		if item.AuthorID == 7 && item.Status == IdeaMessageStatusActive && item.DeletedAt == nil {
+			activeCount++
+		}
+	}
+	require.Equal(t, 10, activeCount)
+	require.Equal(t, IdeaMessageStatusUserDeleted, repo.items[1].Status)
+	require.NotNil(t, repo.items[1].DeletedAt)
+	require.Equal(t, IdeaMessageStatusUserDeleted, repo.items[2].Status)
+	require.NotNil(t, repo.items[2].DeletedAt)
 }
 
 func TestIdeaMessageServiceDeletePermissions(t *testing.T) {

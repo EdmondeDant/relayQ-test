@@ -37,6 +37,7 @@ var requiredCSPDirectiveValues = []struct {
 	{"script-src", CloudflareInsightsDomain},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
+	{"media-src", "blob:"},
 	{"script-src", AirwallexStaticDomain},
 	{"script-src", AirwallexCheckoutDomain},
 	{"style-src", AirwallexStaticDomain},
