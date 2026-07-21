@@ -465,6 +465,9 @@ export async function createPlaygroundVideo(options: {
   resolution?: string
   signal?: AbortSignal
 }): Promise<PlaygroundVideoResult> {
+  const resolvedImage = options.image
+    ? (isBlobObjectUrl(options.image) ? await blobUrlToDataUrl(options.image) : options.image)
+    : undefined
   const response = await fetch(`${GATEWAY_BASE_URL}/v1/videos/generations`, {
     method: 'POST',
     headers: authHeaders(options.auth, { 'Idempotency-Key': createIdempotencyKey() }),
@@ -474,7 +477,7 @@ export async function createPlaygroundVideo(options: {
       duration: options.duration,
       aspect_ratio: options.aspectRatio,
       resolution: options.resolution || '720p',
-      ...(options.image ? { image: { url: options.image } } : {}),
+      ...(resolvedImage ? { input_reference: { image_url: resolvedImage } } : {}),
     }),
     signal: options.signal,
   })

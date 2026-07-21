@@ -670,7 +670,13 @@ async function submitImage() {
         contentType: 'image/png',
         metadata: { request_id: requestId.value, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
       }).catch(() => null)
-      if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
+      if (mediaRef?.url) {
+        try {
+          resultImage.value = await toDisplayImageUrl(mediaRef.url)
+        } catch (cause) {
+          console.warn('图片结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
+        }
+      }
     }
     void loadCloudRecords()
   } catch (cause) { handleError(cause, '图片处理失败，本次不应扣费。') } finally { endRequest() }
@@ -767,7 +773,13 @@ async function translateImageText() {
         contentType: 'image/png',
         metadata: { request_id: requestId.value || undefined, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
       }).catch(() => null)
-      if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
+      if (mediaRef?.url) {
+        try {
+          resultImage.value = await toDisplayImageUrl(mediaRef.url)
+        } catch (cause) {
+          console.warn('图片翻译结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
+        }
+      }
       void loadCloudRecords()
     }
   } catch (cause) {
@@ -1055,7 +1067,13 @@ async function processWatermark() {
       contentType: 'image/png',
       metadata: { request_id: requestId.value, mode: watermarkMode.value, inline: output.startsWith('data:'), ...getExecutionMetadata() },
     }).catch(() => null)
-    if (mediaRef?.url) resultImage.value = await toDisplayImageUrl(mediaRef.url)
+    if (mediaRef?.url) {
+      try {
+        resultImage.value = await toDisplayImageUrl(mediaRef.url)
+      } catch (cause) {
+        console.warn('水印处理结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
+      }
+    }
     void loadCloudRecords()
   } catch (cause) { handleError(cause, watermarkMode.value === 'remove' ? '水印去除失败，本次不应扣费。' : '添加水印失败，本次不应扣费。') } finally { endRequest() }
 }
@@ -1566,8 +1584,13 @@ async function pollVideoOnce() {
             metadata: { request_id: requestId.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
           }).catch(() => null)
         : null
+      videoUrl.value = result.videoUrl
       if (mediaRef?.url) {
-        videoUrl.value = await toPlayableMediaUrl(mediaRef.url)
+        try {
+          videoUrl.value = await toPlayableMediaUrl(mediaRef.url)
+        } catch (cause) {
+          console.warn('视频结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
+        }
       }
       void loadCloudRecords()
       setTimeout(() => {
