@@ -1074,10 +1074,7 @@ async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob:
     return { objectUrl: value, blob: new Blob() }
   }
   if (/^https?:\/\//i.test(value)) {
-    const response = await fetch(value, { credentials: 'include' })
-    if (!response.ok) throw new Error(`加载媒体失败：${response.status}`)
-    const blob = await response.blob()
-    return { objectUrl: URL.createObjectURL(blob), blob }
+    return { objectUrl: value, blob: new Blob() }
   }
   const token = localStorage.getItem('auth_token')
   const response = await fetch(value, {
@@ -1091,7 +1088,7 @@ async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob:
 
 async function fetchAuthedAssetUrl(url: string): Promise<string> {
   const value = String(url || '').trim()
-  if (!value || value.startsWith('data:') || value.startsWith('blob:')) return value
+  if (!value || value.startsWith('data:') || value.startsWith('blob:') || /^https?:\/\//i.test(value)) return value
   const { objectUrl } = await fetchAuthedAsset(value)
   return objectUrl
 }
