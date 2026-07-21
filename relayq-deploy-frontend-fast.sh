@@ -11,11 +11,14 @@ echo "[2/6] ensure frontend deps locally cached in repo"
 cd frontend
 corepack enable >/dev/null 2>&1 || true
 corepack prepare pnpm@11.10.0 --activate >/dev/null 2>&1 || true
-export PATH="$HOME/.local/share/pnpm:$PATH"
-pnpm install --no-frozen-lockfile --ignore-scripts
+PNPM_BIN="$(command -v pnpm || true)"
+if [ -z "$PNPM_BIN" ]; then
+  PNPM_BIN="corepack pnpm"
+fi
+$PNPM_BIN install --no-frozen-lockfile --ignore-scripts
 
 echo "[3/6] build frontend only"
-pnpm run build
+$PNPM_BIN run build
 cd ..
 
 echo "[4/6] rebuild backend image with embedded dist"
