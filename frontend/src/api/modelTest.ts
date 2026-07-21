@@ -316,6 +316,22 @@ function isGptImageModel(model: string) {
   return /^gpt-image-/i.test(model)
 }
 
+function isBlobObjectUrl(value?: string) {
+  return /^blob:/i.test(String(value || '').trim())
+}
+
+async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
+  const response = await fetch(blobUrl)
+  if (!response.ok) throw new Error('读取本地图片失败。')
+  const blob = await response.blob()
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('转换图片失败。'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 /** playground size / 比例 → xAI aspect_ratio */
 function toGrokAspectRatio(size?: string): string {
   const s = (size || '1:1').trim().toLowerCase()
@@ -395,12 +411,17 @@ export async function editPlaygroundImage(options: {
   // - grok-imagine-image: aspect_ratio + resolution
   // - gpt-image-*: size + quality/style/background
   // - 其他: 附带 response_format=b64_json
+  const resolvedImages = await Promise.all(
+    (options.images || (options.image ? [options.image] : [])).map(async (url) => isBlobObjectUrl(url) ? blobUrlToDataUrl(url) : url)
+  )
+  const resolvedMask = options.mask ? (isBlobObjectUrl(options.mask) ? await blobUrlToDataUrl(options.mask) : options.mask) : undefined
+
   const body: Record<string, unknown> = {
     model: options.model,
     prompt: options.prompt,
-    images: (options.images || (options.image ? [options.image] : [])).map((url) => ({ image_url: url })),
+    images: resolvedImages.map((url) => ({ image_url: url })),
   }
-  if (options.mask) body.mask = { image_url: options.mask }
+  if (resolvedMask) body.mask = { image_url: resolvedMask }
 
   if (isGrokImagineModel(options.model)) {
     body.aspect_ratio = toGrokAspectRatio(options.size)

@@ -216,7 +216,7 @@
               <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedVideoModel" :options="videoModelOptions" /></div>
               <div class="mt-5"><label class="input-label">首帧图片（可选）</label><label class="flex min-h-36 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800"><img v-if="videoImage" :src="videoImage" alt="视频首帧" class="max-h-52 object-contain" /><span v-else class="text-sm text-gray-500">不上传则为文生视频</span><input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" @change="handleVideoFile" /></label></div>
               <div class="mt-5"><label class="input-label">视频描述</label><textarea v-model="videoPrompt" class="input min-h-40 resize-y" placeholder="描述主体动作、镜头运动、场景与光线…" /></div>
-              <div class="mt-5 grid grid-cols-3 gap-3"><div><label class="input-label">比例</label><Select v-model="videoAspectRatio" :options="videoRatioOptions" /></div><div><label class="input-label">时长</label><Select v-model="videoDuration" :options="videoDurationOptions" /></div><div><label class="input-label">分辨率</label><Select v-model="videoResolution" :options="videoResolutionOptions" /></div></div>
+              <div class="mt-5 grid grid-cols-3 gap-3"><div><label class="input-label">比例</label><Select v-model="videoAspectRatio" :options="videoRatioOptions" /></div><div><label class="input-label">时长</label><Select v-model="videoDuration" :options="videoDurationOptions" /></div><div><label class="input-label">分辨率</label><Select v-model="videoResolution" :options="videoResolutionSelectOptions" /></div></div>
               <div class="mt-5 flex gap-3"><button class="btn btn-primary flex-1" :disabled="!videoPrompt.trim() || submitting" @click="submitVideo">{{ submitting ? '提交中…' : '生成视频' }}</button><button v-if="submitting" class="btn btn-secondary" @click="stopRequest">停止等待</button></div>
             </div>
             <ResultPanel :loading="submitting || videoPolling" :error="error" :request-id="requestId" :billing="lastBilling">
@@ -271,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
@@ -470,6 +470,13 @@ const watermarkStyleOptions = [{ value: '半透明白字', label: '半透明白�
 const videoRatioOptions = [{ value: '16:9', label: '横屏 16:9' }, { value: '9:16', label: '竖屏 9:16' }, { value: '1:1', label: '方形 1:1' }]
 const videoDurationOptions = [{ value: '5', label: '5 秒' }, { value: '10', label: '10 秒' }, { value: '15', label: '15 秒' }, { value: '20', label: '20 秒' }]
 const videoResolutionOptions = [{ value: '480p', label: '480p 标清' }, { value: '720p', label: '720p 高清' }, { value: '1080p', label: '1080p 全高清' }]
+const videoResolutionSelectOptions = computed(() => {
+  const model = String(selectedVideoModel.value || '').trim().toLowerCase()
+  if (model.startsWith('grok-imagine-video')) {
+    return videoResolutionOptions.filter((option) => option.value !== '1080p')
+  }
+  return videoResolutionOptions
+})
 const copywritingPlatformOptions = [{ value: '电商详情页', label: '电商详情页' }, { value: '小红书', label: '小红书' }, { value: '抖音', label: '抖音' }, { value: '亚马逊', label: '亚马逊' }]
 const languageOptions = [
   { value: '中文', label: '中文（简体）' },
@@ -512,6 +519,13 @@ const canRunBatch = computed(() => !keyModeError.value && selectedImageModel.val
 const batchCompleted = computed(() => batchInputs.value.filter((item) => ['completed', 'failed', 'canceled'].includes(item.status)).length)
 const batchSuccessCount = computed(() => batchInputs.value.filter((item) => item.status === 'completed').length)
 const canSubmitAudioGeneration = computed(() => !keyModeError.value && selectedTtsModel.value && ttsText.value.trim() && (audioGenerateMode.value !== 'voiceclone' || (ttsReferenceAudio.value && ttsAuthorizationConfirmed.value)))
+
+watch(selectedVideoModel, (model) => {
+  const normalized = String(model || '').trim().toLowerCase()
+  if (normalized.startsWith('grok-imagine-video') && videoResolution.value === '1080p') {
+    videoResolution.value = '720p'
+  }
+})
 
 function selectTool(tool: ToolId) { stopRequest(); activeTool.value = tool; error.value = ''; requestId.value = ''; lastBilling.value = undefined; if (tool === 'history' || tool === 'home') void loadCloudRecords() }
 function toolButtonClass(tool: ToolId) { return ['flex items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm transition', activeTool.value === tool ? 'bg-primary-50 font-semibold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300' : 'text-gray-600 hover:bg-gray-50 dark:text-dark-300 dark:hover:bg-dark-800'] }
