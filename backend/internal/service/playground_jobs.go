@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"sort"
 	"strings"
 	"time"
@@ -369,12 +370,106 @@ func (s *PlaygroundService) executeVideoJob(ctx context.Context, userID, taskID 
 	}))); err != nil {
 		return err
 	}
+	if err := s.recordPlaygroundVideoUsage(context.Background(), userID, input, payload, status.RequestID); err != nil {
+		return err
+	}
 	return s.updateSucceededTask(context.Background(), userID, taskID, status.RequestID, mergeStringAnyMaps(payload.Metadata, map[string]any{
 		"request_id": status.RequestID,
 		"status":     playgroundFirstNonEmpty(status.Status, "completed"),
 		"progress":   status.Progress,
 		"video_url":  videoURL,
 	}))
+}
+
+func (s *PlaygroundService) recordPlaygroundVideoUsage(ctx context.Context, userID int64, input SubmitPlaygroundJobInput, payload playgroundJobPayload, requestID string) error {
+	if s.billingService == nil || s.resolver == nil || s.usageRepo == nil || s.userRepo == nil || s.accountRepo == nil || s.apiKeyRepo == nil {
+		return nil
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil
+	}
+	usageRequestID := "playground-video:" + requestID
+	apiKeyEntity, err := s.apiKeyService.GetByKey(ctx, input.APIKey)
+	if err != nil || apiKeyEntity == nil {
+		return nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil
+	}
+	if apiKeyEntity.User == nil {
+		return nil
+	}
+	accounts, _, err := s.accountRepo.List(ctx, pagination.PaginationParams{Page: 1, PageSize: 200})
+	if err != nil {
+		return nil
+	}
+	var account *Account
+	for i := range accounts {
+		if accounts[i].Platform == PlatformFromAPIKey(apiKeyEntity) {
+			account = &accounts[i]
+			break
+		}
+	}
+	if account == nil {
+		return nil
+	}
+	var groupID *int64
+	if apiKeyEntity.GroupID != nil {
+		groupID = apiKeyEntity.GroupID
+	}
+	cost, err := s.billingService.CalculateCostUnified(CostInput{
+		Ctx:            ctx,
+		Model:          input.Model,
+		GroupID:        groupID,
+		RequestCount:   1,
+		RateMultiplier: 1,
+		Resolver:       s.resolver,
+	})
+	if err != nil || cost == nil || cost.ActualCost <= 0 {
+		return nil
+	}
+	usageLog := &UsageLog{
+		UserID:         userID,
+		APIKeyID:       apiKeyEntity.ID,
+		AccountID:      account.ID,
+		RequestID:      usageRequestID,
+		Model:          input.Model,
+		TotalCost:      cost.TotalCost,
+		ActualCost:     cost.ActualCost,
+		RateMultiplier: 1,
+		BillingType:    2,
+		RequestType:    RequestTypeSync,
+		ImageCount:     0,
+		MediaType:      stringPtr("video"),
+	}
+	if groupID != nil {
+		usageLog.GroupID = groupID
+	}
+	inserted, err := s.usageRepo.Create(ctx, usageLog)
+	if err != nil || !inserted {
+		return err
+	}
+	params := &postUsageBillingParams{
+		User:                user,
+		APIKey:              apiKeyEntity,
+		Account:             account,
+		Cost:                cost,
+		Platform:            PlatformFromAPIKey(apiKeyEntity),
+		APIKeyService:       s.apiKeyService,
+		AccountRateMultiplier: 1,
+	}
+	deps := &billingDeps{
+		cfg:                    s.cfg,
+		userRepo:               s.userRepo,
+		userSubRepo:            s.userSubRepo,
+		accountRepo:            s.accountRepo,
+		billingCacheService:    s.billingCacheService,
+		deferredService:        s.deferredService,
+	}
+	_, err = applyUsageBilling(ctx, usageRequestID, usageLog, params, deps, s.usageBillingRepo)
+	return err
 }
 
 func (s *PlaygroundService) pollVideoJob(ctx context.Context, baseURL, apiKey, requestID string) (*playgroundVideoStatus, error) {
@@ -490,6 +585,8 @@ func readPlaygroundErrorMessage(raw []byte, status int) string {
 	}
 	return fmt.Sprintf("request failed: %d", status)
 }
+
+func stringPtr(v string) *string { return &v }
 
 func extractImageURL(payload map[string]any) string {
 	data, _ := payload["data"].([]any)

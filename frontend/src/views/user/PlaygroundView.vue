@@ -419,7 +419,13 @@ const groupModels = computed<UserSupportedModel[]>(() => {
   return []
 })
 const imageModels = computed(() => groupModels.value.filter((model) => isImageModel(model)))
-const chatModels = computed(() => groupModels.value.filter((model) => !isImageModel(model) && !isVideoModel(model)))
+const chatModels = computed(() => groupModels.value.filter((model) => {
+  if (isImageModel(model) || isVideoModel(model)) return false
+  const billingMode = String(model.pricing?.billing_mode || '').toLowerCase().trim()
+  if (billingMode === 'image') return false
+  if (/mimo-v2\.5-asr|mimo-v2\.5-tts|mimo-v2-tts/i.test(model.name)) return false
+  return true
+}))
 const videoModels = computed(() => groupModels.value.filter((model) => isVideoModel(model)))
 const audioModels = computed(() => groupModels.value.filter((model) => /mimo-v2\.5-asr/i.test(model.name)))
 const ttsModels = computed(() => groupModels.value.filter((model) => /mimo-v2\.5-tts|mimo-v2-tts/i.test(model.name)))
@@ -1167,29 +1173,6 @@ function recordMediaAsset(record: PlaygroundRecord, kinds?: string[]) {
   return record.assets?.find((asset) => matches(asset))
 }
 
-async function hydrateRecordMedia(record: PlaygroundRecord): Promise<PlaygroundRecord> {
-  const rawUrl = recordResultUrl(record)
-  if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return record
-  if (failedAssetUrls.has(rawUrl)) return record
-  console.info('[playground-media] hydrateRecordMedia:start', {
-    recordId: record.id,
-    kind: record.kind,
-    rawUrl,
-  })
-  const objectUrl = await fetchAuthedAssetUrl(rawUrl)
-  const patchAsset = (asset: any) => asset && stableAssetUrl(asset) === rawUrl ? { ...asset, url: objectUrl } : asset
-  const payload = normalizeRecord(record.result_payload)
-  const resultPayload = ['url', 'audio_url', 'video_url'].some((key) => String(payload[key] || '').trim() === rawUrl)
-    ? { ...payload, url: payload.url === rawUrl ? objectUrl : payload.url, audio_url: payload.audio_url === rawUrl ? objectUrl : payload.audio_url, video_url: payload.video_url === rawUrl ? objectUrl : payload.video_url }
-    : payload
-  return {
-    ...record,
-    result_payload: resultPayload,
-    assets: Array.isArray(record.assets) ? record.assets.map((asset) => patchAsset(asset)) : [],
-    primary_asset: record.primary_asset ? patchAsset(record.primary_asset) : record.primary_asset,
-  }
-}
-
 async function persistMediaAsset(input: {
   taskId: number
   kind: 'image' | 'audio' | 'video'
@@ -1232,7 +1215,7 @@ async function loadCloudRecords() {
       ? result.items
       : (Array.isArray((result as any)?.data?.items) ? (result as any).data.items : [])
 
-    const normalized = items.map((item: PlaygroundRecord) => ({
+    cloudRecords.value = items.map((item: PlaygroundRecord) => ({
       ...item,
       assets: Array.isArray(item.assets)
         ? item.assets.map((asset) => ({
@@ -1251,9 +1234,6 @@ async function loadCloudRecords() {
           }
         : undefined,
     }))
-
-
-    cloudRecords.value = await Promise.all(normalized.map((item: PlaygroundRecord) => hydrateRecordMedia(item).catch(() => item)))
   } catch (cause) {
     cloudRecords.value = []
     console.error('加载创作记录失败', cause)
@@ -1622,7 +1602,15 @@ function describeError(cause: unknown, fallback: string) {
   }
   return fallback
 }
-function handleError(cause: unknown, fallback: string) { if (!isAbortError(cause)) error.value = describeError(cause, fallback) }
+function handleError(cause: unknown, fallback: string) {
+  if (isAbortError(cause)) return
+  const message = describeError(cause, fallback)
+  if (/no available accounts/i.test(message)) {
+    error.value = '当前 API Key 所属分组下没有可用账号支持所选模型，请切换模型或 API Key。'
+    return
+  }
+  error.value = message
+}
 async function resolveBilling(billing: PlaygroundBilling | undefined, before: number) { try { const user = await authStore.refreshUser(); const after = user.balance ?? balance.value; const amount = billing?.amount ?? Math.max(0, Number((before - after).toFixed(6))); return { ...billing, amount: amount || billing?.amount, balance_after: billing?.balance_after ?? after } } catch { return billing } }
 
 function onPreviewAudioLoadedMetadata(event: Event) {

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
@@ -127,19 +128,43 @@ type PlaygroundRepository interface {
 }
 
 type PlaygroundService struct {
-	repo    PlaygroundRepository
-	storage *PlaygroundAssetStorage
-	stopCh  chan struct{}
-	mu      sync.Mutex
-	running map[int64]context.CancelFunc
+	repo          PlaygroundRepository
+	storage       *PlaygroundAssetStorage
+	stopCh        chan struct{}
+	mu            sync.Mutex
+	running       map[int64]context.CancelFunc
+	billingService *BillingService
+	resolver      *ModelPricingResolver
+	usageRepo     UsageLogRepository
+	usageBillingRepo UsageBillingRepository
+	userRepo      UserRepository
+	userSubRepo   UserSubscriptionRepository
+	accountRepo   AccountRepository
+	apiKeyRepo    APIKeyRepository
+	apiKeyService *APIKeyService
+	billingCacheService *BillingCacheService
+	deferredService *DeferredService
+	cfg           *config.Config
 }
 
-func NewPlaygroundService(repo PlaygroundRepository) *PlaygroundService {
+func NewPlaygroundService(repo PlaygroundRepository, billingService *BillingService, resolver *ModelPricingResolver, usageRepo UsageLogRepository, usageBillingRepo UsageBillingRepository, userRepo UserRepository, userSubRepo UserSubscriptionRepository, accountRepo AccountRepository, apiKeyRepo APIKeyRepository, apiKeyService *APIKeyService, billingCacheService *BillingCacheService, deferredService *DeferredService, cfg *config.Config) *PlaygroundService {
 	s := &PlaygroundService{
 		repo:    repo,
 		storage: NewPlaygroundAssetStorage(),
 		stopCh:  make(chan struct{}),
 		running: make(map[int64]context.CancelFunc),
+		billingService: billingService,
+		resolver: resolver,
+		usageRepo: usageRepo,
+		usageBillingRepo: usageBillingRepo,
+		userRepo: userRepo,
+		userSubRepo: userSubRepo,
+		accountRepo: accountRepo,
+		apiKeyRepo: apiKeyRepo,
+		apiKeyService: apiKeyService,
+		billingCacheService: billingCacheService,
+		deferredService: deferredService,
+		cfg: cfg,
 	}
 	s.Start()
 	return s

@@ -266,7 +266,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	retailGrokGatewayService := service.NewRetailGrokGatewayService(retailGrokService, openAIGatewayService)
 	retailGrokGatewayHandler := handler.NewRetailGrokGatewayHandler(retailGrokGatewayService)
 	playgroundRepository := repository.NewPlaygroundRepository(db)
-	playgroundService := service.NewPlaygroundService(playgroundRepository)
+	playgroundService := service.NewPlaygroundService(playgroundRepository, billingService, modelPricingResolver, usageLogRepository, usageBillingRepository, userRepository, userSubscriptionRepository, accountRepository, apiKeyRepository, apiKeyService, billingCacheService, deferredService, configConfig)
 	playgroundHandler := handler.NewPlaygroundHandler(playgroundService)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
