@@ -3641,6 +3641,10 @@ export default {
         testModeCompact: 'Compact 探测',
         modelRestrictionDisabledByPassthrough: '已开启自动透传：模型白名单/映射不会生效。',
       },
+      xai: {
+        baseUrlHint: '留空使用官方 xAI API',
+        apiKeyHint: '您的 xAI API Key'
+      },
       anthropic: {
         apiKeyPassthrough: '自动透传（仅替换认证）',
         apiKeyPassthroughDesc:

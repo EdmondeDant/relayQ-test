@@ -3,7 +3,8 @@
     <button
       ref="triggerRef"
       type="button"
-      @click="toggle"
+      @mousedown="handleTriggerMouseDown"
+      @click.prevent
       :disabled="disabled"
       :aria-expanded="isOpen"
       :aria-haspopup="true"
@@ -66,7 +67,8 @@
               role="option"
               :aria-selected="isSelected(option)"
               :aria-disabled="isOptionDisabled(option)"
-              @click.stop="!isOptionDisabled(option) && selectOption(option)"
+              @mousedown.stop.prevent="handleOptionMouseDown(option)"
+              @click.stop
               @mouseenter="handleOptionMouseEnter(option, index)"
               :class="[
                 'select-option',
@@ -289,6 +291,11 @@ const handleOptionMouseEnter = (option: any, index: number) => {
   focusedIndex.value = index
 }
 
+const handleOptionMouseDown = (option: any) => {
+  if (isOptionDisabled(option) || isGroupHeaderOption(option)) return
+  selectOption(option)
+}
+
 // Update trigger rect periodically while open to follow scroll/resize
 const updateTriggerRect = () => {
   if (containerRef.value) {
@@ -314,7 +321,8 @@ const calculateDropdownPosition = () => {
   })
 }
 
-const toggle = () => {
+const handleTriggerMouseDown = (event: MouseEvent) => {
+  event.preventDefault()
   if (props.disabled) return
   isOpen.value = !isOpen.value
 }

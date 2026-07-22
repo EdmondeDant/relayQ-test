@@ -167,6 +167,29 @@ function buildVertexAccount() {
   } as any
 }
 
+function buildGrokAccount() {
+  return {
+    id: 3,
+    name: 'Grok Key',
+    notes: '',
+    platform: 'xai',
+    type: 'apikey',
+    credentials: {
+      api_key: 'xai-test',
+      base_url: 'https://api.x.ai'
+    },
+    extra: {},
+    proxy_id: null,
+    concurrency: 1,
+    priority: 1,
+    rate_multiplier: 1,
+    status: 'active',
+    group_ids: [],
+    expires_at: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
 function mountModal(account = buildAccount()) {
   return mount(EditAccountModal, {
     props: {
@@ -239,6 +262,15 @@ describe('EditAccountModal', () => {
       'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
       'gpt-latest': 'gpt-5.2'
     })
+  })
+
+  it('shows xAI placeholders for Grok API key accounts', () => {
+    const wrapper = mountModal(buildGrokAccount())
+    const inputs = wrapper.findAll('input')
+
+    expect(inputs[1]?.attributes('placeholder')).toBe('https://api.x.ai')
+    expect(inputs[2]?.attributes('placeholder')).toBe('xai-...')
+    expect(wrapper.text()).toContain('admin.accounts.xai.baseUrlHint')
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {

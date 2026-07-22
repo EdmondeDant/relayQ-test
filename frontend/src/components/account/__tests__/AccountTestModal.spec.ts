@@ -94,6 +94,26 @@ function buildAccount() {
   } as any
 }
 
+function buildXAIAccount() {
+  return {
+    id: 2,
+    name: 'Grok APIKey',
+    platform: 'xai',
+    type: 'apikey',
+    status: 'active',
+    credentials: {
+      model_mapping: {
+        'grok-4.5': 'grok-4.5'
+      }
+    },
+    extra: {},
+    concurrency: 1,
+    priority: 1,
+    proxy_id: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
 describe('AccountTestModal', () => {
   const originalFetch = global.fetch
 
@@ -188,5 +208,29 @@ describe('AccountTestModal', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('已通过 /v1/chat/completions 验证')
+  })
+
+  it('for xai accounts only shows locally synced whitelist models', async () => {
+    getAvailableModelsMock.mockResolvedValue([
+      { id: 'grok-4.5', display_name: 'Grok 4.5' }
+    ])
+
+    const wrapper = mount(AccountTestModal, {
+      props: {
+        show: true,
+        account: buildXAIAccount()
+      },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+          Select: SelectStub,
+          TextArea: TextAreaStub,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    expect((wrapper.vm as any).selectedModelId).toBe('')
   })
 })

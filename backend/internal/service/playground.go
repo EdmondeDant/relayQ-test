@@ -320,23 +320,26 @@ func sanitizePlaygroundRecordAssets(record *PlaygroundRecord) {
 	if record == nil {
 		return
 	}
+	record.RequestPayload = summarizePlaygroundRecordPayload(record.RequestPayload, false)
+	record.ResultPayload = summarizePlaygroundRecordPayload(record.ResultPayload, true)
 	for i := range record.Assets {
 		sanitizePlaygroundAsset(&record.Assets[i])
 	}
 	if record.PrimaryAsset != nil {
 		sanitizePlaygroundAsset(record.PrimaryAsset)
 	}
+	record.Assets = compactPlaygroundRecordAssets(record.Assets, record.PrimaryAsset)
 }
 
 func sanitizePlaygroundAsset(asset *PlaygroundAsset) {
 	if asset == nil {
 		return
 	}
+	asset.Title = trimPlaygroundPreviewString(asset.Title, 256)
+	asset.Metadata = json.RawMessage(`{}`)
 	kind := strings.TrimSpace(strings.ToLower(asset.Kind))
 	if kind == "text" {
-		if len(asset.Content) > 32*1024 {
-			asset.Content = asset.Content[:32*1024]
-		}
+		asset.Content = trimPlaygroundPreviewString(asset.Content, 8*1024)
 		return
 	}
 	if strings.TrimSpace(asset.URL) == "" && strings.TrimSpace(asset.StorageKey) != "" {
@@ -345,6 +348,100 @@ func sanitizePlaygroundAsset(asset *PlaygroundAsset) {
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(asset.Content)), "data:") || len(asset.Content) > 256 {
 		asset.Content = ""
 	}
+}
+
+func summarizePlaygroundRecordPayload(raw json.RawMessage, includeResultFields bool) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return json.RawMessage(`{}`)
+	}
+	keys := []string{"prompt", "text", "filename", "source_language", "target_language", "mode"}
+	if includeResultFields {
+		keys = append(keys, "content", "transcript", "url", "audio_url", "video_url", "status", "progress")
+	}
+	summary := make(map[string]any, len(keys))
+	for _, key := range keys {
+		value, ok := payload[key]
+		if !ok {
+			continue
+		}
+		if sanitized, keep := sanitizePlaygroundPreviewValue(value); keep {
+			summary[key] = sanitized
+		}
+	}
+	if len(summary) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return encoded
+}
+
+func sanitizePlaygroundPreviewValue(value any) (any, bool) {
+	switch typed := value.(type) {
+	case string:
+		return trimPlaygroundPreviewString(typed, 4096), strings.TrimSpace(typed) != ""
+	case float64, bool, int, int32, int64:
+		return typed, true
+	default:
+		return nil, false
+	}
+}
+
+func trimPlaygroundPreviewString(value string, limit int) string {
+	if limit <= 0 || len(value) <= limit {
+		return value
+	}
+	return value[:limit]
+}
+
+func compactPlaygroundRecordAssets(assets []PlaygroundAsset, primary *PlaygroundAsset) []PlaygroundAsset {
+	if len(assets) == 0 && primary == nil {
+		return nil
+	}
+	items := make([]PlaygroundAsset, 0, 2)
+	appendUnique := func(candidate PlaygroundAsset) {
+		for _, existing := range items {
+			if existing.ID > 0 && existing.ID == candidate.ID {
+				return
+			}
+		}
+		items = append(items, candidate)
+	}
+	if primary != nil {
+		appendUnique(*primary)
+	}
+	for _, asset := range assets {
+		if strings.EqualFold(strings.TrimSpace(asset.Kind), "text") && strings.TrimSpace(asset.Content) != "" {
+			appendUnique(asset)
+			break
+		}
+	}
+	if len(items) == 0 {
+		for _, asset := range assets {
+			if hasPlayablePlaygroundPreview(asset) {
+				appendUnique(asset)
+				break
+			}
+		}
+	}
+	return items
+}
+
+func hasPlayablePlaygroundPreview(asset PlaygroundAsset) bool {
+	kind := strings.TrimSpace(strings.ToLower(asset.Kind))
+	if kind == "image" || kind == "video" || kind == "audio" {
+		return true
+	}
+	if strings.TrimSpace(asset.StorageKey) != "" || strings.TrimSpace(asset.URL) != "" {
+		return true
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(asset.Content)), "data:")
 }
 
 func (s *PlaygroundService) DeleteRecord(ctx context.Context, userID, id int64) error {

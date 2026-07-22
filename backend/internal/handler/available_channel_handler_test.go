@@ -47,13 +47,14 @@ func TestFilterUserVisibleGroups_IntersectionOnly(t *testing.T) {
 func TestToUserSupportedModels_FiltersByAllowedPlatforms(t *testing.T) {
 	// 用户可访问分组只覆盖 anthropic；anthropic 平台的模型保留，openai 模型被剔除。
 	src := []service.SupportedModel{
-		{Name: "claude-sonnet-4-6", Platform: "anthropic", Summary: "  主力对话模型  ", Pricing: nil},
+		{ID: "claude-sonnet-4-6", Name: "Claude Sonnet 4.6", Platform: "anthropic", Summary: "  主力对话模型  ", Pricing: nil},
 		{Name: "gpt-4o", Platform: "openai", Pricing: nil},
 	}
 	allowed := map[string]struct{}{"anthropic": {}}
 	out := toUserSupportedModels(src, allowed, nil)
 	require.Len(t, out, 1)
-	require.Equal(t, "claude-sonnet-4-6", out[0].Name)
+	require.Equal(t, "claude-sonnet-4-6", out[0].ID)
+	require.Equal(t, "Claude Sonnet 4.6", out[0].Name)
 	require.Equal(t, "主力对话模型", out[0].Summary)
 }
 

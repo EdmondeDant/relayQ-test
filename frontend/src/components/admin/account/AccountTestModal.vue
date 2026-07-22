@@ -342,6 +342,19 @@ const sortTestModels = (models: ClaudeModel[]) => {
   })
 }
 
+const matchesModelPattern = (pattern: string, modelId: string) => {
+  const normalizedPattern = pattern.trim()
+  const normalizedModelId = modelId.trim()
+  if (!normalizedPattern || !normalizedModelId) return false
+  if (normalizedPattern === normalizedModelId) return true
+
+  if (!normalizedPattern.includes('*')) return false
+  if (!normalizedPattern.endsWith('*')) return false
+
+  const prefix = normalizedPattern.slice(0, -1)
+  return normalizedModelId.startsWith(prefix)
+}
+
 const filterModelsByWhitelist = (models: ClaudeModel[]) => {
   if (!props.account) return models
 
@@ -355,12 +368,12 @@ const filterModelsByWhitelist = (models: ClaudeModel[]) => {
   const allowedSet = new Set(
     allowedModels
       .map((model) => model.trim())
-      .filter((model) => model && !model.includes('*'))
+      .filter((model) => model)
   )
 
   if (allowedSet.size === 0) return models
 
-  return models.filter((model) => allowedSet.has(model.id))
+  return models.filter((model) => [...allowedSet].some((pattern) => matchesModelPattern(pattern, model.id)))
 }
 
 // Load available models when modal opens
@@ -412,7 +425,25 @@ const loadAvailableModels = async () => {
       : props.account.platform === 'gemini' || props.account.platform === 'antigravity'
         ? sortTestModels(models)
         : models
-    availableModels.value = filterModelsByWhitelist(unfilteredModels)
+    const credentials = (props.account.credentials || {}) as Record<string, unknown>
+    const { allowedModels } = splitModelMappingObject(
+      (credentials.model_mapping as Record<string, unknown> | undefined) ?? undefined
+    )
+    const hasWhitelist = allowedModels.length > 0
+    const candidateModels = [...unfilteredModels]
+    if (hasWhitelist) {
+      for (const modelId of allowedModels.map((model) => model.trim()).filter(Boolean)) {
+        if (!candidateModels.some((model) => model.id === modelId)) {
+          candidateModels.push({
+            id: modelId,
+            type: 'model',
+            display_name: modelId,
+            created_at: ''
+          })
+        }
+      }
+    }
+    availableModels.value = hasWhitelist ? filterModelsByWhitelist(candidateModels) : candidateModels
     // Default selection by platform
     if (availableModels.value.length > 0) {
       if (props.account.platform === 'gemini') {

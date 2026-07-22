@@ -614,16 +614,23 @@ func (s *AccountTestService) testXAIAccountConnection(c *gin.Context, account *A
 	if prompt == "" {
 		prompt = "Hello, please respond with a short test message."
 	}
-	authToken := account.GetCredential("access_token")
+	authToken := ""
 	if account.IsOAuth() {
 		refreshedToken, refreshErr := s.maybeRefreshXAIOAuthAccount(c.Request.Context(), account)
 		if refreshErr != nil {
 			return s.sendErrorAndEnd(c, "Grok OAuth 授权已失效，请重新授权 Grok 账号")
 		}
 		authToken = refreshedToken
-	}
-	if authToken == "" {
-		return s.sendErrorAndEnd(c, "No access token available")
+		if authToken == "" {
+			return s.sendErrorAndEnd(c, "No access token available")
+		}
+	} else if account.Type == AccountTypeAPIKey {
+		authToken = account.GetOpenAIApiKey()
+		if authToken == "" {
+			return s.sendErrorAndEnd(c, "No API key available")
+		}
+	} else {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account type: %s", account.Type))
 	}
 	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
 	if baseURL == "" {

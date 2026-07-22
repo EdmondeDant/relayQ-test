@@ -126,7 +126,11 @@ func (s *ChannelService) fillGlobalPricingFallback(models []SupportedModel) {
 		if !pricingNeedsFallback(models[i].Pricing) {
 			continue
 		}
-		lp := s.pricingService.GetModelPricing(models[i].Name)
+		modelID := strings.TrimSpace(models[i].ID)
+		if modelID == "" {
+			modelID = models[i].Name
+		}
+		lp := s.pricingService.GetModelPricing(modelID)
 		if lp == nil {
 			continue
 		}

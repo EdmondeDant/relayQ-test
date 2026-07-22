@@ -6358,6 +6358,12 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 	finalBetaHeader, finalBetaShouldSet := s.computeFinalAnthropicBeta(
 		tokenType, mimicClaudeCode, modelID, clientHeaders, body, effectiveDropSet,
 	)
+	if account.Platform == PlatformAnthropic && tokenType != "oauth" && !finalBetaShouldSet {
+		if beta := defaultAPIKeyBetaHeader(body); beta != "" {
+			finalBetaHeader = beta
+			finalBetaShouldSet = true
+		}
+	}
 
 	// 能力维度 body sanitize：与最终 anthropic-beta header 对称
 	if sanitized, changed := sanitizeAnthropicBodyForBetaTokens(body, finalBetaHeader); changed {
@@ -6409,6 +6415,9 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 	}
 	if getHeaderRaw(req.Header, "anthropic-version") == "" {
 		setHeaderRaw(req.Header, "anthropic-version", "2023-06-01")
+	}
+	if account.Platform == PlatformAnthropic && tokenType != "oauth" {
+		applyClaudeCodeMimicHeaders(req, reqStream)
 	}
 	if tokenType == "oauth" {
 		applyClaudeOAuthHeaderDefaults(req)

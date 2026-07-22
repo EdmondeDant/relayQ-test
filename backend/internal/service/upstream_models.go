@@ -110,8 +110,13 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	}
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		reason := strings.TrimSpace(extractUpstreamErrorReason(body))
+		message := fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode)
+		if reason != "" {
+			message += ": " + reason
+		}
 		return nil, newUpstreamModelSyncUpstreamError(
-			fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode),
+			message,
 			fmt.Errorf("upstream model list returned HTTP %d", resp.StatusCode),
 		)
 	}
@@ -131,7 +136,7 @@ func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, acc
 	switch {
 	case account.Platform == PlatformAntigravity:
 		return s.buildAntigravityAPIKeyModelsRequest(ctx, account)
-	case account.IsOpenAI():
+	case account.IsOpenAICompatible():
 		return s.buildOpenAIUpstreamModelsRequest(ctx, account)
 	case account.IsGemini():
 		return s.buildGeminiUpstreamModelsRequest(ctx, account)
@@ -369,6 +374,81 @@ func upstreamModelsProxyURL(account *Account) string {
 		return account.Proxy.URL()
 	}
 	return ""
+}
+
+func extractUpstreamErrorReason(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	if reason := sanitizeUpstreamErrorString(findUpstreamErrorReason(payload)); reason != "" {
+		return reason
+	}
+	return ""
+}
+
+func findUpstreamErrorReason(value any) string {
+	switch v := value.(type) {
+	case map[string]any:
+		for _, key := range []string{"message", "error_description", "detail", "details", "msg", "reason"} {
+			if raw, ok := v[key]; ok {
+				if str := sanitizeUpstreamErrorLeaf(raw); str != "" {
+					return str
+				}
+				if str := findUpstreamErrorReason(raw); str != "" {
+					return str
+				}
+			}
+		}
+		for _, key := range []string{"message", "error_description", "detail", "details", "msg", "error", "reason"} {
+			if raw, ok := v[key]; ok {
+				if str := findUpstreamErrorReason(raw); str != "" {
+					return str
+				}
+			}
+		}
+		for _, nestedKey := range []string{"error", "errors"} {
+			if raw, ok := v[nestedKey]; ok {
+				if str := findUpstreamErrorReason(raw); str != "" {
+					return str
+				}
+			}
+		}
+	case []any:
+		for _, item := range v {
+			if str := findUpstreamErrorReason(item); str != "" {
+				return str
+			}
+		}
+	case string:
+		return ""
+	}
+	return ""
+}
+
+func sanitizeUpstreamErrorLeaf(value any) string {
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return sanitizeUpstreamErrorString(text)
+}
+
+func sanitizeUpstreamErrorString(input string) string {
+	text := strings.TrimSpace(input)
+	if text == "" {
+		return ""
+	}
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > 200 {
+		text = strings.TrimSpace(text[:200]) + "…"
+	}
+	return text
 }
 
 func buildV1ModelsURL(base string) string {

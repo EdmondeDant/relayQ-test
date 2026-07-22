@@ -105,6 +105,18 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	require.Equal(t, "https://openai.example.com/v1/models", openAIReq.URL.String())
 	require.Equal(t, "Bearer openai-key", openAIReq.Header.Get("Authorization"))
 
+	xaiReq, err := svc.buildOpenAIUpstreamModelsRequest(ctx, &Account{
+		Platform: PlatformXAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://api.muskapi.cc/v1",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "https://api.muskapi.cc/v1/models", xaiReq.URL.String())
+	require.Equal(t, "Bearer xai-key", xaiReq.Header.Get("Authorization"))
+
 	geminiReq, err := svc.buildGeminiUpstreamModelsRequest(ctx, &Account{
 		Platform: PlatformGemini,
 		Type:     AccountTypeAPIKey,
@@ -217,10 +229,36 @@ func TestFetchUpstreamSupportedModelsDoesNotExposeUpstreamBody(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "SECRET_TOKEN")
-
 	var syncErr *UpstreamModelSyncError
 	require.True(t, errors.As(err, &syncErr))
 	require.Equal(t, UpstreamModelSyncErrorUpstream, syncErr.Kind)
 	require.NotContains(t, syncErr.SafeMessage(), "SECRET_TOKEN")
 	require.Contains(t, syncErr.SafeMessage(), "HTTP 502")
+}
+
+
+func TestFetchUpstreamSupportedModelsIncludesSanitizedUpstreamReason(t *testing.T) {
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusNotFound,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"model listing is disabled on this gateway"}}`)),
+	}}
+	svc := &AccountTestService{
+		httpUpstream: upstream,
+		cfg:          upstreamModelSyncTestConfig(),
+	}
+
+	_, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		ID:       9,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://api.muskapi.cc/v1",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Upstream model list request failed with HTTP 404: model listing is disabled on this gateway")
+	require.Equal(t, "https://api.muskapi.cc/v1/models", upstream.lastReq.URL.String())
 }

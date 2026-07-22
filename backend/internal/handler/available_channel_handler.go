@@ -98,6 +98,7 @@ type userSupportedModelImagePricing struct {
 
 // userSupportedModel 用户可见的支持模型条目。
 type userSupportedModel struct {
+	ID           string                          `json:"id"`
 	Name         string                          `json:"name"`
 	Platform     string                          `json:"platform"`
 	Summary      string                          `json:"summary,omitempty"`
@@ -258,6 +259,7 @@ func toUserSupportedModels(
 			}
 		}
 		out = append(out, userSupportedModel{
+			ID:           strings.TrimSpace(m.ID),
 			Name:         m.Name,
 			Platform:     m.Platform,
 			Summary:      strings.TrimSpace(m.Summary),

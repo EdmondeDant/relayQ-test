@@ -206,6 +206,17 @@ func TestAccountIsModelSupported(t *testing.T) {
 			requestedModel: "gemini-3-flash",
 			expected:       false,
 		},
+		{
+			name:     "anthropic display name matches canonical mapping",
+			platform: PlatformAnthropic,
+			credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"claude-opus-4-8": "claude-opus-4-8",
+				},
+			},
+			requestedModel: "Claude Opus 4.8",
+			expected:       true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -293,6 +304,17 @@ func TestAccountGetMappedModel(t *testing.T) {
 			},
 			requestedModel: "gemini-3.1-pro-preview-customtools",
 			expected:       "gemini-3.1-pro-preview-customtools",
+		},
+		{
+			name:     "anthropic display name resolves to canonical mapping",
+			platform: PlatformAnthropic,
+			credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"claude-opus-4-8": "claude-opus-4-8",
+				},
+			},
+			requestedModel: "Claude Opus 4.8",
+			expected:       "claude-opus-4-8",
 		},
 		{
 			name: "no match returns original",

@@ -744,6 +744,40 @@ func TestGatewayService_AnthropicOAuth_NotAffectedByAPIKeyPassthroughToggle(t *t
 	require.Contains(t, getHeaderRaw(req.Header, "anthropic-beta"), claude.BetaOAuth, "OAuth 链路仍应按原逻辑补齐 oauth beta")
 }
 
+func TestGatewayService_BuildUpstreamRequest_AnthropicAPIKeyUsesAccountTestStyleHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	svc := &GatewayService{
+		cfg: &config.Config{
+			Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize},
+		},
+	}
+	account := newAnthropicAPIKeyAccountForTest()
+
+	req, _, err := svc.buildUpstreamRequest(
+		context.Background(),
+		c,
+		account,
+		[]byte(`{"model":"Claude Opus 4.8","messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}],"stream":true}`),
+		"upstream-anthropic-key",
+		"apikey",
+		"Claude Opus 4.8",
+		true,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "upstream-anthropic-key", getHeaderRaw(req.Header, "x-api-key"))
+	require.Equal(t, "2023-06-01", getHeaderRaw(req.Header, "anthropic-version"))
+	require.Equal(t, claude.APIKeyBetaHeader, getHeaderRaw(req.Header, "anthropic-beta"))
+	require.Equal(t, claude.DefaultHeaders["User-Agent"], getHeaderRaw(req.Header, "User-Agent"))
+	require.Equal(t, claude.DefaultHeaders["X-App"], getHeaderRaw(req.Header, "X-App"))
+	require.Equal(t, "stream", getHeaderRaw(req.Header, "x-stainless-helper-method"))
+	require.NotEmpty(t, getHeaderRaw(req.Header, "x-client-request-id"))
+}
+
 func TestGatewayService_AnthropicOAuth_ForwardPreservesBillingHeaderSystemBlock(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -47,6 +47,7 @@ export interface UserSupportedModelImagePricing {
 }
 
 export interface UserSupportedModel {
+  id?: string
   name: string
   platform: string
   summary?: string
