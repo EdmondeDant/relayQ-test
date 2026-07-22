@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -59,16 +60,32 @@ type CreatePlaygroundTaskInput struct {
 	ErrorMessage   string
 }
 
+type UpdatePlaygroundTaskInput struct {
+	Status        string
+	RequestID     string
+	ResultPayload json.RawMessage
+	ErrorMessage  string
+}
+
+type SubmitPlaygroundJobInput struct {
+	Kind            string
+	Model           string
+	APIKey          string
+	InternalBaseURL string
+	RequestPayload  json.RawMessage
+}
+
 type CreatePlaygroundAssetInput struct {
-	TaskID      *int64
-	Kind        string
-	Title       string
-	Content     string
-	URL         string
-	StorageKey  string
-	ContentType string
-	ByteSize    *int64
-	Metadata    json.RawMessage
+	TaskID          *int64
+	Kind            string
+	Title           string
+	Content         string
+	URL             string
+	InternalBaseURL string
+	StorageKey      string
+	ContentType     string
+	ByteSize        *int64
+	Metadata        json.RawMessage
 }
 
 // PlaygroundRecord 统一创作记录：任务 + 关联产物
@@ -92,6 +109,7 @@ const PlaygroundRecordLimit = 10
 
 type PlaygroundRepository interface {
 	CreateTask(context.Context, int64, CreatePlaygroundTaskInput) (*PlaygroundTask, error)
+	UpdateTask(context.Context, int64, int64, UpdatePlaygroundTaskInput) (*PlaygroundTask, error)
 	ListTasks(context.Context, int64, pagination.PaginationParams, string) ([]PlaygroundTask, int64, error)
 	ListRecords(context.Context, int64, pagination.PaginationParams, string) ([]PlaygroundRecord, int64, error)
 	GetTask(context.Context, int64, int64) (*PlaygroundTask, error)
@@ -112,10 +130,17 @@ type PlaygroundService struct {
 	repo    PlaygroundRepository
 	storage *PlaygroundAssetStorage
 	stopCh  chan struct{}
+	mu      sync.Mutex
+	running map[int64]context.CancelFunc
 }
 
 func NewPlaygroundService(repo PlaygroundRepository) *PlaygroundService {
-	s := &PlaygroundService{repo: repo, storage: NewPlaygroundAssetStorage(), stopCh: make(chan struct{})}
+	s := &PlaygroundService{
+		repo:    repo,
+		storage: NewPlaygroundAssetStorage(),
+		stopCh:  make(chan struct{}),
+		running: make(map[int64]context.CancelFunc),
+	}
 	s.Start()
 	return s
 }
@@ -167,6 +192,21 @@ func (s *PlaygroundService) CreateTask(ctx context.Context, userID int64, input 
 	return item, nil
 }
 
+func (s *PlaygroundService) UpdateTask(ctx context.Context, userID, id int64, input UpdatePlaygroundTaskInput) (*PlaygroundTask, error) {
+	input.Status = strings.TrimSpace(input.Status)
+	input.RequestID = strings.TrimSpace(input.RequestID)
+	if input.Status == "" {
+		return nil, fmt.Errorf("%w: task status is required", ErrPlaygroundInvalidInput)
+	}
+	if !validPlaygroundStatus(input.Status) {
+		return nil, fmt.Errorf("%w: invalid task status", ErrPlaygroundInvalidInput)
+	}
+	if len(input.ResultPayload) == 0 {
+		input.ResultPayload = json.RawMessage(`{}`)
+	}
+	return s.repo.UpdateTask(ctx, userID, id, input)
+}
+
 func (s *PlaygroundService) ListTasks(ctx context.Context, userID int64, params pagination.PaginationParams, kind string) ([]PlaygroundTask, int64, error) {
 	return s.repo.ListTasks(ctx, userID, params, strings.TrimSpace(kind))
 }
@@ -176,6 +216,13 @@ func (s *PlaygroundService) GetTask(ctx context.Context, userID, id int64) (*Pla
 }
 
 func (s *PlaygroundService) CancelTask(ctx context.Context, userID, id int64) error {
+	s.mu.Lock()
+	cancel := s.running[id]
+	delete(s.running, id)
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	return s.repo.CancelTask(ctx, userID, id)
 }
 

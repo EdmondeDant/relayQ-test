@@ -1,15 +1,19 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/mail"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +28,43 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func reportPlayground500ServiceDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	apiURL := "http://127.0.0.1:7777/event"
+	sessionID := "playground-500-blockers"
+	if envBytes, err := os.ReadFile(".dbg/playground-500-blockers.env"); err == nil {
+		for _, line := range strings.Split(string(envBytes), "\n") {
+			if strings.HasPrefix(line, "DEBUG_SERVER_URL=") {
+				apiURL = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SERVER_URL="))
+			} else if strings.HasPrefix(line, "DEBUG_SESSION_ID=") {
+				sessionID = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SESSION_ID="))
+			}
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"sessionId":    sessionID,
+		"runId":        "pre-fix",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"msg":          msg,
+		"data":         data,
+		"ts":           time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return
+	}
+	reqCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
 
 var (
 	ErrInvalidCredentials      = infraerrors.Unauthorized("INVALID_CREDENTIALS", "invalid email or password")
@@ -525,6 +566,12 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	// 查找用户
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
+		// #region debug-point K:auth-login-user-lookup
+		reportPlayground500ServiceDebugEvent("K", "auth_service.go:Login", "[DEBUG] auth login user lookup failed", map[string]any{
+			"email": email,
+			"err":   err.Error(),
+		})
+		// #endregion
 		if errors.Is(err, ErrUserNotFound) {
 			return "", nil, ErrInvalidCredentials
 		}
@@ -534,7 +581,18 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	}
 
 	// 验证密码
-	if !s.CheckPassword(password, user.PasswordHash) {
+	passwordOK := s.CheckPassword(password, user.PasswordHash)
+	// #region debug-point L:auth-login-password-check
+	reportPlayground500ServiceDebugEvent("L", "auth_service.go:Login", "[DEBUG] auth login password check", map[string]any{
+		"email":         email,
+		"user_id":       user.ID,
+		"user_email":    user.Email,
+		"user_status":   user.Status,
+		"signup_source": user.SignupSource,
+		"password_ok":   passwordOK,
+	})
+	// #endregion
+	if !passwordOK {
 		return "", nil, ErrInvalidCredentials
 	}
 

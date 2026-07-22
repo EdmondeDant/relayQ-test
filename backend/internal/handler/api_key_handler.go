@@ -279,8 +279,19 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 		return
 	}
 
+	// #region debug-point I:groups-available-start
+	reportPlayground500HandlerDebugEvent("I", "api_key_handler.go:GetAvailableGroups", "[DEBUG] groups available start", map[string]any{
+		"user_id": subject.UserID,
+	})
+	// #endregion
 	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
 	if err != nil {
+		// #region debug-point J:groups-available-error
+		reportPlayground500HandlerDebugEvent("J", "api_key_handler.go:GetAvailableGroups", "[DEBUG] groups available failed", map[string]any{
+			"user_id": subject.UserID,
+			"err":     err.Error(),
+		})
+		// #endregion
 		response.ErrorFrom(c, err)
 		return
 	}

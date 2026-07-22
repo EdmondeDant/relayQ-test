@@ -986,7 +986,12 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatible(ctx context.C
 	if paused, _ := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
 		return false
 	}
-	if req.RequestedModel != "" && !account.IsModelSupported(req.RequestedModel) {
+	modelSupported := true
+	if req.RequestedModel != "" {
+		modelSupported = account.IsModelSupported(req.RequestedModel)
+	}
+	imageCapabilitySupported := accountSupportsOpenAIEndpointCapabilitySet(account, req.endpointCapabilities(), req.RequiredImageCapability)
+	if req.RequestedModel != "" && !modelSupported {
 		return false
 	}
 	if req.GroupID != nil && s != nil && s.service != nil &&
@@ -994,7 +999,7 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatible(ctx context.C
 		s.service.isUpstreamModelRestrictedByChannel(ctx, *req.GroupID, account, req.RequestedModel, req.RequireCompact) {
 		return false
 	}
-	return accountSupportsOpenAIEndpointCapabilitySet(account, req.endpointCapabilities(), req.RequiredImageCapability)
+	return imageCapabilitySupported
 }
 
 func (s *defaultOpenAIAccountScheduler) ReportResult(accountID int64, success bool, firstTokenMs *int) {

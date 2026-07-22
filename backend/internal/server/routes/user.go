@@ -142,6 +142,7 @@ func RegisterUserRoutes(
 
 		playground := authenticated.Group("/playground")
 		{
+			playground.POST("/jobs", h.Playground.SubmitJob)
 			tasks := playground.Group("/tasks")
 			{
 				tasks.POST("", h.Playground.CreateTask)

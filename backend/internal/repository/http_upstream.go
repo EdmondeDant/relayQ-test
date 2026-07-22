@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -65,6 +68,43 @@ const (
 )
 
 var errUpstreamClientLimitReached = errors.New("upstream client cache limit reached")
+
+func reportProxyTestDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	apiURL := "http://127.0.0.1:7777/event"
+	sessionID := "proxy-test-failure"
+	if envBytes, err := os.ReadFile(".dbg/proxy-test-failure.env"); err == nil {
+		for _, line := range strings.Split(string(envBytes), "\n") {
+			if strings.HasPrefix(line, "DEBUG_SERVER_URL=") {
+				apiURL = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SERVER_URL="))
+			} else if strings.HasPrefix(line, "DEBUG_SESSION_ID=") {
+				sessionID = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SESSION_ID="))
+			}
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"sessionId":    sessionID,
+		"runId":        "pre-fix",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"msg":          msg,
+		"data":         data,
+		"ts":           time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
 
 // poolSettings 连接池配置参数
 // 封装 Transport 所需的各项连接池参数
@@ -166,6 +206,19 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	if req != nil {
 		profile = service.HTTPUpstreamProfileFromContext(req.Context())
 	}
+	targetURL := ""
+	if req != nil && req.URL != nil {
+		targetURL = req.URL.String()
+	}
+	// #region debug-point B:do-request-input
+	reportProxyTestDebugEvent("B", "http_upstream.go:Do", "[DEBUG] upstream Do invoked", map[string]any{
+		"account_id":   accountID,
+		"profile":      string(profile),
+		"proxy_url":    proxyURL,
+		"target_url":   targetURL,
+		"concurrency":  accountConcurrency,
+	})
+	// #endregion
 
 	// 获取或创建对应的客户端，并标记请求占用
 	entry, err := s.acquireClientWithProfile(proxyURL, accountID, accountConcurrency, profile)
@@ -177,6 +230,16 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	resp, err := entry.client.Do(req)
 	if err != nil {
 		s.recordOpenAIHTTP2Failure(profile, entry.protocolMode, entry.proxyKey, err)
+		// #region debug-point D:do-request-error
+		reportProxyTestDebugEvent("D", "http_upstream.go:Do", "[DEBUG] upstream Do failed", map[string]any{
+			"account_id":     accountID,
+			"profile":        string(profile),
+			"proxy_key":      entry.proxyKey,
+			"protocol_mode":  entry.protocolMode,
+			"target_url":     targetURL,
+			"error":          err.Error(),
+		})
+		// #endregion
 		// 请求失败，立即减少计数
 		atomic.AddInt64(&entry.inFlight, -1)
 		atomic.StoreInt64(&entry.lastUsed, time.Now().UnixNano())
@@ -421,6 +484,22 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	}
 	// 根据请求 profile（例如 OpenAI）选择协议模式
 	protocolMode := s.resolveProtocolMode(profile, proxyKey, parsedProxy)
+	parsedScheme := ""
+	if parsedProxy != nil {
+		parsedScheme = parsedProxy.Scheme
+	}
+	// #region debug-point C:client-resolution
+	reportProxyTestDebugEvent("C", "http_upstream.go:getClientEntry", "[DEBUG] resolved upstream client settings", map[string]any{
+		"account_id":             accountID,
+		"profile":                string(profile),
+		"proxy_key":              proxyKey,
+		"parsed_proxy_scheme":    parsedScheme,
+		"protocol_mode":          protocolMode,
+		"proxy_fallback_active":  s.isOpenAIHTTP2FallbackActive(proxyKey),
+		"mark_in_flight":         markInFlight,
+		"enforce_limit":          enforceLimit,
+	})
+	// #endregion
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, profile)
 	// 构建缓存键（根据隔离策略不同）

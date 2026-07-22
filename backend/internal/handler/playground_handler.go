@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -22,6 +26,43 @@ type PlaygroundHandler struct {
 	storage *service.PlaygroundAssetStorage
 }
 
+func reportPlayground500HandlerDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	apiURL := "http://127.0.0.1:7777/event"
+	sessionID := "playground-500-blockers"
+	if envBytes, err := os.ReadFile(".dbg/playground-500-blockers.env"); err == nil {
+		for _, line := range strings.Split(string(envBytes), "\n") {
+			if strings.HasPrefix(line, "DEBUG_SERVER_URL=") {
+				apiURL = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SERVER_URL="))
+			} else if strings.HasPrefix(line, "DEBUG_SESSION_ID=") {
+				sessionID = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SESSION_ID="))
+			}
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"sessionId":    sessionID,
+		"runId":        "pre-fix",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"msg":          msg,
+		"data":         data,
+		"ts":           time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
+
 func NewPlaygroundHandler(s *service.PlaygroundService) *PlaygroundHandler {
 	return &PlaygroundHandler{service: s, storage: service.NewPlaygroundAssetStorage()}
 }
@@ -35,6 +76,12 @@ type createPlaygroundTaskRequest struct {
 	ResultPayload  json.RawMessage `json:"result_payload"`
 	ErrorMessage   string          `json:"error_message"`
 }
+type submitPlaygroundJobRequest struct {
+	Kind           string          `json:"kind" binding:"required"`
+	Model          string          `json:"model" binding:"required"`
+	APIKey         string          `json:"api_key" binding:"required"`
+	RequestPayload json.RawMessage `json:"request_payload" binding:"required"`
+}
 type createPlaygroundAssetRequest struct {
 	TaskID      *int64          `json:"task_id"`
 	Kind        string          `json:"kind" binding:"required"`
@@ -45,6 +92,29 @@ type createPlaygroundAssetRequest struct {
 	ContentType string          `json:"content_type"`
 	ByteSize    *int64          `json:"byte_size"`
 	Metadata    json.RawMessage `json:"metadata"`
+}
+
+func (h *PlaygroundHandler) SubmitJob(c *gin.Context) {
+	subject, ok := playgroundSubject(c)
+	if !ok {
+		return
+	}
+	var req submitPlaygroundJobRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.service.SubmitJob(c.Request.Context(), subject.UserID, service.SubmitPlaygroundJobInput{
+		Kind:            req.Kind,
+		Model:           req.Model,
+		APIKey:          req.APIKey,
+		InternalBaseURL: inferPlaygroundInternalBaseURL(c.Request),
+		RequestPayload:  req.RequestPayload,
+	})
+	if writePlaygroundResourceError(c, err) {
+		return
+	}
+	response.Created(c, item)
 }
 
 func (h *PlaygroundHandler) CreateTask(c *gin.Context) {
@@ -69,7 +139,23 @@ func (h *PlaygroundHandler) ListTasks(c *gin.Context) {
 		return
 	}
 	params := playgroundPagination(c)
+	// #region debug-point D:playground-list-tasks-start
+	reportPlayground500HandlerDebugEvent("D", "playground_handler.go:ListTasks", "[DEBUG] playground list tasks start", map[string]any{
+		"user_id": subject.UserID,
+		"kind":    c.Query("kind"),
+		"page":    params.Page,
+		"limit":   params.Limit(),
+	})
+	// #endregion
 	items, total, err := h.service.ListTasks(c.Request.Context(), subject.UserID, params, c.Query("kind"))
+	// #region debug-point E:playground-list-tasks-result
+	reportPlayground500HandlerDebugEvent("E", "playground_handler.go:ListTasks", "[DEBUG] playground list tasks result", map[string]any{
+		"user_id":    subject.UserID,
+		"err":        fmt.Sprint(err),
+		"item_count": len(items),
+		"total":      total,
+	})
+	// #endregion
 	if writePlaygroundResourceError(c, err) {
 		return
 	}
@@ -114,7 +200,7 @@ func (h *PlaygroundHandler) CreateAsset(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	item, err := h.service.CreateAsset(c.Request.Context(), subject.UserID, service.CreatePlaygroundAssetInput{TaskID: req.TaskID, Kind: req.Kind, Title: req.Title, Content: req.Content, URL: req.URL, StorageKey: req.StorageKey, ContentType: req.ContentType, ByteSize: req.ByteSize, Metadata: req.Metadata})
+	item, err := h.service.CreateAsset(c.Request.Context(), subject.UserID, service.CreatePlaygroundAssetInput{TaskID: req.TaskID, Kind: req.Kind, Title: req.Title, Content: req.Content, URL: req.URL, InternalBaseURL: inferPlaygroundInternalBaseURL(c.Request), StorageKey: req.StorageKey, ContentType: req.ContentType, ByteSize: req.ByteSize, Metadata: req.Metadata})
 	if writePlaygroundResourceError(c, err) {
 		return
 	}
@@ -157,9 +243,28 @@ func (h *PlaygroundHandler) ServeAssetByID(c *gin.Context) {
 	if !ok {
 		return
 	}
+	logger.L().Info("playground.asset.by_id.request",
+		zap.Int64("subject_user_id", subject.UserID),
+		zap.Int64("asset_id", id),
+		zap.String("raw_path", c.Request.URL.Path),
+	)
 	asset, err := h.service.GetAsset(c.Request.Context(), subject.UserID, id)
 	if writePlaygroundResourceError(c, err) {
+		logger.L().Warn("playground.asset.by_id.lookup_failed",
+			zap.Int64("subject_user_id", subject.UserID),
+			zap.Int64("asset_id", id),
+			zap.Error(err),
+		)
 		return
+	}
+	if asset != nil {
+		logger.L().Info("playground.asset.by_id.asset_hit",
+			zap.Int64("asset_id", asset.ID),
+			zap.Int64("asset_user_id", asset.UserID),
+			zap.String("asset_kind", asset.Kind),
+			zap.String("asset_storage_key", asset.StorageKey),
+			zap.String("asset_url", asset.URL),
+		)
 	}
 	h.serveStoredAsset(c, asset)
 }
@@ -251,6 +356,12 @@ func (h *PlaygroundHandler) serveStoredAsset(c *gin.Context, asset *service.Play
 	defer func() { _ = file.Close() }()
 	info, statErr := file.Stat()
 	if statErr != nil {
+		logger.L().Warn("playground.asset.content.stat_failed",
+			zap.Int64("asset_id", asset.ID),
+			zap.String("storage_key", storageKey),
+			zap.String("resolved_path", path),
+			zap.Error(statErr),
+		)
 		response.ErrorFrom(c, statErr)
 		return
 	}
@@ -278,6 +389,36 @@ func (h *PlaygroundHandler) serveStoredAsset(c *gin.Context, asset *service.Play
 	c.Header("X-Content-Type-Options", "nosniff")
 	http.ServeContent(c.Writer, c.Request, storageKey, info.ModTime(), file)
 }
+
+func inferPlaygroundInternalBaseURL(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if addr, ok := r.Context().Value(http.LocalAddrContextKey).(fmt.Stringer); ok {
+		if baseURL := normalizePlaygroundInternalBaseURLCandidate(addr.String()); baseURL != "" {
+			return baseURL
+		}
+	}
+	if baseURL := normalizePlaygroundInternalBaseURLCandidate(r.Host); baseURL != "" {
+		return baseURL
+	}
+	if forwardedHost := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0]); forwardedHost != "" {
+		return normalizePlaygroundInternalBaseURLCandidate(forwardedHost)
+	}
+	return ""
+}
+
+func normalizePlaygroundInternalBaseURLCandidate(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.Contains(raw, "://") {
+		return raw
+	}
+	return "http://" + raw
+}
+
 func (h *PlaygroundHandler) DeleteAsset(c *gin.Context) {
 	subject, ok := playgroundSubject(c)
 	if !ok {
@@ -299,7 +440,23 @@ func (h *PlaygroundHandler) ListRecords(c *gin.Context) {
 		return
 	}
 	params := playgroundPagination(c)
+	// #region debug-point F:playground-list-records-start
+	reportPlayground500HandlerDebugEvent("F", "playground_handler.go:ListRecords", "[DEBUG] playground list records start", map[string]any{
+		"user_id": subject.UserID,
+		"kind":    c.Query("kind"),
+		"page":    params.Page,
+		"limit":   params.Limit(),
+	})
+	// #endregion
 	items, total, err := h.service.ListRecords(c.Request.Context(), subject.UserID, params, c.Query("kind"))
+	// #region debug-point G:playground-list-records-result
+	reportPlayground500HandlerDebugEvent("G", "playground_handler.go:ListRecords", "[DEBUG] playground list records result", map[string]any{
+		"user_id":    subject.UserID,
+		"err":        fmt.Sprint(err),
+		"item_count": len(items),
+		"total":      total,
+	})
+	// #endregion
 	if writePlaygroundResourceError(c, err) {
 		return
 	}

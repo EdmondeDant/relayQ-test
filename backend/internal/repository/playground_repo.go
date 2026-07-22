@@ -37,6 +37,33 @@ func (r *playgroundRepository) CreateTask(ctx context.Context, userID int64, inp
 	return scanPlaygroundTask(row)
 }
 
+func (r *playgroundRepository) UpdateTask(ctx context.Context, userID, id int64, input service.UpdatePlaygroundTaskInput) (*service.PlaygroundTask, error) {
+	setStarted := input.Status == "running" || input.Status == "submitted" || input.Status == "succeeded" || input.Status == "failed"
+	setCompleted := input.Status == "succeeded" || input.Status == "failed" || input.Status == "canceled"
+	row := r.db.QueryRowContext(ctx, `
+		UPDATE playground_tasks
+		SET
+			status = $3,
+			request_id = NULLIF($4, ''),
+			result_payload = $5,
+			error_message = NULLIF($6, ''),
+			started_at = CASE
+				WHEN started_at IS NOT NULL THEN started_at
+				WHEN $7 THEN NOW()
+				ELSE NULL
+			END,
+			completed_at = CASE
+				WHEN $8 THEN COALESCE(completed_at, NOW())
+				ELSE NULL
+			END,
+			updated_at = NOW()
+		WHERE id = $1 AND user_id = $2
+		RETURNING id, user_id, kind, status, model, COALESCE(request_id, ''), request_payload, result_payload,
+			COALESCE(error_message, ''), started_at, completed_at, created_at, updated_at, expires_at
+	`, id, userID, input.Status, input.RequestID, input.ResultPayload, input.ErrorMessage, setStarted, setCompleted)
+	return scanPlaygroundTask(row)
+}
+
 func (r *playgroundRepository) ListTasks(ctx context.Context, userID int64, params pagination.PaginationParams, kind string) ([]service.PlaygroundTask, int64, error) {
 	where, args := "user_id=$1 AND expires_at>NOW()", []any{userID}
 	if kind != "" {

@@ -94,6 +94,7 @@ type ModelPricing struct {
 	OutputPricePerToken            float64 // 每token输出价格 (USD)
 	OutputPricePerTokenPriority    float64 // priority service tier 下每token输出价格 (USD)
 	CacheCreationPricePerToken     float64 // 缓存创建每token价格 (USD)
+	CacheCreationPricePerTokenPriority float64 // priority service tier 下缓存创建每token价格 (USD)
 	CacheReadPricePerToken         float64 // 缓存读取每token价格 (USD)
 	CacheReadPricePerTokenPriority float64 // priority service tier 下缓存读取每token价格 (USD)
 	CacheCreation5mPrice           float64 // 5分钟缓存创建每token价格 (USD)
@@ -119,7 +120,8 @@ func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing) bo
 	if pricing == nil || normalizeBillingServiceTier(serviceTier) != "priority" {
 		return false
 	}
-	return pricing.InputPricePerTokenPriority > 0 || pricing.OutputPricePerTokenPriority > 0 || pricing.CacheReadPricePerTokenPriority > 0
+	return pricing.InputPricePerTokenPriority > 0 || pricing.OutputPricePerTokenPriority > 0 ||
+		pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheReadPricePerTokenPriority > 0
 }
 
 func serviceTierCostMultiplier(serviceTier string) float64 {
@@ -385,6 +387,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				OutputPricePerToken:            litellmPricing.OutputCostPerToken,
 				OutputPricePerTokenPriority:    litellmPricing.OutputCostPerTokenPriority,
 				CacheCreationPricePerToken:     litellmPricing.CacheCreationInputTokenCost,
+				CacheCreationPricePerTokenPriority: litellmPricing.CacheCreationInputTokenCostPriority,
 				CacheReadPricePerToken:         litellmPricing.CacheReadInputTokenCost,
 				CacheReadPricePerTokenPriority: litellmPricing.CacheReadInputTokenCostPriority,
 				CacheCreation5mPrice:           price5m,
@@ -428,6 +431,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	}
 	if channelPricing.CacheWritePrice != nil {
 		pricing.CacheCreationPricePerToken = *channelPricing.CacheWritePrice
+		pricing.CacheCreationPricePerTokenPriority = *channelPricing.CacheWritePrice
 		pricing.CacheCreation5mPrice = *channelPricing.CacheWritePrice
 		pricing.CacheCreation1hPrice = *channelPricing.CacheWritePrice
 	}
@@ -527,6 +531,7 @@ func (s *BillingService) computeTokenBreakdown(
 
 	inputPrice := pricing.InputPricePerToken
 	outputPrice := pricing.OutputPricePerToken
+	cacheCreationPrice := pricing.CacheCreationPricePerToken
 	cacheReadPrice := pricing.CacheReadPricePerToken
 	cacheCreationMultiplier := 1.0
 	tierMultiplier := 1.0
@@ -537,6 +542,9 @@ func (s *BillingService) computeTokenBreakdown(
 		}
 		if pricing.OutputPricePerTokenPriority > 0 {
 			outputPrice = pricing.OutputPricePerTokenPriority
+		}
+		if pricing.CacheCreationPricePerTokenPriority > 0 {
+			cacheCreationPrice = pricing.CacheCreationPricePerTokenPriority
 		}
 		if pricing.CacheReadPricePerTokenPriority > 0 {
 			cacheReadPrice = pricing.CacheReadPricePerTokenPriority
@@ -577,7 +585,7 @@ func (s *BillingService) computeTokenBreakdown(
 	}
 
 	// 缓存创建费用
-	bd.CacheCreationCost = s.computeCacheCreationCost(pricing, tokens, cacheCreationMultiplier)
+	bd.CacheCreationCost = s.computeCacheCreationCost(pricing, tokens, cacheCreationPrice, cacheCreationMultiplier)
 
 	bd.CacheReadCost = float64(tokens.CacheReadTokens) * cacheReadPrice
 
@@ -598,7 +606,7 @@ func (s *BillingService) computeTokenBreakdown(
 
 // computeCacheCreationCost 计算缓存创建费用（支持 5m/1h 分类或标准计费）。
 // multiplier 用于长上下文等场景下的整体价格缩放（普通调用传 1.0 即可）。
-func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens UsageTokens, multiplier float64) float64 {
+func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens UsageTokens, price, multiplier float64) float64 {
 	if pricing.SupportsCacheBreakdown && (pricing.CacheCreation5mPrice > 0 || pricing.CacheCreation1hPrice > 0) {
 		if tokens.CacheCreation5mTokens == 0 && tokens.CacheCreation1hTokens == 0 && tokens.CacheCreationTokens > 0 {
 			// API 未返回 ephemeral 明细，回退到全部按 5m 单价计费
@@ -607,7 +615,7 @@ func (s *BillingService) computeCacheCreationCost(pricing *ModelPricing, tokens 
 		return float64(tokens.CacheCreation5mTokens)*pricing.CacheCreation5mPrice*multiplier +
 			float64(tokens.CacheCreation1hTokens)*pricing.CacheCreation1hPrice*multiplier
 	}
-	return float64(tokens.CacheCreationTokens) * pricing.CacheCreationPricePerToken * multiplier
+	return float64(tokens.CacheCreationTokens) * price * multiplier
 }
 
 // calculatePerRequestCost 按次/图片计费

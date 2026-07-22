@@ -276,7 +276,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
 import { modelTestAPI, type ChatMessage, type PlaygroundBilling } from '@/api/modelTest'
-import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef } from '@/api/playgroundCloud'
+import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef, type PlaygroundTask } from '@/api/playgroundCloud'
 import { keysAPI } from '@/api/keys'
 import { userChannelsAPI, type UserAvailableChannel, type UserAvailableGroup, type UserSupportedModel } from '@/api/channels'
 import { useAuthStore } from '@/stores/auth'
@@ -379,6 +379,10 @@ const audioPreviewLoading = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const requestId = ref('')
+const currentTaskId = ref<number | null>(null)
+const failedAssetUrls = new Set<string>()
+const DEBUG_EVENT_URL = String(import.meta.env.VITE_DEBUG_EVENT_URL || '').trim()
+const ENABLE_DEBUG_EVENT_REPORT = import.meta.env.DEV && DEBUG_EVENT_URL.length > 0
 const audioGenerationRevision = 1
 const requestIdLabel = computed(() => {
   const value = requestId.value.trim()
@@ -547,6 +551,154 @@ function getExecutionMetadata() {
   }
 }
 
+async function reportAsyncImageEditDebugEvent(hypothesisId: string, location: string, msg: string, data: Record<string, unknown>) {
+  if (!ENABLE_DEBUG_EVENT_REPORT) return
+  try {
+    await fetch(DEBUG_EVENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'image-edit-failure',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        msg,
+        data,
+        ts: Date.now(),
+      }),
+    })
+  } catch {
+    // Ignore debug reporting failures.
+  }
+}
+
+async function blobObjectUrlToDataUrl(url: string): Promise<string> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('读取本地文件失败。')
+  const blob = await response.blob()
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('转换本地文件失败。'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function normalizeLocalMediaUrl(url?: string): Promise<string> {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  if (value.startsWith('blob:')) return blobObjectUrlToDataUrl(value)
+  return value
+}
+
+async function buildPlaygroundImageMedia(images: string[], mask?: string) {
+  const resolvedImages = await Promise.all(images.map((item) => normalizeLocalMediaUrl(item)))
+  const resolvedMask = mask ? await normalizeLocalMediaUrl(mask) : ''
+  return {
+    images: resolvedImages.filter(Boolean).map((url) => ({ url })),
+    ...(resolvedMask ? { mask: { url: resolvedMask } } : {}),
+  }
+}
+
+async function buildPlaygroundAudioMedia(url?: string, filename?: string, field: 'audio' | 'reference_audio' = 'audio') {
+  const resolved = await normalizeLocalMediaUrl(url)
+  if (!resolved) return undefined
+  return {
+    [field]: {
+      url: resolved,
+      ...(filename ? { filename } : {}),
+    },
+  }
+}
+
+async function buildPlaygroundVideoMedia(url?: string) {
+  const resolved = await normalizeLocalMediaUrl(url)
+  if (!resolved) return undefined
+  return {
+    input_reference: { url: resolved },
+  }
+}
+
+function delayWithSignal(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup()
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      cleanup()
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    const cleanup = () => {
+      window.clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+async function submitAsyncPlaygroundJob(kind: string, model: string, requestPayload: Record<string, unknown>) {
+  const auth = getAuthContext()
+  // #region debug-point G:frontend-async-job-submit
+  if (kind === 'edit') {
+    await reportAsyncImageEditDebugEvent('G', 'PlaygroundView.vue:submitAsyncPlaygroundJob', '[DEBUG] frontend async edit job submit', {
+      kind,
+      model,
+      api_key_id: selectedKey.value?.id,
+      image_count: Array.isArray((requestPayload.media as any)?.images) ? (requestPayload.media as any).images.length : 0,
+      prompt_length: String(requestPayload.prompt || '').length,
+    })
+  }
+  // #endregion
+  const task = await playgroundCloudAPI.submitJob({
+    kind,
+    model,
+    api_key: auth.apiKey,
+    request_payload: requestPayload,
+  })
+  // #region debug-point H:frontend-async-job-created
+  if (kind === 'edit') {
+    await reportAsyncImageEditDebugEvent('H', 'PlaygroundView.vue:submitAsyncPlaygroundJob', '[DEBUG] frontend async edit job created', {
+      task_id: task.id,
+      status: task.status,
+      request_id: task.request_id || '',
+    })
+  }
+  // #endregion
+  currentTaskId.value = task.id
+  void loadCloudRecords()
+  return task
+}
+
+async function waitForPlaygroundTask(taskId: number, signal?: AbortSignal): Promise<PlaygroundTask> {
+  while (true) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    const task = await playgroundCloudAPI.getTask(taskId)
+    currentTaskId.value = task.id
+    requestId.value = task.request_id || requestId.value
+    // #region debug-point I:frontend-async-job-poll
+    if (task.kind === 'edit') {
+      await reportAsyncImageEditDebugEvent('I', 'PlaygroundView.vue:waitForPlaygroundTask', '[DEBUG] frontend async edit job polled', {
+        task_id: task.id,
+        status: task.status,
+        request_id: task.request_id || '',
+        error_message: task.error_message || '',
+      })
+    }
+    // #endregion
+    if (task.status === 'succeeded') return task
+    if (task.status === 'failed') throw new Error(task.error_message || '任务执行失败。')
+    if (task.status === 'canceled') throw new Error('任务已取消。')
+    await delayWithSignal(document.hidden ? 5000 : 3000, signal)
+  }
+}
+
+async function refreshAndRestoreTask(task: PlaygroundTask) {
+  await loadCloudRecords()
+  const saved = cloudRecords.value.find((item) => item.id === task.id || (task.request_id && item.request_id === task.request_id))
+  if (saved) await restoreRecord(saved)
+}
+
 function isImageModel(model: UserSupportedModel) {
   // image_pricing 优先；名称兜底覆盖外联 gpt-image / gemini-banana / adobe 等
   return Boolean(model.image_pricing)
@@ -614,71 +766,23 @@ async function submitImage() {
   const balanceBefore = balance.value
   startRequest()
   try {
-    const auth = getAuthContext()
-    const imageParams = {
+    const kind = activeTool.value === 'edit' ? 'edit' : 'image'
+    const title = kind === 'edit' ? '图片编辑' : 'AI 生图'
+    const requestPayload: Record<string, unknown> = {
+      title,
+      asset_kind: 'image',
+      prompt: imagePrompt.value.trim(),
       size: imageSize.value,
       quality: imageQuality.value,
       style: imageStyle.value,
       background: imageBackground.value,
+      metadata: getExecutionMetadata(),
     }
-    const result = activeTool.value === 'edit'
-      ? await modelTestAPI.editPlaygroundImage({
-          auth,
-          model: selectedImageModel.value,
-          prompt: imagePrompt.value.trim(),
-          image: editImage.value,
-          ...imageParams,
-          signal: abortController?.signal,
-        })
-      : await modelTestAPI.generatePlaygroundImage({
-          auth,
-          model: selectedImageModel.value,
-          prompt: imagePrompt.value.trim(),
-          ...imageParams,
-          signal: abortController?.signal,
-        })
-    if (!result.images[0]?.url) throw new Error('生成成功但没有返回图片，请使用 request_id 联系客服。')
-    resultImage.value = result.images[0].url
-    requestId.value = result.requestId || ''
-    lastBilling.value = await resolveBilling(result.billing, balanceBefore)
-    const kind = activeTool.value === 'edit' ? 'edit' : 'image'
-    const title = kind === 'edit' ? '图片编辑' : 'AI 生图'
-    const task = await playgroundCloudAPI.createTask({
-      kind,
-      status: 'succeeded',
-      model: selectedImageModel.value,
-      request_id: requestId.value || undefined,
-      request_payload: {
-        prompt: imagePrompt.value.trim(),
-        size: imageSize.value,
-        quality: imageQuality.value,
-        style: imageStyle.value,
-        background: imageBackground.value,
-        ...getExecutionMetadata(),
-      },
-      result_payload: {
-        ...getExecutionMetadata(),
-      },
-    }).catch(() => undefined)
-    if (task) {
-      const mediaRef = await persistMediaAsset({
-        taskId: task.id,
-        kind: 'image',
-        title,
-        sourceContent: resultImage.value.startsWith('data:') ? resultImage.value : undefined,
-        sourceUrl: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
-        contentType: 'image/png',
-        metadata: { request_id: requestId.value, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
-      }).catch(() => null)
-      if (mediaRef?.url) {
-        try {
-          resultImage.value = await toDisplayImageUrl(mediaRef.url)
-        } catch (cause) {
-          console.warn('图片结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
-        }
-      }
-    }
-    void loadCloudRecords()
+    if (kind === 'edit') requestPayload.media = await buildPlaygroundImageMedia([editImage.value].filter(Boolean))
+    const task = await submitAsyncPlaygroundJob(kind, selectedImageModel.value, requestPayload)
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) { handleError(cause, '图片处理失败，本次不应扣费。') } finally { endRequest() }
 }
 
@@ -687,12 +791,18 @@ async function sendChat() {
   const balanceBefore = balance.value
   chatInput.value = ''; chatMessages.value.push({ role: 'user', content: text }); const assistantIndex = chatMessages.value.push({ role: 'assistant', content: '' }) - 1; startRequest()
   try {
-    await modelTestAPI.streamPlaygroundChat({ auth: getAuthContext(), model: selectedChatModel.value, messages: chatMessages.value.slice(0, assistantIndex), signal: abortController?.signal, onDelta: (delta) => { const content = chatMessages.value[assistantIndex].content; chatMessages.value[assistantIndex].content = typeof content === 'string' ? content + delta : delta }, onBilling: (billing, id) => { lastBilling.value = billing; requestId.value = id || requestId.value } })
-    lastBilling.value = await resolveBilling(lastBilling.value, balanceBefore)
-    const reply = typeof chatMessages.value[assistantIndex]?.content === 'string' ? chatMessages.value[assistantIndex].content : ''
-    const task = await playgroundCloudAPI.createTask({ kind: 'chat', status: 'succeeded', model: selectedChatModel.value, request_id: requestId.value || undefined, request_payload: { prompt: text, ...getExecutionMetadata() }, result_payload: { content: reply, ...getExecutionMetadata() } }).catch(() => undefined)
-    if (task && reply) await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'text', title: '对话助手', content: reply, content_type: 'text/plain', metadata: { source_kind: 'chat', request_id: requestId.value || undefined, prompt: text, ...getExecutionMetadata() } }).catch(() => undefined)
-    void loadCloudRecords()
+    chatMessages.value[assistantIndex].content = '正在异步处理中...'
+    const messages = chatMessages.value.slice(0, assistantIndex)
+    const task = await submitAsyncPlaygroundJob('chat', selectedChatModel.value, {
+      title: '对话助手',
+      asset_kind: 'text',
+      prompt: text,
+      messages,
+      metadata: { source_kind: 'chat', prompt: text, ...getExecutionMetadata() },
+    })
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) { if (!isAbortError(cause) && !chatMessages.value[assistantIndex].content) chatMessages.value.splice(assistantIndex, 1); handleError(cause, '对话请求失败，本次不应扣费。') } finally { endRequest() }
 }
 
@@ -701,10 +811,16 @@ async function generateCopywriting() {
   const balanceBefore = balance.value
   startRequest(); textResult.value = ''
   try {
-    const result = await modelTestAPI.runPlaygroundChat({ auth: getAuthContext(), model: selectedChatModel.value, signal: abortController?.signal, messages: [{ role: 'system', content: '你是专业电商文案策划。只输出可直接使用的文案，不解释创作过程。' }, { role: 'user', content: `商品名称：${copywritingName.value}\n商品信息：${copywritingBrief.value}\n目标平台：${copywritingPlatform.value}\n输出语言：${copywritingLanguage.value}\n请输出：3个标题、5条核心卖点、详情描述、1段社媒短文案。` }] })
-    if (!result.content) throw new Error('模型没有返回文案。')
-    textResult.value = result.content; requestId.value = result.requestId || ''; lastBilling.value = await resolveBilling(result.billing, balanceBefore)
-    await persistTextCreation('copywriting', copywritingName.value, copywritingBrief.value, result.content)
+    const prompt = `商品名称：${copywritingName.value}\n商品信息：${copywritingBrief.value}\n目标平台：${copywritingPlatform.value}\n输出语言：${copywritingLanguage.value}\n请输出：3个标题、5条核心卖点、详情描述、1段社媒短文案。`
+    const task = await submitAsyncPlaygroundJob('copywriting', selectedChatModel.value, {
+      title: copywritingName.value,
+      asset_kind: 'text',
+      prompt,
+      metadata: getExecutionMetadata(),
+    })
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) { handleError(cause, '商品文案生成失败。') } finally { endRequest() }
 }
 
@@ -730,58 +846,22 @@ async function translateImageText() {
   textResult.value = ''
   try {
     const prompt = buildImageTranslatePrompt()
-    const result = await modelTestAPI.editPlaygroundImage({
-      auth: getAuthContext(),
-      model: selectedImageModel.value,
+    const task = await submitAsyncPlaygroundJob('image-translate', selectedImageModel.value, {
+      title: `图片翻译 · ${translateTarget.value}`,
+      asset_kind: 'image',
       prompt,
-      image: translateImage.value,
-      size: imageSize.value || '1:1',
-      signal: abortController?.signal,
+      source_language: translateSource.value,
+      target_language: translateTarget.value,
+      size: imageSize.value,
+      quality: imageQuality.value,
+      style: imageStyle.value,
+      background: imageBackground.value,
+      media: await buildPlaygroundImageMedia([translateImage.value]),
+      metadata: { source_language: translateSource.value, target_language: translateTarget.value, ...getExecutionMetadata() },
     })
-    if (!result.images[0]?.url) throw new Error('翻译成功但没有返回图片，请使用 request_id 联系客服。')
-    resultImage.value = result.images[0].url
-    requestId.value = result.requestId || ''
-    lastBilling.value = await resolveBilling(result.billing, balanceBefore)
-    const task = await playgroundCloudAPI.createTask({
-      kind: 'image-translate',
-      status: 'succeeded',
-      model: selectedImageModel.value,
-      request_id: requestId.value || undefined,
-      request_payload: {
-        prompt,
-        source_language: translateSource.value,
-        target_language: translateTarget.value,
-        size: imageSize.value,
-        quality: imageQuality.value,
-        style: imageStyle.value,
-        background: imageBackground.value,
-        ...getExecutionMetadata(),
-      },
-      result_payload: {
-        source_language: translateSource.value,
-        target_language: translateTarget.value,
-        ...getExecutionMetadata(),
-      },
-    }).catch(() => undefined)
-    if (task) {
-      const mediaRef = await persistMediaAsset({
-        taskId: task.id,
-        kind: 'image',
-        title: `图片翻译 · ${translateTarget.value}`,
-        sourceContent: resultImage.value.startsWith('data:') ? resultImage.value : undefined,
-        sourceUrl: resultImage.value.startsWith('data:') ? undefined : resultImage.value,
-        contentType: 'image/png',
-        metadata: { request_id: requestId.value || undefined, inline: resultImage.value.startsWith('data:'), ...getExecutionMetadata() },
-      }).catch(() => null)
-      if (mediaRef?.url) {
-        try {
-          resultImage.value = await toDisplayImageUrl(mediaRef.url)
-        } catch (cause) {
-          console.warn('图片翻译结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
-        }
-      }
-      void loadCloudRecords()
-    }
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) {
     handleError(cause, '图片翻译失败。')
   } finally {
@@ -793,34 +873,47 @@ async function runBatchImages() {
   if (!canRunBatch.value || batchRunning.value) return
   batchRunning.value = true
   error.value = ''
-  batchInputs.value.forEach((item) => { if (item.status !== 'completed') { item.status = 'pending'; item.error = undefined } })
+  batchInputs.value.forEach((item) => { if (item.status !== 'completed') { item.status = 'processing'; item.error = undefined } })
   const taskKind = activeTool.value === 'batch-clone' ? 'batch-clone' : 'batch-main'
-  const workers = Array.from({ length: Math.min(2, batchInputs.value.length) }, async () => {
-    while (batchRunning.value) {
-      const item = batchInputs.value.find((entry) => entry.status === 'pending')
-      if (!item) return
-      await processBatchItem(item)
-    }
-  })
-  await Promise.all(workers)
-  if (!batchRunning.value) batchInputs.value.forEach((item) => { if (item.status === 'pending') item.status = 'canceled' })
-  batchRunning.value = false
-  const task = await playgroundCloudAPI.createTask({ kind: taskKind, status: batchSuccessCount.value > 0 ? 'succeeded' : 'failed', model: selectedImageModel.value, request_payload: { prompt: batchPrompt.value, count: batchInputs.value.length, size: imageSize.value, quality: imageQuality.value, style: imageStyle.value, background: imageBackground.value, ...getExecutionMetadata() }, result_payload: { succeeded: batchSuccessCount.value, failed: batchInputs.value.filter((item) => item.status === 'failed').length, canceled: batchInputs.value.filter((item) => item.status === 'canceled').length, ...getExecutionMetadata() } }).catch(() => undefined)
-  if (task) {
-    await Promise.all(batchInputs.value.filter((item) => item.output).map(async (item) => {
-      const mediaRef = await persistMediaAsset({
-        taskId: task.id,
-        kind: 'image',
-        title: taskKindLabel(taskKind),
-        sourceContent: item.output!.startsWith('data:') ? item.output : undefined,
-        sourceUrl: item.output!.startsWith('data:') ? undefined : item.output,
-        contentType: 'image/png',
-        metadata: { request_id: item.requestId, inline: item.output!.startsWith('data:'), ...getExecutionMetadata() },
-      }).catch(() => null)
-      if (mediaRef?.url) item.output = mediaRef.url
+  startRequest()
+  try {
+    const cloning = activeTool.value === 'batch-clone'
+    const items = await Promise.all(batchInputs.value.map(async (item) => {
+      const prompt = cloning ? `${batchPrompt.value}\n第一张是待处理商品图，第二张是参考图。参考第二张的构图、光线和背景，但保留第一张商品的外观、颜色、文字和比例。` : batchPrompt.value
+      return {
+        prompt,
+        media: await buildPlaygroundImageMedia(cloning ? [item.input, referenceImage.value] : [item.input]),
+      }
     }))
+    const task = await submitAsyncPlaygroundJob(taskKind, selectedImageModel.value, {
+      title: taskKindLabel(taskKind),
+      asset_kind: 'image',
+      prompt: batchPrompt.value,
+      count: batchInputs.value.length,
+      size: imageSize.value,
+      quality: imageQuality.value,
+      style: imageStyle.value,
+      background: imageBackground.value,
+      batch: { items },
+      metadata: getExecutionMetadata(),
+    })
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    await loadCloudRecords()
+    const saved = cloudRecords.value.find((item) => item.id === task.id)
+    const assets = saved?.assets?.filter((item) => item.kind === 'image') || []
+    await Promise.all(batchInputs.value.map(async (item, index) => {
+      const asset = assets[index]
+      item.status = asset ? 'completed' : 'failed'
+      item.error = asset ? undefined : '未生成成功'
+      item.output = asset ? await toDisplayImageUrl(stableAssetUrl(asset)) : item.output
+    }))
+  } catch (cause) {
+    handleError(cause, '批量任务提交失败。')
+    batchInputs.value.forEach((item) => { if (item.status === 'processing') item.status = 'failed' })
+  } finally {
+    batchRunning.value = false
+    endRequest()
   }
-  void loadCloudRecords()
 }
 
 async function processBatchItem(item: BatchImageItem) {
@@ -864,54 +957,19 @@ async function submitAudioTranscription() {
   const balanceBefore = balance.value
   startRequest(); audioTranscriptText.value = ''
   try {
-    // MiMo ASR 官方要求：content 仅含 input_audio（data URL），并传 asr_options.language
-    const result = await modelTestAPI.runPlaygroundAudio({
-      auth: getAuthContext(),
-      model: selectedAudioModel.value,
-      mode: 'transcribe',
-      signal: abortController?.signal,
-      asrOptions: { language: resolveAsrLanguage(audioLanguage.value) },
-      messages: [{
-        role: 'user',
-        content: [{
-          type: 'input_audio',
-          input_audio: { data: audioInput.value },
-        }],
-      }],
-    })
-    audioTranscriptText.value = result.transcript || result.text || ''
-    if (!audioTranscriptText.value.trim()) {
-      throw new Error('转写成功但未返回文本，请换一段音频重试。')
-    }
-    requestId.value = result.requestId || ''
-    lastBilling.value = await resolveBilling(result.billing, balanceBefore)
-    const task = await playgroundCloudAPI.createTask({
-      kind: 'audio-transcribe',
-      status: 'succeeded',
-      model: selectedAudioModel.value,
-      request_id: requestId.value || undefined,
-      request_payload: {
-        filename: audioInputName.value,
-        language: audioLanguage.value,
-        asr_language: resolveAsrLanguage(audioLanguage.value),
-        output_mode: '纯文本',
-        ...getExecutionMetadata(),
-      },
-      result_payload: { transcript: audioTranscriptText.value, ...getExecutionMetadata() },
-    })
-    await playgroundCloudAPI.createAsset({
-      task_id: task.id,
-      kind: 'text',
+    const task = await submitAsyncPlaygroundJob('audio-transcribe', selectedAudioModel.value, {
       title: `语音转写 · ${audioInputName.value || '未命名音频'}`,
-      content: audioTranscriptText.value,
-      content_type: 'text/plain',
-      metadata: {
-        source_kind: 'audio-transcribe',
-        request_id: requestId.value || undefined,
-        ...getExecutionMetadata(),
-      },
+      asset_kind: 'text',
+      filename: audioInputName.value,
+      language: audioLanguage.value,
+      asr_language: resolveAsrLanguage(audioLanguage.value),
+      output_mode: '纯文本',
+      media: await buildPlaygroundAudioMedia(audioInput.value, audioInputName.value),
+      metadata: { source_kind: 'audio-transcribe', ...getExecutionMetadata() },
     })
-    void loadCloudRecords()
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) {
     handleError(cause, '语音转写失败。')
   } finally {
@@ -924,98 +982,29 @@ async function submitAudioGeneration() {
   const balanceBefore = balance.value
   startRequest(); ttsResultUrl.value = ''; ttsResultText.value = ''; ttsDebug.value = ''; audioPreviewLoading.value = false
   try {
-    const styleInstruction = audioGenerateMode.value === 'voicedesign'
-      ? `${ttsVoiceDescription.value.trim()}。角色设定：${ttsPersona.value.trim() || '自然旁白'}。输出语言：${ttsLanguage.value}。`
-      : audioGenerateMode.value === 'voiceclone'
-        ? `请基于提供的音频样本进行声音克隆，保持自然稳定的发音。输出语言：${ttsLanguage.value}。风格：${ttsStyle.value}。`
-        : `请用${ttsStyle.value}风格朗读，输出语言：${ttsLanguage.value}。`
-    const messages: ChatMessage[] = []
-    if (audioGenerateMode.value !== 'standard' || styleInstruction.trim()) messages.push({ role: 'user', content: styleInstruction.trim() })
-    if (audioGenerateMode.value === 'voiceclone' && ttsReferenceAudio.value) messages.push({ role: 'user', content: [{ type: 'audio_url', audio_url: { url: ttsReferenceAudio.value } }] })
-    messages.push({ role: 'assistant', content: ttsText.value.trim() })
-    const result = await modelTestAPI.runPlaygroundAudio({ auth: getAuthContext(), model: selectedTtsModel.value, mode: audioGenerateMode.value, signal: abortController?.signal, audio: audioGenerateMode.value === 'voicedesign' ? { format: 'wav', optimize_text_preview: true } : { format: 'wav', voice: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : ttsReferenceAudio.value || 'mimo_default' }, messages })
-    requestId.value = result.requestId || ''
-    lastBilling.value = await resolveBilling(result.billing, balanceBefore)
     const taskKind = audioGenerateMode.value === 'voiceclone' ? 'audio-voice-clone' : audioGenerateMode.value === 'voicedesign' ? 'audio-voice-design' : 'audio-generate'
     const title = audioGenerateMode.value === 'voiceclone' ? '声音克隆配音' : audioGenerateMode.value === 'voicedesign' ? '音色设计配音' : '标准配音'
-    const task = await playgroundCloudAPI.createTask({
-      kind: taskKind,
-      status: 'succeeded',
-      model: selectedTtsModel.value,
-      request_id: requestId.value || undefined,
-      request_payload: {
-        mode: audioGenerateMode.value,
-        text: ttsText.value.trim(),
-        language: ttsLanguage.value,
-        style: ttsStyle.value,
-        voice_preset: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : undefined,
-        voice_description: audioGenerateMode.value === 'voicedesign' ? ttsVoiceDescription.value : undefined,
-        persona: audioGenerateMode.value === 'voicedesign' ? ttsPersona.value : undefined,
-        has_reference_audio: audioGenerateMode.value === 'voiceclone' ? Boolean(ttsReferenceAudio.value) : undefined,
-        authorization_confirmed: audioGenerateMode.value === 'voiceclone' ? ttsAuthorizationConfirmed.value : undefined,
-        ...getExecutionMetadata(),
-      },
-      result_payload: {
-        text: result.text || undefined,
-        mode: audioGenerateMode.value,
-        ...getExecutionMetadata(),
-      },
-    })
-
-    let mediaRef: PersistedMediaRef | null = null
-    if (result.dataUrl) {
-      const asset = await playgroundCloudAPI.createAsset({
-        task_id: task.id,
-        kind: 'audio',
-        title,
-        content: result.dataUrl,
-        content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
-        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, inline: true, ...getExecutionMetadata() },
-      })
-      mediaRef = playgroundCloudAPI.toPersistedMediaRef(asset)
-    } else if (result.audioUrl) {
-      const asset = await playgroundCloudAPI.createAsset({
-        task_id: task.id,
-        kind: 'audio',
-        title,
-        url: result.audioUrl,
-        content_type: result.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
-        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, auth_token: getAuthContext().apiKey, ...getExecutionMetadata() },
-      })
-      mediaRef = playgroundCloudAPI.toPersistedMediaRef(asset)
+    const requestPayload: Record<string, unknown> = {
+      title,
+      asset_kind: 'audio',
+      mode: audioGenerateMode.value,
+      text: ttsText.value.trim(),
+      language: ttsLanguage.value,
+      style: ttsStyle.value,
+      voice_preset: audioGenerateMode.value === 'standard' ? ttsVoicePreset.value : undefined,
+      voice_description: audioGenerateMode.value === 'voicedesign' ? ttsVoiceDescription.value : undefined,
+      persona: audioGenerateMode.value === 'voicedesign' ? ttsPersona.value : undefined,
+      has_reference_audio: audioGenerateMode.value === 'voiceclone' ? Boolean(ttsReferenceAudio.value) : undefined,
+      authorization_confirmed: audioGenerateMode.value === 'voiceclone' ? ttsAuthorizationConfirmed.value : undefined,
+      metadata: { source_kind: taskKind, mode: audioGenerateMode.value, ...getExecutionMetadata() },
     }
-
-    if (mediaRef?.url) {
-      audioPreviewLoading.value = true
-      ttsResultUrl.value = await resolvePlayableAudioUrl(mediaRef.url)
-      audioPreviewLoading.value = false
-    }
-    ttsResultText.value = result.text || ''
-
-    if (ttsResultText.value) {
-      await playgroundCloudAPI.createAsset({
-        task_id: task.id,
-        kind: 'text',
-        title: '配音文本',
-        content: ttsResultText.value,
-        content_type: 'text/plain',
-        metadata: { source_kind: taskKind, request_id: requestId.value || undefined, mode: audioGenerateMode.value, ...getExecutionMetadata() },
-      })
-    }
-
-    if (mediaRef?.url) {
-      ttsDebug.value = `媒体已统一持久化：${mediaRef.storageKey || mediaRef.url}`
-    } else {
-      ttsDebug.value = `未拿到可持久化媒体：request_id=${requestId.value}`
-      error.value = '配音已生成，但媒体持久化失败，请检查上游返回。'
-    }
-    await loadCloudRecords()
-    const saved = cloudRecords.value.find((item) => item.request_id === requestId.value)
-    if (saved) {
-      audioPreviewLoading.value = true
-      await restoreRecord(saved)
-      audioPreviewLoading.value = false
-    }
+    if (audioGenerateMode.value === 'voiceclone') requestPayload.media = await buildPlaygroundAudioMedia(ttsReferenceAudio.value, ttsReferenceAudioName.value, 'reference_audio')
+    const task = await submitAsyncPlaygroundJob(taskKind, selectedTtsModel.value, requestPayload)
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    audioPreviewLoading.value = true
+    await refreshAndRestoreTask(task)
+    audioPreviewLoading.value = false
   } catch (cause) { handleError(cause, 'AI 配音失败。') } finally { endRequest() }
 }
 
@@ -1039,54 +1028,35 @@ async function processWatermark() {
   startRequest()
   try {
     const images = watermarkMode.value === 'add' && watermarkAssetType.value === 'logo' && watermarkLogo.value ? [watermarkImage.value, watermarkLogo.value] : [watermarkImage.value]
-    const result = await modelTestAPI.editPlaygroundImage({
-      auth: getAuthContext(),
-      model: selectedImageModel.value,
+    const title = watermarkMode.value === 'remove' ? '水印去除' : '添加水印'
+    const task = await submitAsyncPlaygroundJob('watermark', selectedImageModel.value, {
+      title,
+      asset_kind: 'image',
       prompt: buildWatermarkPrompt(),
-      images,
-      mask: watermarkMode.value === 'remove' ? watermarkMask.value || undefined : undefined,
+      has_mask: watermarkMode.value === 'remove' && Boolean(watermarkMask.value),
+      mode: watermarkMode.value,
+      asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined,
+      watermark_text: watermarkMode.value === 'add' && watermarkAssetType.value === 'text' ? watermarkText.value.trim() : undefined,
+      has_logo: watermarkMode.value === 'add' && watermarkAssetType.value === 'logo' ? Boolean(watermarkLogo.value) : undefined,
+      watermark_position: watermarkMode.value === 'add' ? watermarkPosition.value : undefined,
+      watermark_style: watermarkMode.value === 'add' ? watermarkStyle.value : undefined,
       size: imageSize.value,
       quality: imageQuality.value,
       style: imageStyle.value,
       background: imageBackground.value,
-      signal: abortController?.signal,
+      media: await buildPlaygroundImageMedia(images, watermarkMode.value === 'remove' ? watermarkMask.value || undefined : undefined),
+      metadata: { mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, ...getExecutionMetadata() },
     })
-    const output = result.images[0]?.url
-    if (!output) throw new Error('未返回处理结果图片。')
-    resultImage.value = output
-    requestId.value = result.requestId || ''
-    lastBilling.value = await resolveBilling(result.billing, balanceBefore)
-    const title = watermarkMode.value === 'remove' ? '水印去除' : '添加水印'
-    const task = await playgroundCloudAPI.createTask({ kind: 'watermark', status: 'succeeded', model: selectedImageModel.value, request_id: requestId.value || undefined, request_payload: { prompt: buildWatermarkPrompt(), has_mask: watermarkMode.value === 'remove' && Boolean(watermarkMask.value), mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, watermark_text: watermarkMode.value === 'add' && watermarkAssetType.value === 'text' ? watermarkText.value.trim() : undefined, has_logo: watermarkMode.value === 'add' && watermarkAssetType.value === 'logo' ? Boolean(watermarkLogo.value) : undefined, watermark_position: watermarkMode.value === 'add' ? watermarkPosition.value : undefined, watermark_style: watermarkMode.value === 'add' ? watermarkStyle.value : undefined, ...getExecutionMetadata() }, result_payload: { mode: watermarkMode.value, asset_type: watermarkMode.value === 'add' ? watermarkAssetType.value : undefined, ...getExecutionMetadata() } })
-    const mediaRef = await persistMediaAsset({
-      taskId: task.id,
-      kind: 'image',
-      title,
-      sourceContent: output.startsWith('data:') ? output : undefined,
-      sourceUrl: output.startsWith('data:') ? undefined : output,
-      contentType: 'image/png',
-      metadata: { request_id: requestId.value, mode: watermarkMode.value, inline: output.startsWith('data:'), ...getExecutionMetadata() },
-    }).catch(() => null)
-    if (mediaRef?.url) {
-      try {
-        resultImage.value = await toDisplayImageUrl(mediaRef.url)
-      } catch (cause) {
-        console.warn('水印处理结果已生成，但持久化资源回读失败，保留当前结果预览', cause)
-      }
-    }
-    void loadCloudRecords()
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) { handleError(cause, watermarkMode.value === 'remove' ? '水印去除失败，本次不应扣费。' : '添加水印失败，本次不应扣费。') } finally { endRequest() }
-}
-
-async function persistTextCreation(kind: string, title: string, prompt: string, content: string) {
-  const task = await playgroundCloudAPI.createTask({ kind, status: 'succeeded', model: selectedChatModel.value, request_id: requestId.value || undefined, request_payload: { prompt, ...getExecutionMetadata() }, result_payload: { content, ...getExecutionMetadata() }, })
-  await playgroundCloudAPI.createAsset({ task_id: task.id, kind: 'text', title, content, content_type: 'text/plain', metadata: { source_kind: kind, request_id: requestId.value || undefined, ...getExecutionMetadata() } })
-  void loadCloudRecords()
 }
 
 async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob: Blob }> {
   const value = String(url || '').trim()
   if (!value) throw new Error('媒体地址为空')
+  if (failedAssetUrls.has(value)) throw new Error('媒体地址已失效')
   if (value.startsWith('blob:')) return { objectUrl: value, blob: new Blob() }
   if (value.startsWith('data:')) {
     return { objectUrl: value, blob: new Blob() }
@@ -1095,11 +1065,23 @@ async function fetchAuthedAsset(url: string): Promise<{ objectUrl: string, blob:
     return { objectUrl: value, blob: new Blob() }
   }
   const token = localStorage.getItem('auth_token')
+  console.info('[playground-media] fetchAuthedAsset:start', {
+    url: value,
+    hasToken: Boolean(token),
+  })
   const response = await fetch(value, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: 'include',
   })
-  if (!response.ok) throw new Error(`加载媒体失败：${response.status}`)
+  console.info('[playground-media] fetchAuthedAsset:result', {
+    url: value,
+    status: response.status,
+    ok: response.ok,
+  })
+  if (!response.ok) {
+    failedAssetUrls.add(value)
+    throw new Error(`加载媒体失败：${response.status}`)
+  }
   const blob = await response.blob()
   return { objectUrl: URL.createObjectURL(blob), blob }
 }
@@ -1187,6 +1169,12 @@ function recordMediaAsset(record: PlaygroundRecord, kinds?: string[]) {
 async function hydrateRecordMedia(record: PlaygroundRecord): Promise<PlaygroundRecord> {
   const rawUrl = recordResultUrl(record)
   if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return record
+  if (failedAssetUrls.has(rawUrl)) return record
+  console.info('[playground-media] hydrateRecordMedia:start', {
+    recordId: record.id,
+    kind: record.kind,
+    rawUrl,
+  })
   const objectUrl = await fetchAuthedAssetUrl(rawUrl)
   const patchAsset = (asset: any) => asset && stableAssetUrl(asset) === rawUrl ? { ...asset, url: objectUrl } : asset
   const payload = normalizeRecord(record.result_payload)
@@ -1532,31 +1520,23 @@ async function submitVideo() {
   try {
     const model = selectedVideoModel.value
     if (!model) throw new Error('当前 API Key 所属分组没有可用的视频模型。')
-    await playgroundCloudAPI.createTask({
-      kind: 'video',
-      status: 'submitted',
-      model,
-      request_payload: {
-        prompt: videoPrompt.value.trim(),
-        duration: Number(videoDuration.value),
-        aspect_ratio: videoAspectRatio.value,
-        resolution: videoResolution.value,
-        has_image: Boolean(videoImage.value),
-        ...getExecutionMetadata(),
-      },
-      result_payload: {
-        status: 'queued',
-        ...getExecutionMetadata(),
-      },
-    })
-    const result = await modelTestAPI.createPlaygroundVideo({ auth: getAuthContext(), model, prompt: videoPrompt.value.trim(), image: videoImage.value || undefined, duration: Number(videoDuration.value), aspectRatio: videoAspectRatio.value, resolution: videoResolution.value, signal: abortController?.signal })
-    if (!result.requestId) throw new Error('视频任务未返回 request_id。')
-    requestId.value = result.requestId
-    videoStatus.value = result.status || 'queued'
+    const requestPayload: Record<string, unknown> = {
+      title: 'AI 视频',
+      asset_kind: 'video',
+      prompt: videoPrompt.value.trim(),
+      duration: Number(videoDuration.value),
+      aspect_ratio: videoAspectRatio.value,
+      resolution: videoResolution.value,
+      has_image: Boolean(videoImage.value),
+      metadata: getExecutionMetadata(),
+    }
+    if (videoImage.value) requestPayload.media = await buildPlaygroundVideoMedia(videoImage.value)
+    const task = await submitAsyncPlaygroundJob('video', model, requestPayload)
+    videoStatus.value = 'queued'
     videoUrl.value = ''
-    lastBilling.value = result.billing
-    void loadCloudRecords()
-    if (!videoUrl.value) scheduleVideoPoll()
+    const done = await waitForPlaygroundTask(task.id, abortController?.signal)
+    requestId.value = done.request_id || requestId.value
+    await refreshAndRestoreTask(done)
   } catch (cause) { handleError(cause, '视频体验组尚未配置或任务提交失败。') } finally { endRequest() }
 }
 
@@ -1611,7 +1591,37 @@ function scheduleVideoPoll() { if (pollTimer !== null) window.clearTimeout(pollT
 function startRequest() { stopRequest(); abortController = new AbortController(); submitting.value = true; error.value = ''; requestId.value = ''; lastBilling.value = undefined }
 function endRequest() { submitting.value = false; abortController = null }
 function stopRequest() { abortController?.abort(); abortController = null; submitting.value = false; if (pollTimer !== null) window.clearTimeout(pollTimer); pollTimer = null; videoPolling.value = false }
-function handleError(cause: unknown, fallback: string) { if (!isAbortError(cause)) error.value = cause instanceof Error ? cause.message : fallback }
+function describeError(cause: unknown, fallback: string) {
+  if (cause instanceof Error) return cause.message || fallback
+  if (typeof cause === 'string' && cause.trim()) return cause.trim()
+  if (cause && typeof cause === 'object') {
+    const record = cause as Record<string, unknown>
+    const response = (record.response && typeof record.response === 'object') ? record.response as Record<string, unknown> : null
+    const responseData = (response?.data && typeof response.data === 'object') ? response.data as Record<string, unknown> : null
+    const responseBody = typeof response?.data === 'string' && response.data.trim() ? response.data.trim() : ''
+    const nestedError = (responseData?.error && typeof responseData.error === 'object') ? responseData.error as Record<string, unknown> : null
+    const direct = typeof record.message === 'string' && record.message.trim() ? record.message.trim() : ''
+    const reason = typeof record.reason === 'string' && record.reason.trim() ? record.reason.trim() : ''
+    const responseMessage = typeof responseData?.message === 'string' && responseData.message.trim() ? responseData.message.trim() : ''
+    const nestedMessage = typeof nestedError?.message === 'string' && nestedError.message.trim() ? nestedError.message.trim() : ''
+    const details = responseData?.metadata ?? responseData?.details ?? nestedError?.details ?? record.metadata ?? record.details ?? record.detail
+    const preferred = responseMessage || nestedMessage || direct
+    if (preferred && details) {
+      const extra = typeof details === 'string' ? details : JSON.stringify(details)
+      return `${preferred}（${extra}）`
+    }
+    if (preferred) return preferred
+    if (responseBody) return responseBody
+    if (direct && details) {
+      const extra = typeof details === 'string' ? details : JSON.stringify(details)
+      return `${direct}（${extra}）`
+    }
+    if (direct) return direct
+    if (reason) return reason
+  }
+  return fallback
+}
+function handleError(cause: unknown, fallback: string) { if (!isAbortError(cause)) error.value = describeError(cause, fallback) }
 async function resolveBilling(billing: PlaygroundBilling | undefined, before: number) { try { const user = await authStore.refreshUser(); const after = user.balance ?? balance.value; const amount = billing?.amount ?? Math.max(0, Number((before - after).toFixed(6))); return { ...billing, amount: amount || billing?.amount, balance_after: billing?.balance_after ?? after } } catch { return billing } }
 
 function onPreviewAudioLoadedMetadata(event: Event) {

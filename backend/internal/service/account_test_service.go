@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -58,6 +59,43 @@ const (
 	defaultXAIImageTestPrompt    = "Generate a cute orange cat astronaut sticker on a clean pastel background."
 	defaultXAIVideoTestPrompt    = "A cute orange cat astronaut walking on the moon, cinematic, smooth camera movement."
 )
+
+func reportProxyTestDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	apiURL := "http://127.0.0.1:7777/event"
+	sessionID := "proxy-test-failure"
+	if envBytes, err := os.ReadFile(".dbg/proxy-test-failure.env"); err == nil {
+		for _, line := range strings.Split(string(envBytes), "\n") {
+			if strings.HasPrefix(line, "DEBUG_SERVER_URL=") {
+				apiURL = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SERVER_URL="))
+			} else if strings.HasPrefix(line, "DEBUG_SESSION_ID=") {
+				sessionID = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SESSION_ID="))
+			}
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"sessionId":    sessionID,
+		"runId":        "pre-fix",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"msg":          msg,
+		"data":         data,
+		"ts":           time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
 
 // isOpenAIImageModel checks if the model is an OpenAI image generation model (e.g. gpt-image-2).
 func isOpenAIImageModel(model string) bool {
@@ -781,6 +819,21 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
+	// #region debug-point A:chat-completions-test-input
+	reportProxyTestDebugEvent("A", "account_test_service.go:testOpenAIChatCompletionsConnection", "[DEBUG] assembled chat completions test request", map[string]any{
+		"account_id":        account.ID,
+		"account_platform":  account.Platform,
+		"account_type":      account.Type,
+		"model":             testModelID,
+		"api_url":           apiURL,
+		"normalized_base":   normalizedBaseURL,
+		"has_proxy":         proxyURL != "",
+		"proxy_url":         proxyURL,
+		"concurrency":       account.Concurrency,
+		"tls_fp_enabled":    account.IsTLSFingerprintEnabled(),
+		"is_xai_oauth":      account.Platform == PlatformXAI && account.IsOAuth(),
+	})
+	// #endregion
 
 	doRequest := func(token string) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(payloadBytes))
@@ -796,6 +849,14 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 
 	resp, err := doRequest(authToken)
 	if err != nil {
+		// #region debug-point D:chat-completions-request-error
+		reportProxyTestDebugEvent("D", "account_test_service.go:testOpenAIChatCompletionsConnection", "[DEBUG] chat completions upstream request failed", map[string]any{
+			"account_id": account.ID,
+			"api_url":    apiURL,
+			"proxy_url":  proxyURL,
+			"error":      err.Error(),
+		})
+		// #endregion
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Chat Completions API (/v1/chat/completions) request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()

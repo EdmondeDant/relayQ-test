@@ -74,7 +74,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		return
 	}
 	requestModel := parsed.Model
-
 	reqLog = reqLog.With(
 		zap.String("model", requestModel),
 		zap.Bool("stream", parsed.Stream),

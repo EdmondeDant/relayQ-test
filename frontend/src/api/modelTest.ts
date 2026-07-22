@@ -167,6 +167,29 @@ interface ImageGenerationResponse {
 }
 
 const GATEWAY_BASE_URL = ''
+const DEBUG_EVENT_URL = String(import.meta.env.VITE_DEBUG_EVENT_URL || '').trim()
+const ENABLE_DEBUG_EVENT_REPORT = import.meta.env.DEV && DEBUG_EVENT_URL.length > 0
+
+async function reportImageEditDebugEvent(hypothesisId: string, location: string, msg: string, data: Record<string, unknown>): Promise<void> {
+  if (!ENABLE_DEBUG_EVENT_REPORT) return
+  try {
+    await fetch(DEBUG_EVENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'image-edit-failure',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        msg,
+        data,
+        ts: Date.now(),
+      }),
+    })
+  } catch {
+    // Ignore debug reporting failures.
+  }
+}
 
 function authHeaders(auth: PlaygroundAuthContext, extra: HeadersInit = {}): HeadersInit {
   return {
@@ -435,14 +458,41 @@ export async function editPlaygroundImage(options: {
     if (!isGptImageModel(options.model)) body.response_format = 'b64_json'
   }
 
+  // #region debug-point A:frontend-edit-request
+  await reportImageEditDebugEvent('A', 'modelTest.ts:editPlaygroundImage', '[DEBUG] frontend image edit request prepared', {
+    model: options.model,
+    image_count: resolvedImages.length,
+    has_mask: Boolean(resolvedMask),
+    size: body.size,
+    quality: body.quality,
+    style: body.style,
+    background: body.background,
+  })
+  // #endregion
+
   const response = await fetch(`${GATEWAY_BASE_URL}/v1/images/edits`, {
     method: 'POST',
     headers: authHeaders(options.auth, { 'Idempotency-Key': createIdempotencyKey() }),
     body: JSON.stringify(body),
     signal: options.signal,
   })
+  // #region debug-point B:frontend-edit-response
+  await reportImageEditDebugEvent('B', 'modelTest.ts:editPlaygroundImage', '[DEBUG] frontend image edit response headers received', {
+    status: response.status,
+    ok: response.ok,
+    content_type: response.headers.get('content-type') || '',
+    request_id: response.headers.get('x-request-id') || response.headers.get('x-relayq-request-id') || '',
+  })
+  // #endregion
   await ensureOk(response)
   const payload = (await response.json()) as ImageGenerationResponse
+  // #region debug-point C:frontend-edit-payload
+  await reportImageEditDebugEvent('C', 'modelTest.ts:editPlaygroundImage', '[DEBUG] frontend image edit payload parsed', {
+    request_id: payload.request_id || response.headers.get('x-request-id') || response.headers.get('x-relayq-request-id') || '',
+    image_count: Array.isArray(payload.data) ? payload.data.length : 0,
+    has_first_url: Boolean(payload.data?.[0]?.url || payload.data?.[0]?.b64_json),
+  })
+  // #endregion
   return {
     requestId: payload.request_id || response.headers.get('x-request-id') || response.headers.get('x-relayq-request-id') || undefined,
     billing: payload.billing,

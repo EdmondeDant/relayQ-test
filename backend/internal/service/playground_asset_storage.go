@@ -86,7 +86,7 @@ func (s *PlaygroundAssetStorage) Remove(storageKey string) error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-		_ = cleanupEmptyParentDirs(path, s.baseDir)
+	_ = cleanupEmptyParentDirs(path, s.baseDir)
 	return nil
 }
 
@@ -104,7 +104,7 @@ func (s *PlaygroundAssetStorage) persistDataURL(userID int64, input CreatePlaygr
 }
 
 func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID int64, input CreatePlaygroundAssetInput, rawURL string) (CreatePlaygroundAssetInput, error) {
-	resolvedURL := resolvePlaygroundAssetURL(rawURL)
+	resolvedURL := resolvePlaygroundAssetURL(rawURL, input.InternalBaseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, resolvedURL, nil)
 	if err != nil {
 		return input, fmt.Errorf("build asset request: %w", err)
@@ -299,20 +299,6 @@ func sanitizePlaygroundAssetName(value string) string {
 
 func buildPlaygroundAssetURL(storageKey string) string {
 	return "/api/v1/playground/assets/content/" + url.PathEscape(strings.TrimSpace(storageKey))
-}
-
-func resolvePlaygroundAssetURL(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") || strings.HasPrefix(trimmed, "data:") {
-		return trimmed
-	}
-	if strings.HasPrefix(trimmed, "/") {
-		return "http://127.0.0.1:8080" + trimmed
-	}
-	return trimmed
 }
 
 func playgroundAssetAuthToken(input CreatePlaygroundAssetInput) string {

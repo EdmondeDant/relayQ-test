@@ -635,6 +635,32 @@ func TestCalculateCostWithServiceTier_OpenAIPriorityUsesPriorityPricing(t *testi
 	require.InDelta(t, baseCost.TotalCost*2, priorityCost.TotalCost, 1e-10)
 }
 
+func TestCalculateCostWithServiceTier_PriorityUsesExplicitCacheWritePrice(t *testing.T) {
+	svc := NewBillingService(&config.Config{}, &PricingService{
+		pricingData: map[string]*LiteLLMModelPricing{
+			"priority-cache-write-model": {
+				InputCostPerToken:                   1e-6,
+				InputCostPerTokenPriority:           2e-6,
+				OutputCostPerToken:                  3e-6,
+				OutputCostPerTokenPriority:          6e-6,
+				CacheCreationInputTokenCost:         4e-6,
+				CacheCreationInputTokenCostPriority: 9e-6,
+				CacheReadInputTokenCost:             5e-7,
+				CacheReadInputTokenCostPriority:     1e-6,
+			},
+		},
+	})
+	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
+
+	priorityCost, err := svc.CalculateCostWithServiceTier("priority-cache-write-model", tokens, 1.0, "priority")
+	require.NoError(t, err)
+
+	require.InDelta(t, 100*2e-6, priorityCost.InputCost, 1e-12)
+	require.InDelta(t, 50*6e-6, priorityCost.OutputCost, 1e-12)
+	require.InDelta(t, 40*9e-6, priorityCost.CacheCreationCost, 1e-12)
+	require.InDelta(t, 20*1e-6, priorityCost.CacheReadCost, 1e-12)
+}
+
 func TestCalculateCostWithServiceTier_FlexAppliesHalfMultiplier(t *testing.T) {
 	svc := newTestBillingService()
 	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
@@ -712,6 +738,7 @@ func TestBillingServiceGetModelPricing_UsesDynamicPriorityFields(t *testing.T) {
 				OutputCostPerToken:              15e-6,
 				OutputCostPerTokenPriority:      30e-6,
 				CacheCreationInputTokenCost:     2.5e-6,
+				CacheCreationInputTokenCostPriority: 5e-6,
 				CacheReadInputTokenCost:         0.25e-6,
 				CacheReadInputTokenCostPriority: 0.5e-6,
 				LongContextInputTokenThreshold:  272000,
@@ -728,6 +755,8 @@ func TestBillingServiceGetModelPricing_UsesDynamicPriorityFields(t *testing.T) {
 	require.InDelta(t, 5e-6, pricing.InputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 15e-6, pricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 30e-6, pricing.OutputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 2.5e-6, pricing.CacheCreationPricePerToken, 1e-12)
+	require.InDelta(t, 5e-6, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 0.25e-6, pricing.CacheReadPricePerToken, 1e-12)
 	require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
 	require.Equal(t, 272000, pricing.LongContextInputThreshold)
@@ -805,6 +834,7 @@ func TestGetModelPricing_MapsDynamicPriorityFieldsIntoBillingPricing(t *testing.
 				OutputCostPerToken:                  3e-6,
 				OutputCostPerTokenPriority:          6e-6,
 				CacheCreationInputTokenCost:         4e-6,
+				CacheCreationInputTokenCostPriority: 4.5e-6,
 				CacheCreationInputTokenCostAbove1hr: 5e-6,
 				CacheReadInputTokenCost:             7e-7,
 				CacheReadInputTokenCostPriority:     8e-7,
@@ -821,6 +851,8 @@ func TestGetModelPricing_MapsDynamicPriorityFieldsIntoBillingPricing(t *testing.
 	require.InDelta(t, 2e-6, pricing.InputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 3e-6, pricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 6e-6, pricing.OutputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 4e-6, pricing.CacheCreationPricePerToken, 1e-12)
+	require.InDelta(t, 4.5e-6, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 4e-6, pricing.CacheCreation5mPrice, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreation1hPrice, 1e-12)
 	require.True(t, pricing.SupportsCacheBreakdown)
@@ -903,6 +935,7 @@ func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 	require.InDelta(t, 20e-6, pricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 20e-6, pricing.OutputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreationPricePerToken, 1e-12)
+	require.InDelta(t, 5e-6, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreation5mPrice, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreation1hPrice, 1e-12)
 	require.InDelta(t, 1e-6, pricing.CacheReadPricePerToken, 1e-12)
@@ -921,6 +954,7 @@ func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) 
 
 	// CacheWritePrice should set all three: CacheCreationPricePerToken, 5m, and 1h
 	require.InDelta(t, 7e-6, pricing.CacheCreationPricePerToken, 1e-12)
+	require.InDelta(t, 7e-6, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 7e-6, pricing.CacheCreation5mPrice, 1e-12)
 	require.InDelta(t, 7e-6, pricing.CacheCreation1hPrice, 1e-12)
 }

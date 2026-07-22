@@ -92,6 +92,14 @@ function toPersistedMediaRef(asset: PlaygroundAsset | null | undefined): Persist
 
 export const playgroundCloudAPI = {
   toPersistedMediaRef,
+  async submitJob(payload: {
+    kind: string
+    model: string
+    api_key: string
+    request_payload: Record<string, unknown>
+  }): Promise<PlaygroundTask> {
+    return unwrapData(apiClient.post('/playground/jobs', payload))
+  },
   async createTask(payload: {
     kind: string
     status?: string
@@ -106,6 +114,10 @@ export const playgroundCloudAPI = {
 
   async listTasks(params?: { page?: number; page_size?: number; kind?: string }): Promise<PaginatedResult<PlaygroundTask>> {
     return unwrapData(apiClient.get('/playground/tasks', { params }))
+  },
+
+  async getTask(id: number): Promise<PlaygroundTask> {
+    return unwrapData(apiClient.get(`/playground/tasks/${id}`))
   },
 
   async cancelTask(id: number): Promise<{ id: number; status: string }> {

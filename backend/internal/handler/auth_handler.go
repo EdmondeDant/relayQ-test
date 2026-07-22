@@ -410,17 +410,47 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
+	// #region debug-point B:auth-me-start
+	reportPlayground500HandlerDebugEvent("B", "auth_handler.go:GetCurrentUser", "[DEBUG] auth me start", map[string]any{
+		"user_id": subject.UserID,
+	})
+	// #endregion
 	user, err := h.userService.GetByID(c.Request.Context(), subject.UserID)
 	if err != nil {
+		// #region debug-point C:auth-me-user-error
+		reportPlayground500HandlerDebugEvent("C", "auth_handler.go:GetCurrentUser", "[DEBUG] auth me get user failed", map[string]any{
+			"user_id": subject.UserID,
+			"err":     err.Error(),
+		})
+		// #endregion
 		response.ErrorFrom(c, err)
 		return
 	}
 
 	identities, err := h.userService.GetProfileIdentitySummaries(c.Request.Context(), subject.UserID, user)
 	if err != nil {
+		// #region debug-point H:auth-me-identities-error
+		reportPlayground500HandlerDebugEvent("H", "auth_handler.go:GetCurrentUser", "[DEBUG] auth me get identities failed", map[string]any{
+			"user_id": subject.UserID,
+			"err":     err.Error(),
+		})
+		// #endregion
 		response.ErrorFrom(c, err)
 		return
 	}
+	// #region debug-point M:auth-me-success
+	reportPlayground500HandlerDebugEvent("M", "auth_handler.go:GetCurrentUser", "[DEBUG] auth me success", map[string]any{
+		"user_id":              subject.UserID,
+		"user_email":           user.Email,
+		"user_status":          user.Status,
+		"user_role":            user.Role,
+		"email_bound":          identities.Email.Bound,
+		"linuxdo_bound":        identities.LinuxDo.Bound,
+		"oidc_bound":           identities.OIDC.Bound,
+		"wechat_bound":         identities.WeChat.Bound,
+		"dingtalk_bound":       identities.DingTalk.Bound,
+	})
+	// #endregion
 
 	type UserResponse struct {
 		userProfileResponse

@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -20,6 +22,43 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+func reportImageEditDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	apiURL := "http://127.0.0.1:7777/event"
+	sessionID := "image-edit-failure"
+	if envBytes, err := os.ReadFile(".dbg/image-edit-failure.env"); err == nil {
+		for _, line := range strings.Split(string(envBytes), "\n") {
+			if strings.HasPrefix(line, "DEBUG_SERVER_URL=") {
+				apiURL = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SERVER_URL="))
+			} else if strings.HasPrefix(line, "DEBUG_SESSION_ID=") {
+				sessionID = strings.TrimSpace(strings.TrimPrefix(line, "DEBUG_SESSION_ID="))
+			}
+		}
+	}
+	body, err := json.Marshal(map[string]any{
+		"sessionId":    sessionID,
+		"runId":        "pre-fix",
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"msg":          msg,
+		"data":         data,
+		"ts":           time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
 
 type openAIResponsesImageResult struct {
 	Result        string
@@ -1215,6 +1254,18 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 	if err != nil {
 		return nil, err
 	}
+	// #region debug-point D:backend-edit-responses-request
+	reportImageEditDebugEvent("D", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit routed via responses", map[string]any{
+		"account_id":      account.ID,
+		"account_name":    account.Name,
+		"request_model":   requestModel,
+		"tool_model":      toolModel,
+		"endpoint":        parsed.Endpoint,
+		"parsed_stream":   parsed.Stream,
+		"input_images":    len(parsed.InputImageURLs) + len(parsed.Uploads),
+		"has_mask":        parsed.HasMask || parsed.MaskUpload != nil || strings.TrimSpace(parsed.MaskImageURL) != "",
+	})
+	// #endregion
 	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, parsed.Stream, parsed.StickySessionSeed(), false)
 	if err != nil {
 		return nil, err
@@ -1243,6 +1294,15 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 		})
 		return nil, fmt.Errorf("upstream request failed: %s", safeErr)
 	}
+	// #region debug-point E:backend-edit-upstream-headers
+	reportImageEditDebugEvent("E", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit upstream headers received", map[string]any{
+		"account_id":     account.ID,
+		"status":         resp.StatusCode,
+		"content_type":   resp.Header.Get("Content-Type"),
+		"is_event_stream": isEventStreamResponse(resp.Header),
+		"request_id":     resp.Header.Get("x-request-id"),
+	})
+	// #endregion
 	if resp.StatusCode >= 400 {
 		respBody := s.readUpstreamErrorBody(resp)
 		_ = resp.Body.Close()
@@ -1307,6 +1367,17 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 	if imageCount <= 0 {
 		imageCount = parsed.N
 	}
+	// #region debug-point F:backend-edit-complete
+	reportImageEditDebugEvent("F", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit completed", map[string]any{
+		"account_id":       account.ID,
+		"request_model":    requestModel,
+		"tool_model":       toolModel,
+		"image_count":      imageCount,
+		"response_stream":  parsed.Stream,
+		"output_size_count": len(imageOutputSizes),
+		"request_id":       resp.Header.Get("x-request-id"),
+	})
+	// #endregion
 	return &OpenAIForwardResult{
 		RequestID:        resp.Header.Get("x-request-id"),
 		Usage:            usage,
