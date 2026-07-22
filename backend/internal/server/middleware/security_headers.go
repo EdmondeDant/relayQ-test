@@ -45,6 +45,7 @@ var requiredCSPDirectiveValues = []struct {
 	{"media-src", "https://*.amazonaws.com"},
 	{"media-src", "https://*.s3.amazonaws.com"},
 	{"media-src", "https://*.s3.*.amazonaws.com"},
+	{"connect-src", "blob:"},
 	{"connect-src", "https://*.amazonaws.com"},
 	{"connect-src", "https://*.s3.amazonaws.com"},
 	{"connect-src", "https://*.s3.*.amazonaws.com"},

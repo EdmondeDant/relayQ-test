@@ -573,6 +573,7 @@ async function reportAsyncImageEditDebugEvent(hypothesisId: string, location: st
 }
 
 async function blobObjectUrlToDataUrl(url: string): Promise<string> {
+  if (url.startsWith('data:')) return url
   const response = await fetch(url)
   if (!response.ok) throw new Error('读取本地文件失败。')
   const blob = await response.blob()
