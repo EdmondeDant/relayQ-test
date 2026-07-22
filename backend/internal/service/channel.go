@@ -384,7 +384,6 @@ type ChannelUsageFields struct {
 
 // SupportedModel 渠道的一个支持模型条目（无通配符、可直接展示给用户）
 type SupportedModel struct {
-	ID       string               // 真实请求模型 ID（提交网关时应使用此值）
 	Name     string               // 用户侧模型名
 	Platform string               // 所属平台
 	Summary  string               // 用户侧展示的人工模型说明
@@ -524,17 +523,13 @@ func (c *Channel) SupportedModels() []SupportedModel {
 		return name, nil
 	}
 
-	add := func(platform, modelID, displayName string, pricing *ChannelModelPricing) {
-		if modelID == "" {
-			modelID = displayName
-		}
+	add := func(platform, displayName string, pricing *ChannelModelPricing) {
 		key := dedupKey{platform: platform, name: strings.ToLower(displayName)}
 		if _, ok := seen[key]; ok {
 			return
 		}
 		seen[key] = struct{}{}
 		result = append(result, SupportedModel{
-			ID:       modelID,
 			Name:     displayName,
 			Platform: platform,
 			Summary:  strings.TrimSpace(func() string {
@@ -563,7 +558,7 @@ func (c *Channel) SupportedModels() []SupportedModel {
 				for _, candidate := range pidx.names {
 					if strings.HasPrefix(strings.ToLower(candidate), prefixLower) {
 						display, pricing := lookup(pidx, candidate)
-						add(platform, candidate, display, pricing)
+						add(platform, display, pricing)
 					}
 				}
 				continue
@@ -579,7 +574,7 @@ func (c *Channel) SupportedModels() []SupportedModel {
 			_, pricing := lookup(pidx, pricingKey)
 			// 显示名优先用 src 在定价里的原始大小写（若 src 本身是个定价模型名）
 			displayName, _ := lookup(pidx, src)
-			add(platform, src, displayName, pricing)
+			add(platform, displayName, pricing)
 		}
 	}
 
@@ -587,7 +582,7 @@ func (c *Channel) SupportedModels() []SupportedModel {
 	for platform, pidx := range idx {
 		for _, name := range pidx.names {
 			display, pricing := lookup(pidx, name)
-			add(platform, name, display, pricing)
+			add(platform, display, pricing)
 		}
 	}
 

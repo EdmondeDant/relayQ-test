@@ -523,25 +523,8 @@ func TestSupportedModels_MissingPricingKeepsNilPricing(t *testing.T) {
 
 	got := ch.SupportedModels()
 	require.Len(t, got, 1)
-	require.Equal(t, "claude-sonnet-4-6", got[0].ID)
 	require.Equal(t, "claude-sonnet-4-6", got[0].Name)
 	require.Nil(t, got[0].Pricing)
-}
-
-func TestSupportedModels_ExactMappingPreservesCanonicalIDAndDisplayName(t *testing.T) {
-	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
-			{ID: 1, Platform: "anthropic", Models: []string{"Claude Opus 4.8"}},
-		},
-		ModelMapping: map[string]map[string]string{
-			"anthropic": {"claude-opus-4-8": "Claude Opus 4.8"},
-		},
-	}
-
-	got := ch.SupportedModels()
-	require.Len(t, got, 1)
-	require.Equal(t, "claude-opus-4-8", got[0].ID)
-	require.Equal(t, "Claude Opus 4.8", got[0].Name)
 }
 
 func TestSupportedModels_DedupAndSort(t *testing.T) {

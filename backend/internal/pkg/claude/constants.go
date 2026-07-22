@@ -1,8 +1,6 @@
 // Package claude provides constants and helpers for Claude API integration.
 package claude
 
-import "strings"
-
 // Claude Code 客户端相关常量
 
 // Beta header 常量
@@ -188,26 +186,10 @@ var ModelIDReverseOverrides = map[string]string{
 	"claude-haiku-4-5-20251001":  "claude-haiku-4-5",
 }
 
-var displayNameToCanonicalID map[string]string
-
-func init() {
-	displayNameToCanonicalID = make(map[string]string, len(DefaultModels))
-	for _, model := range DefaultModels {
-		name := normalizeDisplayName(model.DisplayName)
-		if name == "" {
-			continue
-		}
-		displayNameToCanonicalID[name] = model.ID
-	}
-}
-
 // NormalizeModelID 根据 Claude OAuth 规则映射模型
 func NormalizeModelID(id string) string {
 	if id == "" {
 		return id
-	}
-	if mapped, ok := displayNameToCanonicalID[normalizeDisplayName(id)]; ok {
-		return mapped
 	}
 	if mapped, ok := ModelIDOverrides[id]; ok {
 		return mapped
@@ -224,8 +206,4 @@ func DenormalizeModelID(id string) string {
 		return mapped
 	}
 	return id
-}
-
-func normalizeDisplayName(value string) string {
-	return strings.ToLower(strings.TrimSpace(value))
 }

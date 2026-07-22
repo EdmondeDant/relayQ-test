@@ -53,19 +53,13 @@
 
               <div class="mt-5">
                 <label class="input-label">API Key</label>
-                <select v-model.number="selectedKeyId" class="input">
-                  <option :value="null" disabled>请选择 API Key</option>
-                  <option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
-                </select>
+                <Select v-model="selectedKeyId" :options="keyOptions" />
                 <p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p>
                 <p v-else-if="resolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ resolvedGroupName }} · 平台：{{ resolvedPlatformLabel }}</p>
               </div>
               <div class="mt-5">
                 <label class="input-label">模型</label>
-                <select v-model="selectedImageModel" class="input">
-                  <option value="" disabled>请选择模型</option>
-                  <option v-for="option in imageModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option>
-                </select>
+                <Select v-model="selectedImageModel" :options="imageModelOptions" />
               </div>
               <div class="mt-5">
                 <label class="input-label">场景模板</label>
@@ -118,8 +112,8 @@
           <section v-else-if="activeTool === 'chat'" class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">对话助手</h2>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="chatSelectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="chatKeyModeError" class="mt-2 text-xs text-red-500">{{ chatKeyModeError }}</p><p v-else-if="chatResolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ chatResolvedGroupName }} · 平台：{{ chatResolvedPlatformLabel }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="chatSelectedModel" class="input"><option value="" disabled>请选择模型</option><option v-for="option in chatModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedChatModel" :options="chatModelOptions" /></div>
               <div class="mt-5"><label class="input-label">快捷场景</label><div class="grid gap-2"><button v-for="template in chatTemplates" :key="template.label" type="button" class="rounded-md border border-gray-200 p-3 text-left text-sm hover:border-primary-300 dark:border-dark-700" @click="chatInput = template.prompt"><strong>{{ template.label }}</strong><span class="mt-1 block text-xs text-gray-500">{{ template.description }}</span></button></div></div>
               <button class="btn btn-secondary mt-5 w-full" type="button" @click="clearChat">清空会话</button>
             </div>
@@ -138,8 +132,8 @@
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">商品文案生成</h2>
               <p class="mt-1 text-sm text-gray-500">根据商品信息生成标题、卖点、详情描述和社媒文案。</p>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedChatModel" class="input"><option value="" disabled>请选择模型</option><option v-for="option in chatModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedChatModel" :options="chatModelOptions" /></div>
               <div class="mt-5"><label class="input-label">商品名称</label><input v-model="copywritingName" class="input" placeholder="例如：便携式榨汁杯" /></div>
               <div class="mt-5"><label class="input-label">商品信息</label><textarea v-model="copywritingBrief" class="input min-h-40 resize-y" placeholder="填写材质、功能、适用人群、核心优势和需要规避的表达…" /></div>
               <div class="mt-5 grid grid-cols-2 gap-3"><div><label class="input-label">目标平台</label><Select v-model="copywritingPlatform" :options="copywritingPlatformOptions" /></div><div><label class="input-label">语言</label><Select v-model="copywritingLanguage" :options="languageOptions" /></div></div>
@@ -152,8 +146,8 @@
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">图片翻译</h2>
               <p class="mt-1 text-sm text-gray-500">保留原图构图、版式与视觉风格，仅将图上文字替换为目标语言，输出译后图片。</p>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedImageModel" class="input"><option value="" disabled>请选择图片模型</option><option v-for="option in imageModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select><p class="mt-2 text-xs text-gray-500">使用图片编辑/生图模型完成“图上文字本地化”。</p></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedImageModel" :options="imageModelOptions" placeholder="请选择图片模型" /><p class="mt-2 text-xs text-gray-500">使用图片编辑/生图模型完成“图上文字本地化”。</p></div>
               <div class="mt-5"><label class="input-label">原图</label><label class="flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800"><img v-if="translateImage" :src="translateImage" alt="待翻译图片" class="max-h-72 object-contain" /><span v-else class="text-sm text-gray-500">选择包含文字的 JPG、PNG 或 WEBP</span><input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" @change="handleTranslateFile" /></label></div>
               <div class="mt-5 grid grid-cols-2 gap-3"><div><label class="input-label">源语言</label><Select v-model="translateSource" :options="sourceLanguageOptions" /></div><div><label class="input-label">目标语言</label><Select v-model="translateTarget" :options="languageOptions" /></div></div>
               <div class="mt-5">
@@ -183,8 +177,8 @@
               <div v-if="activeTool === 'batch-clone'" class="mt-5"><label class="input-label">参考图</label><label class="flex min-h-32 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800"><img v-if="referenceImage" :src="referenceImage" alt="参考图" class="max-h-44 object-contain" /><span v-else class="text-sm text-gray-500">选择参考构图或风格图</span><input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" @change="handleReferenceFile" /></label></div>
               <div class="mt-5"><label class="input-label">商品图片（{{ batchInputs.length }}/6）</label><label class="flex min-h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800"><span class="text-sm text-gray-500">选择多张 JPG、PNG 或 WEBP</span><input class="hidden" type="file" multiple accept="image/jpeg,image/png,image/webp" @change="handleBatchFiles" /></label><div v-if="batchInputs.length" class="mt-3 grid grid-cols-3 gap-2"><div v-for="item in batchInputs" :key="item.id" class="relative"><img :src="item.input" alt="商品图" class="aspect-square w-full rounded object-cover" /><button class="absolute right-1 top-1 rounded bg-black/70 px-1.5 text-xs text-white" @click="removeBatchItem(item.id)">×</button></div></div></div>
               <div class="mt-5"><label class="input-label">处理要求</label><textarea v-model="batchPrompt" class="input min-h-32 resize-y" :placeholder="activeTool === 'batch-main' ? '例如：生成纯白背景电商主图，商品居中，保留真实材质和比例…' : '例如：参考示例图的构图、光线与背景，但必须保留每个商品本身特征…'" /></div>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedImageModel" class="input"><option value="" disabled>请选择模型</option><option v-for="option in imageModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedImageModel" :options="imageModelOptions" /></div>
               <div class="mt-5 rounded-lg bg-gray-50 p-4 text-sm dark:bg-dark-800"><div class="flex justify-between"><span>预计最多</span><strong>{{ batchImagePriceLabel }}</strong></div><p class="mt-2 text-xs text-gray-500">并发上限 2，按每张实际成功请求结算。</p></div>
               <div class="mt-5 flex gap-3"><button class="btn btn-primary flex-1" :disabled="!canRunBatch || batchRunning" @click="runBatchImages">{{ batchRunning ? `处理中 ${batchCompleted}/${batchInputs.length}` : '开始批量处理' }}</button><button v-if="batchRunning" class="btn btn-secondary" @click="stopBatch">停止</button></div>
             </div>
@@ -192,7 +186,7 @@
           </section>
 
           <section v-else-if="activeTool === 'watermark'" class="grid gap-5 xl:grid-cols-[minmax(340px,0.8fr)_minmax(0,1.2fr)]">
-            <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900"><h2 class="text-lg font-semibold">水印处理</h2><p class="mt-1 text-sm text-gray-500">支持去除水印、添加文字水印或上传 logo 作为水印。仅处理你拥有合法使用权的图片。</p><div class="mt-5"><label class="input-label">处理模式</label><Select v-model="watermarkMode" :options="watermarkModeOptions" /></div><div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div><div class="mt-5"><label class="input-label">模型</label><select v-model="selectedImageModel" class="input"><option value="" disabled>请选择模型</option><option v-for="option in imageModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select></div>
+            <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900"><h2 class="text-lg font-semibold">水印处理</h2><p class="mt-1 text-sm text-gray-500">支持去除水印、添加文字水印或上传 logo 作为水印。仅处理你拥有合法使用权的图片。</p><div class="mt-5"><label class="input-label">处理模式</label><Select v-model="watermarkMode" :options="watermarkModeOptions" /></div><div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div><div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedImageModel" :options="imageModelOptions" /></div>
               <div class="mt-5">
                 <label class="input-label">{{ isGrokImagineSelected ? '宽高比' : '图片尺寸' }}</label>
                 <Select v-model="imageSize" :options="imageSizeOptions" />
@@ -214,8 +208,8 @@
           <section v-else-if="activeTool === 'video'" class="grid gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">AI 视频</h2><p class="mt-1 text-sm text-gray-500">支持文生视频和首帧图生视频，提交后自动查询任务状态。</p>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedVideoModel" class="input"><option value="" disabled>请选择模型</option><option v-for="option in videoModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedVideoModel" :options="videoModelOptions" /></div>
               <div class="mt-5"><label class="input-label">首帧图片（可选）</label><label class="flex min-h-36 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800"><img v-if="videoImage" :src="videoImage" alt="视频首帧" class="max-h-52 object-contain" /><span v-else class="text-sm text-gray-500">不上传则为文生视频</span><input class="hidden" type="file" accept="image/jpeg,image/png,image/webp" @change="handleVideoFile" /></label></div>
               <div class="mt-5"><label class="input-label">视频描述</label><textarea v-model="videoPrompt" class="input min-h-40 resize-y" placeholder="描述主体动作、镜头运动、场景与光线…" /></div>
               <div class="mt-5 grid grid-cols-3 gap-3"><div><label class="input-label">比例</label><Select v-model="videoAspectRatio" :options="videoRatioOptions" /></div><div><label class="input-label">时长</label><Select v-model="videoDuration" :options="videoDurationOptions" /></div><div><label class="input-label">分辨率</label><Select v-model="videoResolution" :options="videoResolutionSelectOptions" /></div></div>
@@ -229,8 +223,8 @@
           <section v-else-if="activeTool === 'audio-transcribe'" class="grid gap-5 xl:grid-cols-[minmax(340px,0.8fr)_minmax(0,1.2fr)]">
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">语音转写</h2><p class="mt-1 text-sm text-gray-500">上传音频，输出可复制的纯文本转写结果。</p>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p><p v-else-if="resolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ resolvedGroupName }} · 平台：{{ resolvedPlatformLabel }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedAudioModel" class="input"><option value="" disabled>请选择语音转写模型</option><option v-for="option in audioModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select><p class="mt-2 text-xs text-gray-500">默认优先使用当前分组可用的 mimo ASR 模型。</p></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" placeholder="请选择可用的 API Key" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p><p v-else-if="resolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ resolvedGroupName }} · 平台：{{ resolvedPlatformLabel }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedAudioModel" :options="audioModelOptions" placeholder="请选择语音转写模型" /><p class="mt-2 text-xs text-gray-500">默认优先使用当前分组可用的 mimo ASR 模型。</p></div>
               <div class="mt-5"><label class="input-label">音频文件</label><label class="flex min-h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center dark:border-dark-600 dark:bg-dark-800"><span class="text-sm text-gray-500">{{ audioInputName || '上传 WAV 或 MP3 音频' }}</span><input class="hidden" type="file" accept="audio/mpeg,audio/wav,audio/mp3,.mp3,.wav" @change="handleAudioFile" /></label></div>
               <div class="mt-5"><label class="input-label">语言</label><Select v-model="audioLanguage" :options="audioLanguageOptions" placeholder="请选择音频语言" /></div>
               <div class="mt-5 rounded-lg bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-dark-800">当前仅支持纯文本转写。默认自动识别语言，也可手动指定中文/英文；上传 wav/mp3 后即可开始。</div>
@@ -243,8 +237,8 @@
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
               <h2 class="text-lg font-semibold">AI 配音</h2><p class="mt-1 text-sm text-gray-500">支持标准配音、音色设计和声音克隆。</p>
               <div class="mt-5"><label class="input-label">模式</label><Select v-model="audioGenerateMode" :options="audioGenerateModeOptions" placeholder="请选择配音模式" /><p class="mt-2 text-xs text-gray-500">默认从标准配音开始，可随时切换到音色设计或声音克隆。</p></div>
-              <div class="mt-5"><label class="input-label">API Key</label><select v-model.number="selectedKeyId" class="input"><option :value="null" disabled>请选择 API Key</option><option v-for="option in keyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p><p v-else-if="resolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ resolvedGroupName }} · 平台：{{ resolvedPlatformLabel }}</p></div>
-              <div class="mt-5"><label class="input-label">模型</label><select v-model="selectedTtsModel" class="input"><option value="" disabled>请选择配音模型</option><option v-for="option in ttsModelOptions" :key="String(option.value)" :value="String(option.value)">{{ option.label }}</option></select><p class="mt-2 text-xs text-gray-500">默认优先使用当前分组可用的 mimo TTS 模型。</p></div>
+              <div class="mt-5"><label class="input-label">API Key</label><Select v-model="selectedKeyId" :options="keyOptions" placeholder="请选择可用的 API Key" /><p v-if="keyModeError" class="mt-2 text-xs text-red-500">{{ keyModeError }}</p><p v-else-if="resolvedGroupName" class="mt-2 text-xs text-gray-500">当前分组：{{ resolvedGroupName }} · 平台：{{ resolvedPlatformLabel }}</p></div>
+              <div class="mt-5"><label class="input-label">模型</label><Select v-model="selectedTtsModel" :options="ttsModelOptions" placeholder="请选择配音模型" /><p class="mt-2 text-xs text-gray-500">默认优先使用当前分组可用的 mimo TTS 模型。</p></div>
               <div class="mt-5"><label class="input-label">配音文本</label><textarea v-model="ttsText" class="input min-h-40 resize-y" placeholder="输入需要转换成语音的文案…" /></div>
               <div class="mt-5 grid grid-cols-2 gap-3"><div><label class="input-label">语言</label><Select v-model="ttsLanguage" :options="languageOptions" placeholder="请选择输出语言" /></div><div><label class="input-label">风格</label><Select v-model="ttsStyle" :options="ttsStyleOptions" placeholder="请选择配音风格" /></div></div>
               <div v-if="audioGenerateMode === 'standard'" class="mt-5"><label class="input-label">预设音色</label><Select v-model="ttsVoicePreset" :options="ttsVoicePresetOptions" placeholder="请选择预设音色" /></div>
@@ -276,6 +270,7 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import Select from '@/components/common/Select.vue'
 import { modelTestAPI, type ChatMessage, type PlaygroundBilling } from '@/api/modelTest'
 import { playgroundCloudAPI, type PlaygroundRecord, type PersistedMediaRef, type PlaygroundTask } from '@/api/playgroundCloud'
 import { keysAPI } from '@/api/keys'
@@ -315,8 +310,6 @@ const availableChannels = ref<UserAvailableChannel[]>([])
 const selectedKeyId = ref<number | null>(null)
 const selectedImageModel = ref('')
 const selectedChatModel = ref('')
-const chatSelectedKeyId = ref<number | null>(null)
-const chatSelectedModel = ref('')
 const selectedVideoModel = ref('')
 const selectedAudioModel = ref('')
 const selectedTtsModel = ref('')
@@ -391,8 +384,7 @@ let abortController: AbortController | null = null
 let pollTimer: number | null = null
 
 const balance = computed(() => authStore.user?.balance ?? 0)
-const normalizedSelectedKeyId = computed(() => Number(selectedKeyId.value || 0) || null)
-const selectedKey = computed(() => availableKeys.value.find((item) => item.id === normalizedSelectedKeyId.value) || null)
+const selectedKey = computed(() => availableKeys.value.find((item) => item.id === selectedKeyId.value) || null)
 const resolvedGroup = computed<UserAvailableGroup | null>(() => {
   if (!selectedKey.value?.group_id) return null
   for (const channel of availableChannels.value) {
@@ -405,20 +397,6 @@ const resolvedGroup = computed<UserAvailableGroup | null>(() => {
 })
 const resolvedPlatformLabel = computed(() => resolvedGroup.value?.platform || '未匹配')
 const resolvedGroupName = computed(() => resolvedGroup.value?.name || '')
-const normalizedChatSelectedKeyId = computed(() => Number(chatSelectedKeyId.value || 0) || null)
-const chatSelectedKey = computed(() => availableKeys.value.find((item) => item.id === normalizedChatSelectedKeyId.value) || null)
-const chatResolvedGroup = computed<UserAvailableGroup | null>(() => {
-  if (!chatSelectedKey.value?.group_id) return null
-  for (const channel of availableChannels.value) {
-    for (const section of channel.platforms) {
-      const match = section.groups.find((group) => group.id === chatSelectedKey.value?.group_id)
-      if (match) return match
-    }
-  }
-  return null
-})
-const chatResolvedPlatformLabel = computed(() => chatResolvedGroup.value?.platform || '未匹配')
-const chatResolvedGroupName = computed(() => chatResolvedGroup.value?.name || '')
 const groupModels = computed<UserSupportedModel[]>(() => {
   if (!resolvedGroup.value) return []
   for (const channel of availableChannels.value) {
@@ -428,22 +406,7 @@ const groupModels = computed<UserSupportedModel[]>(() => {
   return []
 })
 const imageModels = computed(() => groupModels.value.filter((model) => isImageModel(model)))
-const chatGroupModels = computed<UserSupportedModel[]>(() => {
-  if (!chatResolvedGroup.value) return []
-  for (const channel of availableChannels.value) {
-    const section = channel.platforms.find((item) => item.platform === chatResolvedGroup.value?.platform && item.groups.some((group) => group.id === chatResolvedGroup.value?.id))
-    if (section) return section.supported_models
-  }
-  return []
-})
 const chatModels = computed(() => groupModels.value.filter((model) => {
-  if (isImageModel(model) || isVideoModel(model)) return false
-  const billingMode = String(model.pricing?.billing_mode || '').toLowerCase().trim()
-  if (billingMode === 'image') return false
-  if (/mimo-v2\.5-asr|mimo-v2\.5-tts|mimo-v2-tts/i.test(model.name)) return false
-  return true
-}))
-const chatToolModels = computed(() => chatGroupModels.value.filter((model) => {
   if (isImageModel(model) || isVideoModel(model)) return false
   const billingMode = String(model.pricing?.billing_mode || '').toLowerCase().trim()
   if (billingMode === 'image') return false
@@ -453,16 +416,12 @@ const chatToolModels = computed(() => chatGroupModels.value.filter((model) => {
 const videoModels = computed(() => groupModels.value.filter((model) => isVideoModel(model)))
 const audioModels = computed(() => groupModels.value.filter((model) => /mimo-v2\.5-asr/i.test(model.name)))
 const ttsModels = computed(() => groupModels.value.filter((model) => /mimo-v2\.5-tts|mimo-v2-tts/i.test(model.name)))
-function modelValue(model: UserSupportedModel) {
-  return String(model.id || model.name || '').trim()
-}
-const currentImageModel = computed(() => imageModels.value.find((model) => modelValue(model) === selectedImageModel.value) || imageModels.value[0] || null)
-const currentChatModel = computed(() => chatToolModels.value.find((model) => modelValue(model) === chatSelectedModel.value) || chatToolModels.value[0] || null)
-const imageModelOptions = computed<SelectOption[]>(() => imageModels.value.map((model) => ({ value: modelValue(model), label: model.name })))
-const chatModelOptions = computed<SelectOption[]>(() => chatToolModels.value.map((model) => ({ value: modelValue(model), label: model.name })))
-const videoModelOptions = computed<SelectOption[]>(() => videoModels.value.map((model) => ({ value: modelValue(model), label: model.name })))
-const audioModelOptions = computed<SelectOption[]>(() => audioModels.value.map((model) => ({ value: modelValue(model), label: model.name })))
-const ttsModelOptions = computed<SelectOption[]>(() => ttsModels.value.map((model) => ({ value: modelValue(model), label: model.name })))
+const currentImageModel = computed(() => imageModels.value.find((model) => model.name === selectedImageModel.value) || imageModels.value[0] || null)
+const imageModelOptions = computed<SelectOption[]>(() => imageModels.value.map((model) => ({ value: model.name, label: model.name })))
+const chatModelOptions = computed<SelectOption[]>(() => chatModels.value.map((model) => ({ value: model.name, label: model.name })))
+const videoModelOptions = computed<SelectOption[]>(() => videoModels.value.map((model) => ({ value: model.name, label: model.name })))
+const audioModelOptions = computed<SelectOption[]>(() => audioModels.value.map((model) => ({ value: model.name, label: model.name })))
+const ttsModelOptions = computed<SelectOption[]>(() => ttsModels.value.map((model) => ({ value: model.name, label: model.name })))
 const keyOptions = computed<SelectOption[]>(() => availableKeys.value.map((key) => ({ value: key.id, label: `${key.name} · ${key.status === 'active' ? '可用' : '不可用'}` })))
 const keyModeError = computed(() => {
   if (!availableKeys.value.length) return '请先创建并绑定 API Key。'
@@ -470,14 +429,6 @@ const keyModeError = computed(() => {
   if (selectedKey.value.status !== 'active') return '当前 API Key 已停用，请更换。'
   if (!selectedKey.value.group_id) return '当前 API Key 没有绑定分组，请先到 API Key 页面绑定分组。'
   if (!resolvedGroup.value) return '当前 API Key 所属分组没有匹配到可用渠道。'
-  return ''
-})
-const chatKeyModeError = computed(() => {
-  if (!availableKeys.value.length) return '请先创建并绑定 API Key。'
-  if (!chatSelectedKey.value) return '请选择一个 API Key。'
-  if (chatSelectedKey.value.status !== 'active') return '当前 API Key 已停用，请更换。'
-  if (!chatSelectedKey.value.group_id) return '当前 API Key 没有绑定分组，请先到 API Key 页面绑定分组。'
-  if (!chatResolvedGroup.value) return '当前 API Key 所属分组没有匹配到可用渠道。'
   return ''
 })
 const batchImagePriceLabel = computed(() => estimateBatchPrice(currentImageModel.value, imageSize.value, batchInputs.value.length))
@@ -752,61 +703,22 @@ function isVideoModel(model: UserSupportedModel) {
 }
 
 function ensureModelSelections() {
-  selectedImageModel.value = imageModels.value.some((model) => modelValue(model) === selectedImageModel.value)
-    ? selectedImageModel.value
-    : (modelValue(imageModels.value[0] as UserSupportedModel) || '')
-  selectedChatModel.value = chatModels.value.some((model) => modelValue(model) === selectedChatModel.value)
-    ? selectedChatModel.value
-    : (modelValue(chatModels.value[0] as UserSupportedModel) || '')
-  selectedVideoModel.value = videoModels.value.some((model) => modelValue(model) === selectedVideoModel.value)
-    ? selectedVideoModel.value
-    : (modelValue(videoModels.value[0] as UserSupportedModel) || '')
-  selectedAudioModel.value = audioModels.value.some((model) => modelValue(model) === selectedAudioModel.value)
-    ? selectedAudioModel.value
-    : (modelValue(audioModels.value[0] as UserSupportedModel) || '')
-  selectedTtsModel.value = ttsModels.value.some((model) => modelValue(model) === selectedTtsModel.value)
-    ? selectedTtsModel.value
-    : (modelValue(ttsModels.value[0] as UserSupportedModel) || '')
-}
-
-function ensureChatToolSelections() {
-  chatSelectedModel.value = chatToolModels.value.some((model) => modelValue(model) === chatSelectedModel.value)
-    ? chatSelectedModel.value
-    : (modelValue(chatToolModels.value[0] as UserSupportedModel) || '')
-}
-
-watch(normalizedSelectedKeyId, (keyId, previousKeyId) => {
-  if (keyId === previousKeyId) return
-  selectedImageModel.value = ''
-  selectedChatModel.value = ''
-  selectedVideoModel.value = ''
-  selectedAudioModel.value = ''
-  selectedTtsModel.value = ''
-  ensureModelSelections()
-})
-
-watch(normalizedChatSelectedKeyId, (keyId, previousKeyId) => {
-  if (keyId === previousKeyId) return
-  chatSelectedModel.value = ''
-  ensureChatToolSelections()
-})
-
-const syncPlaygroundDebugState = () => {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return
-  ;(window as typeof window & { __playgroundDebug?: Record<string, unknown> }).__playgroundDebug = {
-    selectedKeyId: selectedKeyId.value,
-    normalizedSelectedKeyId: normalizedSelectedKeyId.value,
-    selectedKey: selectedKey.value ? { id: selectedKey.value.id, name: selectedKey.value.name, group_id: selectedKey.value.group_id } : null,
-    resolvedGroup: resolvedGroup.value ? { id: resolvedGroup.value.id, name: resolvedGroup.value.name, platform: resolvedGroup.value.platform } : null,
-    chatSelectedKeyId: chatSelectedKeyId.value,
-    chatSelectedKey: chatSelectedKey.value ? { id: chatSelectedKey.value.id, name: chatSelectedKey.value.name, group_id: chatSelectedKey.value.group_id } : null,
-    chatResolvedGroup: chatResolvedGroup.value ? { id: chatResolvedGroup.value.id, name: chatResolvedGroup.value.name, platform: chatResolvedGroup.value.platform } : null,
-    chatModels: chatToolModels.value.map((model) => ({ id: model.id, name: model.name, platform: model.platform })),
-    imageModels: imageModels.value.map((model) => ({ id: model.id, name: model.name, platform: model.platform })),
+  if (!selectedImageModel.value || !imageModels.value.some((model) => model.name === selectedImageModel.value)) {
+    selectedImageModel.value = imageModels.value[0]?.name || ''
+  }
+  if (!selectedChatModel.value || !chatModels.value.some((model) => model.name === selectedChatModel.value)) {
+    selectedChatModel.value = chatModels.value[0]?.name || ''
+  }
+  if (!selectedVideoModel.value || !videoModels.value.some((model) => model.name === selectedVideoModel.value)) {
+    selectedVideoModel.value = videoModels.value[0]?.name || ''
+  }
+  if (!selectedAudioModel.value || !audioModels.value.some((model) => model.name === selectedAudioModel.value)) {
+    selectedAudioModel.value = audioModels.value[0]?.name || ''
+  }
+  if (!selectedTtsModel.value || !ttsModels.value.some((model) => model.name === selectedTtsModel.value)) {
+    selectedTtsModel.value = ttsModels.value[0]?.name || ''
   }
 }
-
-watch([selectedKeyId, normalizedSelectedKeyId, selectedKey, resolvedGroup, chatSelectedKeyId, normalizedChatSelectedKeyId, chatSelectedKey, chatResolvedGroup, chatToolModels, imageModels], syncPlaygroundDebugState, { immediate: true })
 
 async function loadKeyModeData() {
   const [keysResult, channels] = await Promise.all([
@@ -818,11 +730,7 @@ async function loadKeyModeData() {
   if (!selectedKeyId.value || !availableKeys.value.some((item) => item.id === selectedKeyId.value)) {
     selectedKeyId.value = availableKeys.value[0]?.id ?? null
   }
-  if (!chatSelectedKeyId.value || !availableKeys.value.some((item) => item.id === chatSelectedKeyId.value)) {
-    chatSelectedKeyId.value = availableKeys.value[0]?.id ?? null
-  }
   ensureModelSelections()
-  ensureChatToolSelections()
 }
 
 function estimateBatchPrice(model: UserSupportedModel | null, size: string, count: number) {
@@ -866,22 +774,18 @@ async function sendChat() {
   const balanceBefore = balance.value
   chatInput.value = ''; chatMessages.value.push({ role: 'user', content: text }); const assistantIndex = chatMessages.value.push({ role: 'assistant', content: '' }) - 1; startRequest()
   try {
-    await modelTestAPI.streamPlaygroundChat({
-      auth: getAuthContext(),
-      model: currentChatModel.value?.name || chatSelectedModel.value,
-      messages: chatMessages.value.slice(0, assistantIndex) as ChatMessage[],
-      signal: abortController?.signal,
-      onDelta(delta) {
-        chatMessages.value[assistantIndex].content += delta
-      },
-      onBilling(billing, id) {
-        requestId.value = id || requestId.value
-        lastBilling.value = billing || lastBilling.value
-      },
-      async onDone() {
-        lastBilling.value = await resolveBilling(lastBilling.value, balanceBefore)
-      },
+    chatMessages.value[assistantIndex].content = '正在异步处理中...'
+    const messages = chatMessages.value.slice(0, assistantIndex)
+    const task = await submitAsyncPlaygroundJob('chat', selectedChatModel.value, {
+      title: '对话助手',
+      asset_kind: 'text',
+      prompt: text,
+      messages,
+      metadata: { source_kind: 'chat', prompt: text, ...getExecutionMetadata() },
     })
+    await waitForPlaygroundTask(task.id, abortController?.signal)
+    lastBilling.value = await resolveBilling(undefined, balanceBefore)
+    await refreshAndRestoreTask(task)
   } catch (cause) { if (!isAbortError(cause) && !chatMessages.value[assistantIndex].content) chatMessages.value.splice(assistantIndex, 1); handleError(cause, '对话请求失败，本次不应扣费。') } finally { endRequest() }
 }
 
@@ -1802,7 +1706,6 @@ onMounted(async () => {
   try {
     await loadKeyModeData()
     await loadCloudRecords()
-    syncPlaygroundDebugState()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '加载 API Key 与可用模型失败。'
   }
