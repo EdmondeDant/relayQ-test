@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -164,6 +165,28 @@ func (c stubConcurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts
 		out[acc.ID] = &AccountLoadInfo{AccountID: acc.ID, LoadRate: 0}
 	}
 	return out, nil
+}
+
+func TestSanitizeOpenAIResponsesRequestMap_RemovesNamespaceRecursively(t *testing.T) {
+	reqBody := map[string]any{
+		"model": "gpt-5.6-sol",
+		"input": []any{
+			map[string]any{
+				"role":      "user",
+				"namespace": "client_ns",
+				"content": []any{
+					map[string]any{"type": "input_text", "text": "hi", "namespace": "file_search"},
+				},
+			},
+		},
+	}
+
+	changed := sanitizeOpenAIResponsesRequestMap(reqBody)
+	require.True(t, changed)
+	serialized, err := json.Marshal(reqBody)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(serialized, "input.0.namespace").Exists())
+	require.False(t, gjson.GetBytes(serialized, "input.0.content.0.namespace").Exists())
 }
 
 func TestSanitizeOpenAIResponsesRequestBody_RemovesNamespaceRecursively(t *testing.T) {

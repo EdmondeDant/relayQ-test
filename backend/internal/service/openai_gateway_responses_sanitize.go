@@ -38,6 +38,19 @@ func sanitizeOpenAIResponsesRequestBody(body []byte) ([]byte, bool, error) {
 	return next, true, nil
 }
 
+func sanitizeOpenAIResponsesRequestMap(reqBody map[string]any) bool {
+	if len(reqBody) == 0 {
+		return false
+	}
+	input, ok := reqBody["input"]
+	if !ok {
+		return false
+	}
+	changed := false
+	reqBody["input"] = sanitizeOpenAIResponsesInputValue(input, &changed)
+	return changed
+}
+
 func sanitizeOpenAIResponsesInputValue(v any, changed *bool) any {
 	switch item := v.(type) {
 	case []any:
