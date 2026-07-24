@@ -508,7 +508,6 @@ func (s *OpenAIGatewayService) handleXAIOAuthRefreshFailure(ctx context.Context,
 	}
 }
 
-
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
 	if s.channelService == nil {
@@ -2402,7 +2401,6 @@ func (s *OpenAIGatewayService) shouldFailoverOnXAIOAuthRefreshError(err error) b
 	return strings.Contains(msg, "invalid_grant") || strings.Contains(msg, "user account is blocked")
 }
 
-
 func (s *OpenAIGatewayService) shouldFailoverUpstreamError(statusCode int) bool {
 	switch statusCode {
 	case 401, 402, 403, 429, 529:
@@ -3262,7 +3260,15 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		reqStream = gjson.GetBytes(body, "stream").Bool()
 	}
 
-	sanitizedBody, sanitized, err := sanitizeEmptyBase64InputImagesInOpenAIBody(body)
+	sanitizedBody, sanitized, err := sanitizeOpenAIResponsesRequestBody(body)
+	if err != nil {
+		return nil, fmt.Errorf("sanitize responses body: %w", err)
+	}
+	if sanitized {
+		body = sanitizedBody
+	}
+
+	sanitizedBody, sanitized, err = sanitizeEmptyBase64InputImagesInOpenAIBody(body)
 	if err != nil {
 		return nil, err
 	}
@@ -3678,6 +3684,8 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 
 	upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(body))
 	upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+	upstreamCode := strings.TrimSpace(extractUpstreamErrorCode(body))
+	upstreamType := strings.TrimSpace(gjson.GetBytes(body, "error.type").String())
 	upstreamDetail := ""
 	if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
 		maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
@@ -3710,12 +3718,40 @@ func (s *OpenAIGatewayService) handleErrorResponsePassthrough(
 	if contentType == "" {
 		contentType = "application/json"
 	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 && looksLikeOpenAIInvalidRequest(upstreamMsg, upstreamCode, upstreamType) {
+		c.Data(resp.StatusCode, contentType, body)
+		if upstreamMsg == "" {
+			return fmt.Errorf("upstream invalid request: %d", resp.StatusCode)
+		}
+		return fmt.Errorf("upstream invalid request: %d message=%s", resp.StatusCode, upstreamMsg)
+	}
 	c.Data(resp.StatusCode, contentType, body)
 
 	if upstreamMsg == "" {
 		return fmt.Errorf("upstream error: %d", resp.StatusCode)
 	}
 	return fmt.Errorf("upstream error: %d message=%s", resp.StatusCode, upstreamMsg)
+}
+
+func looksLikeOpenAIInvalidRequest(message, code, errType string) bool {
+	combined := strings.ToLower(strings.TrimSpace(message + " " + code + " " + errType))
+	if combined == "" {
+		return false
+	}
+	markers := []string{
+		"unknown parameter",
+		"invalid_request",
+		"invalid request",
+		"unsupported parameter",
+		"unsupported field",
+		"unrecognized request",
+	}
+	for _, marker := range markers {
+		if strings.Contains(combined, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func isOpenAIPassthroughAllowedRequestHeader(lowerKey string, allowTimeoutHeaders bool) bool {

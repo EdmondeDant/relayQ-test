@@ -166,6 +166,57 @@ func (c stubConcurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts
 	return out, nil
 }
 
+func TestSanitizeOpenAIResponsesRequestBody_RemovesNamespaceRecursively(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.6-sol","input":[{"role":"user","content":[{"type":"input_text","text":"hi","namespace":"file_search"}],"namespace":"client_ns"},{"type":"function_call","name":"tool","arguments":"{}","call_id":"c1","namespace":"tool_ns"}]}`)
+
+	next, changed, err := sanitizeOpenAIResponsesRequestBody(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(next, "input.0.namespace").Exists())
+	require.False(t, gjson.GetBytes(next, "input.0.content.0.namespace").Exists())
+	require.False(t, gjson.GetBytes(next, "input.1.namespace").Exists())
+	require.Equal(t, "input_text", gjson.GetBytes(next, "input.0.content.0.type").String())
+	require.Equal(t, "tool", gjson.GetBytes(next, "input.1.name").String())
+}
+
+func TestSanitizeOpenAIResponsesRequestBody_NoInputNoChange(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.6-sol","stream":true}`)
+
+	next, changed, err := sanitizeOpenAIResponsesRequestBody(body)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.JSONEq(t, string(body), string(next))
+}
+
+func TestLooksLikeOpenAIInvalidRequest(t *testing.T) {
+	require.True(t, looksLikeOpenAIInvalidRequest("Unknown parameter: 'input[11].namespace'", "", ""))
+	require.True(t, looksLikeOpenAIInvalidRequest("bad", "invalid_request_error", ""))
+	require.False(t, looksLikeOpenAIInvalidRequest("rate limit reached", "", "rate_limit_error"))
+}
+
+func TestHandleErrorResponsePassthrough_InvalidRequestReturnsOriginal4xx(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.6-sol","input":[]}`))
+
+	svc := &OpenAIGatewayService{}
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body: io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"Unknown parameter: 'input[11].namespace'.","code":"invalid_request_error"}}`)),
+	}
+	acc := &Account{ID: 1, Name: "test", Platform: PlatformOpenAI}
+
+	err := svc.handleErrorResponsePassthrough(context.Background(), resp, c, acc, []byte(`{"model":"gpt-5.6-sol","input":[]}`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "upstream invalid request")
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "Unknown parameter")
+}
+
 func TestOpenAIGatewayService_GenerateSessionHash_Priority(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
