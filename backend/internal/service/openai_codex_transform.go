@@ -7,6 +7,9 @@ import (
 )
 
 var codexModelMap = map[string]string{
+	"gpt-5.6-sol":                "gpt-5.6-sol",
+	"gpt-5.6-terra":              "gpt-5.6-terra",
+	"gpt-5.6-luna":               "gpt-5.6-luna",
 	"gpt-5.5":                    "gpt-5.5",
 	"codex-auto-review":          "codex-auto-review",
 	"gpt-5.4":                    "gpt-5.4",
@@ -55,6 +58,9 @@ var codexVersionModelPrefixes = []struct {
 	prefix string
 	target string
 }{
+	{prefix: "gpt-5.6-sol", target: "gpt-5.6-sol"},
+	{prefix: "gpt-5.6-terra", target: "gpt-5.6-terra"},
+	{prefix: "gpt-5.6-luna", target: "gpt-5.6-luna"},
 	{prefix: "gpt-5.3-codex-spark", target: "gpt-5.3-codex-spark"},
 	{prefix: "gpt-5.3-codex", target: "gpt-5.3-codex"},
 	{prefix: "gpt-5.4-mini", target: "gpt-5.4-mini"},
@@ -847,13 +853,24 @@ func normalizeOpenAIModelForUpstream(account *Account, model string) string {
 func normalizeXAIModelForUpstream(model string) string {
 	trimmed := strings.TrimSpace(model)
 	if trimmed == "" {
-		return "grok-4.3"
+		return "grok-4.5"
 	}
 	lower := strings.ToLower(trimmed)
 	if strings.HasPrefix(lower, "grok-") || strings.HasPrefix(lower, "grok_") || strings.HasPrefix(lower, "xai-") {
+		canonical := strings.ReplaceAll(lower, "_", "-")
+		canonical = strings.Join(strings.Fields(canonical), "-")
+		if strings.HasPrefix(canonical, "grok4") {
+			canonical = "grok-4" + strings.TrimPrefix(canonical, "grok4")
+		}
+		if strings.HasPrefix(canonical, "grok-4.5") {
+			return "grok-4.5"
+		}
+		if strings.HasPrefix(canonical, "grok-4.3") {
+			return "grok-4.3"
+		}
 		return trimmed
 	}
-	return "grok-4.3"
+	return "grok-4.5"
 }
 
 func SupportsVerbosity(model string) bool {

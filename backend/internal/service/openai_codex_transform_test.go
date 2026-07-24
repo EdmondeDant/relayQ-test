@@ -10,10 +10,18 @@ import (
 
 func TestNormalizeOpenAIModelForUpstream_XAIFallsBackToGrok(t *testing.T) {
 	account := &Account{Platform: PlatformXAI, Type: AccountTypeOAuth}
-	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "gpt-5.4-mini"))
-	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "gpt5.4-mini"))
-	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, ""))
+	require.Equal(t, "grok-4.5", normalizeOpenAIModelForUpstream(account, "gpt-5.4-mini"))
+	require.Equal(t, "grok-4.5", normalizeOpenAIModelForUpstream(account, "gpt5.4-mini"))
+	require.Equal(t, "grok-4.5", normalizeOpenAIModelForUpstream(account, ""))
 	require.Equal(t, "grok-4.3", normalizeOpenAIModelForUpstream(account, "grok-4.3"))
+	require.Equal(t, "grok-4.5", normalizeOpenAIModelForUpstream(account, "grok-4.5"))
+}
+
+func TestNormalizeOpenAIModelForUpstream_OAuthKeepsGPT56Family(t *testing.T) {
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	require.Equal(t, "gpt-5.6-sol", normalizeOpenAIModelForUpstream(account, "gpt-5.6-sol"))
+	require.Equal(t, "gpt-5.6-terra", normalizeOpenAIModelForUpstream(account, "gpt-5.6-terra"))
+	require.Equal(t, "gpt-5.6-luna", normalizeOpenAIModelForUpstream(account, "gpt-5.6-luna"))
 }
 
 func TestApplyCodexOAuthTransform_ToolContinuationPreservesInput(t *testing.T) {
