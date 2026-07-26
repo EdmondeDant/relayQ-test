@@ -4448,6 +4448,22 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		)
 	}
 
+	upstreamCode := strings.TrimSpace(extractUpstreamErrorCode(body))
+	upstreamType := strings.TrimSpace(gjson.GetBytes(body, "error.type").String())
+	if (resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusNotFound ||
+		resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusUnprocessableEntity) &&
+		looksLikeOpenAIInvalidRequest(upstreamMsg, upstreamCode, upstreamType) {
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/json"
+		}
+		c.Data(resp.StatusCode, contentType, body)
+		if upstreamMsg == "" {
+			return nil, fmt.Errorf("upstream invalid request: %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("upstream invalid request: %d message=%s", resp.StatusCode, upstreamMsg)
+	}
+
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
 		PlatformOpenAI,

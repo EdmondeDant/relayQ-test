@@ -211,6 +211,19 @@ func TestSanitizeOpenAIResponsesRequestBody_NoInputNoChange(t *testing.T) {
 	require.JSONEq(t, string(body), string(next))
 }
 
+func TestSanitizeOpenAIResponsesRequestBody_StripsInvalidTopLevelItemIDs(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.6-sol","input":[{"type":"message","id":"item_bad","role":"assistant"},{"type":"message","id":"msg_valid","role":"assistant"},{"type":"function_call","id":"item_bad_call","call_id":"call_1"},{"type":"function_call_output","id":"item_output","call_id":"call_1"}]}`)
+
+	next, changed, err := sanitizeOpenAIResponsesRequestBody(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(next, "input.0.id").Exists())
+	require.Equal(t, "msg_valid", gjson.GetBytes(next, "input.1.id").String())
+	require.False(t, gjson.GetBytes(next, "input.2.id").Exists())
+	require.Equal(t, "call_1", gjson.GetBytes(next, "input.2.call_id").String())
+	require.Equal(t, "item_output", gjson.GetBytes(next, "input.3.id").String())
+}
+
 func TestLooksLikeOpenAIInvalidRequest(t *testing.T) {
 	require.True(t, looksLikeOpenAIInvalidRequest("Unknown parameter: 'input[11].namespace'", "", ""))
 	require.True(t, looksLikeOpenAIInvalidRequest("bad", "invalid_request_error", ""))
@@ -238,6 +251,27 @@ func TestHandleErrorResponsePassthrough_InvalidRequestReturnsOriginal4xx(t *test
 	require.Contains(t, err.Error(), "upstream invalid request")
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "Unknown parameter")
+}
+
+func TestHandleErrorResponse_InvalidRequestReturnsOriginal4xx(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.6-sol","input":[]}`))
+
+	svc := &OpenAIGatewayService{}
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"Invalid 'input[7].id'","code":"invalid_value"}}`)),
+	}
+	acc := &Account{ID: 1, Name: "test", Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	_, err := svc.handleErrorResponse(context.Background(), resp, c, acc, []byte(`{"model":"gpt-5.6-sol","input":[]}`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "upstream invalid request")
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "Invalid 'input[7].id'")
 }
 
 func TestOpenAIGatewayService_GenerateSessionHash_Priority(t *testing.T) {

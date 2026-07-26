@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -61,16 +62,47 @@ func sanitizeOpenAIResponsesInputValue(v any, changed *bool) any {
 		return out
 	case map[string]any:
 		out := make(map[string]any, len(item))
+		itemType, _ := item["type"].(string)
 		for key, val := range item {
 			if key == "namespace" {
 				*changed = true
 				continue
+			}
+			if key == "id" {
+				if id, ok := val.(string); ok && shouldStripOpenAIResponsesInputItemID(itemType, id) {
+					*changed = true
+					continue
+				}
 			}
 			out[key] = sanitizeOpenAIResponsesInputValue(val, changed)
 		}
 		return out
 	default:
 		return v
+	}
+}
+
+// Invalid replayed IDs are removed rather than rewritten because a fabricated
+// msg/fc ID may point at a different upstream object.
+func shouldStripOpenAIResponsesInputItemID(itemType, id string) bool {
+	if id == "" {
+		return false
+	}
+	if itemType == "message" {
+		return !strings.HasPrefix(id, "msg")
+	}
+	if isCodexToolCallInputType(itemType) {
+		return !strings.HasPrefix(id, "fc")
+	}
+	return false
+}
+
+func isCodexToolCallInputType(itemType string) bool {
+	switch itemType {
+	case "function_call", "tool_call", "local_shell_call", "tool_search_call", "custom_tool_call", "mcp_tool_call":
+		return true
+	default:
+		return false
 	}
 }
 
