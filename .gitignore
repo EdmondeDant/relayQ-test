@@ -138,3 +138,5 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+
+!docs/leonardo-api-probe-results.md
