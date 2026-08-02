@@ -42,6 +42,7 @@ const (
 	PlatformGemini      = domain.PlatformGemini
 	PlatformAntigravity = domain.PlatformAntigravity
 	PlatformXAI         = domain.PlatformXAI
+	PlatformLeonardo    = domain.PlatformLeonardo
 )
 
 // AllowedQuotaPlatforms 是允许设置 user × platform quota 的平台列表（单一权威来源）。

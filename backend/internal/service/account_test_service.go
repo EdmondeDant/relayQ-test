@@ -290,24 +290,22 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.sendErrorAndEnd(c, "Account not found")
 	}
 
-	// Route to platform-specific test method
-	if account.Platform == PlatformXAI {
+	switch account.Platform {
+	case PlatformXAI:
 		return s.testXAIAccountConnection(c, account, modelID, prompt)
-	}
-
-	if account.IsOpenAI() {
+	case PlatformOpenAI:
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
-	}
-
-	if account.IsGemini() {
+	case PlatformGemini:
 		return s.testGeminiAccountConnection(c, account, modelID, prompt)
-	}
-
-	if account.Platform == PlatformAntigravity {
+	case PlatformAntigravity:
 		return s.routeAntigravityTest(c, account, modelID, prompt)
+	case PlatformAnthropic:
+		return s.testClaudeAccountConnection(c, account, modelID)
+	case PlatformLeonardo:
+		return s.sendErrorAndEnd(c, "Leonardo account test is not available until the Leonardo client is configured")
+	default:
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account platform: %s", account.Platform))
 	}
-
-	return s.testClaudeAccountConnection(c, account, modelID)
 }
 
 // testClaudeAccountConnection tests an Anthropic Claude account's connection

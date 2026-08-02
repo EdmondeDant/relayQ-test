@@ -190,6 +190,27 @@ function buildGrokAccount() {
   } as any
 }
 
+function buildLeonardoAccount() {
+  return {
+    id: 4,
+    name: 'Leonardo Key',
+    notes: '',
+    platform: 'leonardo',
+    type: 'apikey',
+    credentials: {},
+    credentials_status: { has_api_key: true },
+    extra: {},
+    proxy_id: null,
+    concurrency: 1,
+    priority: 1,
+    rate_multiplier: 1,
+    status: 'active',
+    group_ids: [],
+    expires_at: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
 function mountModal(account = buildAccount()) {
   return mount(EditAccountModal, {
     props: {
@@ -271,6 +292,65 @@ describe('EditAccountModal', () => {
     expect(inputs[1]?.attributes('placeholder')).toBe('https://api.x.ai')
     expect(inputs[2]?.attributes('placeholder')).toBe('xai-...')
     expect(wrapper.text()).toContain('admin.accounts.xai.baseUrlHint')
+  })
+
+  it('edits a Leonardo API Key account with the Production API default URL', async () => {
+    const account = buildLeonardoAccount()
+    account.credentials = {
+      model_mapping: { old: 'model' },
+      pool_mode: true,
+      pool_mode_retry_count: 4,
+      pool_mode_retry_status_codes: [429, 503],
+      custom_error_codes_enabled: true,
+      custom_error_codes: [418],
+      temp_unschedulable_enabled: true,
+      temp_unschedulable_rules: [{ error_code: 429, duration_minutes: 5 }]
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const inputs = wrapper.findAll('input')
+
+    expect(inputs[1]?.element.value).toBe('https://cloud.leonardo.ai/api/rest')
+    expect(inputs[1]?.attributes('placeholder')).toBe('https://cloud.leonardo.ai/api/rest')
+    expect(inputs[2]?.attributes('placeholder')).toBe('Leonardo API Key')
+    expect(wrapper.text()).toContain('Leonardo Production API')
+    expect(wrapper.text()).not.toContain('admin.accounts.modelRestriction')
+    expect(wrapper.text()).not.toContain('admin.accounts.poolMode')
+    expect(wrapper.text()).not.toContain('admin.accounts.customErrorCodes')
+    expect(wrapper.text()).not.toContain('admin.accounts.tempUnschedulable.title')
+
+    await inputs[2]?.setValue('leo-updated')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      api_key: 'leo-updated',
+      base_url: 'https://cloud.leonardo.ai/api/rest',
+      model_mapping: { old: 'model' },
+      temp_unschedulable_enabled: true,
+      temp_unschedulable_rules: [{ error_code: 429, duration_minutes: 5 }]
+    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('pool_mode')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('pool_mode_retry_count')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('pool_mode_retry_status_codes')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('custom_error_codes_enabled')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('custom_error_codes')
+  })
+
+  it('does not submit an empty Leonardo API Key when an existing key is configured', async () => {
+    const account = buildLeonardoAccount()
+    account.credentials.api_key = ''
+    updateAccountMock.mockReset()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_key')
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {

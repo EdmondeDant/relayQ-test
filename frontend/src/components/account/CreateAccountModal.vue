@@ -160,6 +160,20 @@
             <Icon name="bolt" size="sm" />
             Grok
           </button>
+          <button
+            type="button"
+            data-testid="platform-leonardo"
+            @click="form.platform = 'leonardo'"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'leonardo'
+                ? 'bg-white text-violet-600 shadow-sm dark:bg-dark-600 dark:text-violet-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <Icon name="sparkles" size="sm" />
+            Leonardo
+          </button>
         </div>
       </div>
 
@@ -349,6 +363,21 @@
             </div>
           </button>
 
+        </div>
+      </div>
+
+      <div v-if="form.platform === 'leonardo'">
+        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <div class="mt-2 rounded-lg border-2 border-violet-500 bg-violet-50 p-3 dark:bg-violet-900/20">
+          <div class="flex items-center gap-3">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500 text-white">
+              <Icon name="key" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">Production API</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1032,6 +1061,8 @@
             :placeholder="
               form.platform === 'openai'
                 ? 'https://api.openai.com'
+                : form.platform === 'leonardo'
+                  ? 'https://cloud.leonardo.ai/api/rest'
                 : form.platform === 'xai'
                   ? 'https://api.x.ai'
                 : form.platform === 'gemini'
@@ -1051,6 +1082,8 @@
             :placeholder="
               form.platform === 'openai'
                 ? 'sk-proj-...'
+                : form.platform === 'leonardo'
+                  ? 'Leonardo API Key'
                 : form.platform === 'xai'
                   ? 'xai-...'
                 : form.platform === 'gemini'
@@ -1072,7 +1105,7 @@
         </div>
 
         <!-- Model Restriction Section (Antigravity 已在上层条件排除) -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="form.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
@@ -1258,7 +1291,7 @@
         </div>
 
         <!-- Pool Mode Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="form.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
@@ -1322,7 +1355,7 @@
         </div>
 
         <!-- Custom Error Codes Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="form.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
@@ -1733,7 +1766,7 @@
 
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="form.type === 'apikey' || form.type === 'bedrock'"
+        v-else-if="(form.type === 'apikey' || form.type === 'bedrock') && form.platform !== 'leonardo'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -1920,7 +1953,7 @@
       </div>
 
       <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
+      <div v-if="form.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
@@ -2857,10 +2890,10 @@
 
         <!-- Group Selection - 仅标准模式显示 -->
         <GroupSelector
-          v-if="!authStore.isSimpleMode"
+          v-if="!authStore.isSimpleMode && form.platform !== 'leonardo'"
           v-model="form.group_ids"
           :groups="groups"
-          :platform="form.platform"
+          :platform="form.platform as GroupPlatform"
           :mixed-scheduling="mixedScheduling"
           data-tour="account-form-groups"
         />
@@ -3239,6 +3272,7 @@ import type {
   Proxy,
   AdminGroup,
   AccountPlatform,
+  GroupPlatform,
   AccountType,
   CheckMixedChannelResponse,
   CreateAccountRequest,
@@ -3298,6 +3332,7 @@ const oauthStepTitle = computed(() => {
 // Platform-specific hints for API Key type
 const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
+  if (form.platform === 'leonardo') return 'Leonardo Production API'
   if (form.platform === 'xai') return t('admin.accounts.xai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   return t('admin.accounts.baseUrlHint')
@@ -3305,6 +3340,7 @@ const baseUrlHint = computed(() => {
 
 const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
+  if (form.platform === 'leonardo') return 'Leonardo Production API Key'
   if (form.platform === 'xai') return t('admin.accounts.xai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   return t('admin.accounts.apiKeyHint')
@@ -3825,6 +3861,8 @@ watch(
     apiKeyBaseUrl.value =
       (newPlatform === 'openai')
         ? 'https://api.openai.com'
+        : newPlatform === 'leonardo'
+          ? 'https://cloud.leonardo.ai/api/rest'
         : newPlatform === 'gemini'
           ? 'https://generativelanguage.googleapis.com'
           : 'https://api.anthropic.com'
@@ -3851,6 +3889,9 @@ watch(
     }
     if (newPlatform !== 'anthropic' && accountCategory.value === 'bedrock') {
       accountCategory.value = 'oauth-based'
+    }
+    if (newPlatform === 'leonardo') {
+      accountCategory.value = 'apikey'
     }
     // Reset Bedrock fields when switching platforms
     bedrockAccessKeyId.value = ''
@@ -4645,6 +4686,8 @@ const handleSubmit = async () => {
   const defaultBaseUrl =
     form.platform === 'openai'
       ? 'https://api.openai.com'
+      : form.platform === 'leonardo'
+        ? 'https://cloud.leonardo.ai/api/rest'
       : form.platform === 'xai'
         ? 'https://api.x.ai'
       : form.platform === 'gemini'
@@ -4661,7 +4704,7 @@ const handleSubmit = async () => {
   }
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）
-  if (!isOpenAIModelRestrictionDisabled.value) {
+  if (form.platform !== 'leonardo' && !isOpenAIModelRestrictionDisabled.value) {
     const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
     if (modelMapping) {
       credentials.model_mapping = modelMapping
@@ -4676,7 +4719,7 @@ const handleSubmit = async () => {
   }
 
   // Add pool mode if enabled
-  if (poolModeEnabled.value) {
+  if (form.platform !== 'leonardo' && poolModeEnabled.value) {
     credentials.pool_mode = true
     credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
     const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
@@ -4686,13 +4729,13 @@ const handleSubmit = async () => {
   }
 
   // Add custom error codes if enabled
-  if (customErrorCodesEnabled.value) {
+  if (form.platform !== 'leonardo' && customErrorCodesEnabled.value) {
     credentials.custom_error_codes_enabled = true
     credentials.custom_error_codes = [...selectedErrorCodes.value]
   }
 
   applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-  if (!applyTempUnschedConfig(credentials)) {
+  if (form.platform !== 'leonardo' && !applyTempUnschedConfig(credentials)) {
     return
   }
 
@@ -4760,12 +4803,12 @@ const createAccountAndFinish = async (
   credentials: Record<string, unknown>,
   extra?: Record<string, unknown>
 ) => {
-  if (!applyTempUnschedConfig(credentials)) {
+  if (platform !== 'leonardo' && !applyTempUnschedConfig(credentials)) {
     return
   }
   // Inject quota limits for apikey/bedrock accounts
   let finalExtra = extra
-  if (type === 'apikey' || type === 'bedrock') {
+  if ((type === 'apikey' || type === 'bedrock') && platform !== 'leonardo') {
     const quotaExtra: Record<string, unknown> = { ...(extra || {}) }
     if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
       quotaExtra.quota_limit = editQuotaLimit.value

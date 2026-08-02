@@ -66,6 +66,8 @@ type Account struct {
 	modelMappingCacheRawSig         uint64
 }
 
+const DefaultLeonardoBaseURL = "https://cloud.leonardo.ai/api/rest"
+
 type OpenAIEndpointCapability string
 
 const (
@@ -174,6 +176,28 @@ func (a *Account) IsPrivacySet() bool {
 
 func (a *Account) IsGemini() bool {
 	return a.Platform == PlatformGemini
+}
+
+func (a *Account) IsLeonardo() bool {
+	return a != nil && a.Platform == PlatformLeonardo
+}
+
+func (a *Account) GetLeonardoAPIKey() string {
+	if !a.IsLeonardo() || a.Type != AccountTypeAPIKey {
+		return ""
+	}
+	return strings.TrimSpace(a.GetCredential("api_key"))
+}
+
+func (a *Account) GetLeonardoBaseURL() string {
+	if !a.IsLeonardo() || a.Type != AccountTypeAPIKey {
+		return ""
+	}
+	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	if baseURL == "" {
+		return DefaultLeonardoBaseURL
+	}
+	return strings.TrimRight(baseURL, "/")
 }
 
 func (a *Account) GeminiOAuthType() string {

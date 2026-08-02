@@ -442,7 +442,7 @@ func (s *PlaygroundService) recordPlaygroundVideoUsage(ctx context.Context, user
 		BillingType:    2,
 		RequestType:    RequestTypeSync,
 		ImageCount:     0,
-		MediaType:      stringPtr("video"),
+		MediaType:      playgroundStringPtr("video"),
 	}
 	if groupID != nil {
 		usageLog.GroupID = groupID
@@ -586,7 +586,7 @@ func readPlaygroundErrorMessage(raw []byte, status int) string {
 	return fmt.Sprintf("request failed: %d", status)
 }
 
-func stringPtr(v string) *string { return &v }
+func playgroundStringPtr(v string) *string { return &v }
 
 func extractImageURL(payload map[string]any) string {
 	data, _ := payload["data"].([]any)

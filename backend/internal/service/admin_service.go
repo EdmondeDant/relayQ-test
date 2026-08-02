@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"sort"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/httputil"
+	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 )
 
 // AdminService interface defines admin management operations
@@ -2459,6 +2461,10 @@ func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	credentials, err := validateLeonardoAccount(input.Platform, input.Type, input.Credentials)
+	if err != nil {
+		return nil, err
+	}
 	// 绑定分组
 	groupIDs := input.GroupIDs
 	// 如果没有指定分组,自动绑定对应平台的默认分组
@@ -2487,7 +2493,7 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		Notes:       normalizeAccountNotes(input.Notes),
 		Platform:    input.Platform,
 		Type:        input.Type,
-		Credentials: input.Credentials,
+		Credentials: credentials,
 		Extra:       input.Extra,
 		ProxyID:     input.ProxyID,
 		Concurrency: input.Concurrency,
@@ -2567,6 +2573,10 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
+	accountCopy := *account
+	account = &accountCopy
+	account.Credentials = maps.Clone(account.Credentials)
+	account.Extra = maps.Clone(account.Extra)
 	wasOveragesEnabled := account.IsOveragesEnabled()
 
 	if input.Name != "" {
@@ -2581,8 +2591,18 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if len(input.Credentials) > 0 {
 		// 敏感子键采用"incoming 没提供就保留"的合并语义：前端响应已脱敏，
 		// 全对象 PUT 编辑时不会再带回 token，避免覆盖时清空已有凭证。
-		account.Credentials = MergePreservingSensitiveCreds(account.Credentials, input.Credentials)
+		credentials := input.Credentials
+		if account.IsLeonardo() && strings.TrimSpace((&Account{Credentials: credentials}).GetCredential("api_key")) == "" {
+			credentials = maps.Clone(credentials)
+			delete(credentials, "api_key")
+		}
+		account.Credentials = MergePreservingSensitiveCreds(account.Credentials, credentials)
 	}
+	credentials, err := validateLeonardoAccount(account.Platform, account.Type, account.Credentials)
+	if err != nil {
+		return nil, err
+	}
+	account.Credentials = credentials
 	// Extra 使用 map：需要区分“未提供(nil)”与“显式清空({})”。
 	// 关闭配额限制时前端会删除 quota_* 键并提交 extra:{}，此时也必须落库。
 	if input.Extra != nil {
@@ -2690,6 +2710,31 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	return updated, nil
 }
 
+func validateLeonardoAccount(platform, accountType string, credentials map[string]any) (map[string]any, error) {
+	if platform != PlatformLeonardo {
+		return credentials, nil
+	}
+	if accountType != AccountTypeAPIKey {
+		return nil, errors.New("Leonardo accounts require apikey type")
+	}
+	account := &Account{Platform: platform, Type: accountType, Credentials: credentials}
+	if account.GetLeonardoAPIKey() == "" {
+		return nil, errors.New("Leonardo API key is required")
+	}
+	for _, key := range []string{"pool_mode", "pool_mode_retry_count", "pool_mode_retry_status_codes", "custom_error_codes_enabled", "custom_error_codes"} {
+		if _, ok := credentials[key]; ok {
+			return nil, fmt.Errorf("Leonardo accounts do not support retry or pool credentials: %s", key)
+		}
+	}
+	normalizedBaseURL, err := urlvalidator.ValidateHTTPSURL(account.GetLeonardoBaseURL(), urlvalidator.ValidationOptions{AllowPrivate: false})
+	if err != nil {
+		return nil, fmt.Errorf("invalid Leonardo base_url: %w", err)
+	}
+	normalizedCredentials := maps.Clone(credentials)
+	normalizedCredentials["base_url"] = normalizedBaseURL
+	return normalizedCredentials, nil
+}
+
 // UpdateAccountExtra 仅对 Extra JSONB 做 key 级合并，避免覆盖其它运行态键
 // （如 model_rate_limits / passive_usage_* 等）。
 func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, updates map[string]any) error {
@@ -2718,6 +2763,17 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	if len(input.AccountIDs) == 0 {
 		return result, nil
+	}
+	if len(input.Credentials) > 0 {
+		accounts, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, account := range accounts {
+			if account != nil && account.IsLeonardo() {
+				return nil, errors.New("Leonardo credentials must be updated individually")
+			}
+		}
 	}
 	if input.GroupIDs != nil {
 		if err := s.validateGroupIDsExist(ctx, *input.GroupIDs); err != nil {

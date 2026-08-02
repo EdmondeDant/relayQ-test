@@ -37,6 +37,8 @@
             :placeholder="
               account.platform === 'openai'
                 ? 'https://api.openai.com'
+                : account.platform === 'leonardo'
+                  ? 'https://cloud.leonardo.ai/api/rest'
                 : account.platform === 'xai'
                   ? 'https://api.x.ai'
                 : account.platform === 'gemini'
@@ -61,6 +63,8 @@
             :placeholder="
               account.platform === 'openai'
                 ? 'sk-proj-...'
+                : account.platform === 'leonardo'
+                  ? 'Leonardo API Key'
                 : account.platform === 'xai'
                   ? 'xai-...'
                   : account.platform === 'gemini'
@@ -74,7 +78,7 @@
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
-        <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="account.platform !== 'antigravity' && account.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
@@ -260,7 +264,7 @@
         </div>
 
         <!-- Pool Mode Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="account.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
@@ -324,7 +328,7 @@
         </div>
 
         <!-- Custom Error Codes Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="account.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
@@ -1106,7 +1110,7 @@
       </div>
 
       <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
+      <div v-if="account?.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
@@ -1599,7 +1603,7 @@
       </div>
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
+        v-else-if="(account?.type === 'apikey' || account?.type === 'bedrock') && account?.platform !== 'leonardo'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -2316,10 +2320,10 @@
 
       <!-- Group Selection - 仅标准模式显示 -->
       <GroupSelector
-        v-if="!authStore.isSimpleMode"
+        v-if="!authStore.isSimpleMode && account?.platform !== 'leonardo'"
         v-model="form.group_ids"
         :groups="groups"
-        :platform="account?.platform"
+        :platform="account?.platform as GroupPlatform"
         :mixed-scheduling="mixedScheduling"
         data-tour="account-form-groups"
       />
@@ -2388,6 +2392,7 @@ import type {
   Account,
   Proxy,
   AdminGroup,
+  GroupPlatform,
   CheckMixedChannelResponse,
   OpenAICompactMode,
   OpenAIResponsesMode,
@@ -2444,6 +2449,7 @@ const authStore = useAuthStore()
 const baseUrlHint = computed(() => {
   if (!props.account) return t('admin.accounts.baseUrlHint')
   if (props.account.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
+  if (props.account.platform === 'leonardo') return 'Leonardo Production API'
   if (props.account.platform === 'xai') return t('admin.accounts.xai.baseUrlHint')
   if (props.account.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   return t('admin.accounts.baseUrlHint')
@@ -2846,6 +2852,7 @@ const tempUnschedPresets = computed(() => [
 // Computed: default base URL based on platform
 const defaultBaseUrl = computed(() => {
   if (props.account?.platform === 'openai') return 'https://api.openai.com'
+  if (props.account?.platform === 'leonardo') return 'https://cloud.leonardo.ai/api/rest'
   if (props.account?.platform === 'xai') return 'https://api.x.ai'
   if (props.account?.platform === 'gemini') return 'https://generativelanguage.googleapis.com'
   return 'https://api.anthropic.com'
@@ -3101,6 +3108,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     const platformDefaultUrl =
       newAccount.platform === 'openai'
         ? 'https://api.openai.com'
+        : newAccount.platform === 'leonardo'
+          ? 'https://cloud.leonardo.ai/api/rest'
         : newAccount.platform === 'xai'
           ? 'https://api.x.ai'
         : newAccount.platform === 'gemini'
@@ -3108,23 +3117,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
           : 'https://api.anthropic.com'
     editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
 
-    // Load model mappings and detect mode
-    loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
-
-    // Load pool mode
-    poolModeEnabled.value = credentials.pool_mode === true
-    poolModeRetryCount.value = normalizePoolModeRetryCount(
-      Number(credentials.pool_mode_retry_count ?? DEFAULT_POOL_MODE_RETRY_COUNT)
-    )
-    poolModeRetryStatusCodesInput.value = formatPoolModeRetryStatusCodes(credentials.pool_mode_retry_status_codes)
-
-    // Load custom error codes
-    customErrorCodesEnabled.value = credentials.custom_error_codes_enabled === true
-    const existingErrorCodes = credentials.custom_error_codes as number[] | undefined
-    if (existingErrorCodes && Array.isArray(existingErrorCodes)) {
-      selectedErrorCodes.value = [...existingErrorCodes]
-    } else {
-      selectedErrorCodes.value = []
+    if (newAccount.platform !== 'leonardo') {
+      loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
+      poolModeEnabled.value = credentials.pool_mode === true
+      poolModeRetryCount.value = normalizePoolModeRetryCount(
+        Number(credentials.pool_mode_retry_count ?? DEFAULT_POOL_MODE_RETRY_COUNT)
+      )
+      poolModeRetryStatusCodesInput.value = formatPoolModeRetryStatusCodes(credentials.pool_mode_retry_status_codes)
+      customErrorCodesEnabled.value = credentials.custom_error_codes_enabled === true
+      const existingErrorCodes = credentials.custom_error_codes as number[] | undefined
+      if (existingErrorCodes && Array.isArray(existingErrorCodes)) {
+        selectedErrorCodes.value = [...existingErrorCodes]
+      } else {
+        selectedErrorCodes.value = []
+      }
     }
   } else if (newAccount.type === 'bedrock' && newAccount.credentials) {
     const bedrockCreds = newAccount.credentials as Record<string, unknown>
@@ -3171,6 +3177,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     const platformDefaultUrl =
       newAccount.platform === 'openai'
         ? 'https://api.openai.com'
+        : newAccount.platform === 'leonardo'
+          ? 'https://cloud.leonardo.ai/api/rest'
         : newAccount.platform === 'xai'
           ? 'https://api.x.ai'
         : newAccount.platform === 'gemini'
@@ -3715,10 +3723,12 @@ const handleSubmit = async () => {
       } else if (!hasExistingApiKey) {
         appStore.showError(t('admin.accounts.apiKeyIsRequired'))
         return
+      } else if (currentCredentials.api_key === '') {
+        delete newCredentials.api_key
       }
 
       // Add model mapping if configured（OpenAI 开启自动透传时保留现有映射，不再编辑）
-      if (shouldApplyModelMapping) {
+      if (props.account.platform !== 'leonardo' && shouldApplyModelMapping) {
         const modelMapping = buildModelRestrictionMapping()
         if (modelMapping) {
           newCredentials.model_mapping = modelMapping
@@ -3739,33 +3749,39 @@ const handleSubmit = async () => {
       }
 
       // Add pool mode if enabled
-      if (poolModeEnabled.value) {
-        newCredentials.pool_mode = true
-        newCredentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-        const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-        if (parsedRetryStatusCodes.length > 0) {
-          newCredentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
+      if (props.account.platform !== 'leonardo') {
+        if (poolModeEnabled.value) {
+          newCredentials.pool_mode = true
+          newCredentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
+          const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
+          if (parsedRetryStatusCodes.length > 0) {
+            newCredentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
+          } else {
+            delete newCredentials.pool_mode_retry_status_codes
+          }
         } else {
+          delete newCredentials.pool_mode
+          delete newCredentials.pool_mode_retry_count
           delete newCredentials.pool_mode_retry_status_codes
+        }
+        if (customErrorCodesEnabled.value) {
+          newCredentials.custom_error_codes_enabled = true
+          newCredentials.custom_error_codes = [...selectedErrorCodes.value]
+        } else {
+          delete newCredentials.custom_error_codes_enabled
+          delete newCredentials.custom_error_codes
         }
       } else {
         delete newCredentials.pool_mode
         delete newCredentials.pool_mode_retry_count
         delete newCredentials.pool_mode_retry_status_codes
-      }
-
-      // Add custom error codes if enabled
-      if (customErrorCodesEnabled.value) {
-        newCredentials.custom_error_codes_enabled = true
-        newCredentials.custom_error_codes = [...selectedErrorCodes.value]
-      } else {
         delete newCredentials.custom_error_codes_enabled
         delete newCredentials.custom_error_codes
       }
 
       // Add intercept warmup requests setting
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      if (!applyTempUnschedConfig(newCredentials)) {
+      if (props.account.platform !== 'leonardo' && !applyTempUnschedConfig(newCredentials)) {
         return
       }
 
@@ -4166,7 +4182,7 @@ const handleSubmit = async () => {
     }
 
     // For apikey/bedrock accounts, handle quota_limit in extra
-    if (props.account.type === 'apikey' || props.account.type === 'bedrock') {
+    if ((props.account.type === 'apikey' || props.account.type === 'bedrock') && props.account.platform !== 'leonardo') {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
         (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }

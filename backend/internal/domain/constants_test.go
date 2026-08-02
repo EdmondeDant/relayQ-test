@@ -2,6 +2,12 @@ package domain
 
 import "testing"
 
+func TestPlatformLeonardo(t *testing.T) {
+	if PlatformLeonardo != "leonardo" {
+		t.Fatalf("unexpected Leonardo platform: %q", PlatformLeonardo)
+	}
+}
+
 func TestDefaultAntigravityModelMapping_ImageCompatibilityAliases(t *testing.T) {
 	t.Parallel()
 
