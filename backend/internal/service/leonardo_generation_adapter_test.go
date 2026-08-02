@@ -9,6 +9,7 @@ import (
 	"net/http/httptrace"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
@@ -39,6 +40,7 @@ type leonardoGenerationUpstreamMock struct {
 	proxyURL    string
 	accountID   int64
 	concurrency int
+	tlsCalls    int
 }
 
 func (m *leonardoGenerationUpstreamMock) Do(req *http.Request, proxyURL string, accountID int64, concurrency int) (*http.Response, error) {
@@ -54,7 +56,113 @@ func (m *leonardoGenerationUpstreamMock) Do(req *http.Request, proxyURL string, 
 }
 
 func (m *leonardoGenerationUpstreamMock) DoWithTLS(req *http.Request, proxyURL string, accountID int64, concurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	m.tlsCalls++
 	return m.Do(req, proxyURL, accountID, concurrency)
+}
+
+func TestLeonardoGenerationAdapterAccountBoundGet(t *testing.T) {
+	proxyID := int64(19)
+	account := leonardoGenerationAccount()
+	account.ProxyID = &proxyID
+	account.Proxy = &Proxy{Protocol: "http", Host: "proxy.example", Port: 8080}
+	upstream := &leonardoGenerationUpstreamMock{response: leonardoGenerationResponse(http.StatusOK, fmt.Sprintf(`{"generations_by_pk":{"id":%q,"status":"COMPLETE","generated_images":[{"id":"image-1","url":"https://example.com/image.png","nsfw":true}]}}`, leonardoAdapterGenerationID))}
+	adapter, err := NewLeonardoGenerationAdapter(account, upstream, leonardoGenerationConfig())
+	require.NoError(t, err)
+	var pollClient LeonardoGenerationPollClient = adapter
+
+	generation, err := pollClient.GetGeneration(context.Background(), leonardoAdapterGenerationID)
+	require.NoError(t, err)
+	require.Equal(t, "COMPLETE", generation.Status)
+	require.Equal(t, []leonardo.GeneratedImage{{ID: "image-1", URL: "https://example.com/image.png", NSFW: true}}, generation.GeneratedImages)
+	require.Equal(t, 1, upstream.calls)
+	require.Equal(t, 0, upstream.tlsCalls)
+	require.Equal(t, http.MethodGet, upstream.request.Method)
+	require.Equal(t, "https://leonardo.example/api/rest/v1/generations/"+leonardoAdapterGenerationID, upstream.request.URL.String())
+	require.Equal(t, "Bearer secret-key", upstream.request.Header.Get("Authorization"))
+	require.Equal(t, "http://proxy.example:8080", upstream.proxyURL)
+	require.Equal(t, account.ID, upstream.accountID)
+	require.Equal(t, account.Concurrency, upstream.concurrency)
+}
+
+func TestLeonardoGenerationAdapterGetProxyBinding(t *testing.T) {
+	proxyID := int64(19)
+	for _, test := range []struct {
+		name    string
+		proxyID *int64
+		proxy   *Proxy
+	}{
+		{name: "neither"},
+		{name: "id only", proxyID: &proxyID},
+		{name: "proxy only", proxy: &Proxy{Protocol: "http", Host: "proxy.example", Port: 8080}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			account := leonardoGenerationAccount()
+			account.ProxyID = test.proxyID
+			account.Proxy = test.proxy
+			upstream := &leonardoGenerationUpstreamMock{response: leonardoGenerationResponse(http.StatusOK, fmt.Sprintf(`{"generations_by_pk":{"id":%q,"status":"PENDING"}}`, leonardoAdapterGenerationID))}
+			adapter, err := NewLeonardoGenerationAdapter(account, upstream, leonardoGenerationConfig())
+			require.NoError(t, err)
+			_, err = adapter.GetGeneration(context.Background(), leonardoAdapterGenerationID)
+			require.NoError(t, err)
+			require.Empty(t, upstream.proxyURL)
+			require.Equal(t, 1, upstream.calls)
+		})
+	}
+}
+
+func TestLeonardoGenerationAdapterGetRejectsInvalidAndUnconfigured(t *testing.T) {
+	upstream := &leonardoGenerationUpstreamMock{}
+	adapter, err := NewLeonardoGenerationAdapter(leonardoGenerationAccount(), upstream, leonardoGenerationConfig())
+	require.NoError(t, err)
+	_, err = adapter.GetGeneration(context.Background(), "invalid")
+	require.Error(t, err)
+	require.Equal(t, 0, upstream.calls)
+	var nilAdapter *LeonardoGenerationAdapter
+	_, err = nilAdapter.GetGeneration(context.Background(), leonardoAdapterGenerationID)
+	require.ErrorContains(t, err, "not configured")
+	require.Equal(t, 0, upstream.calls)
+}
+
+func TestLeonardoGenerationAdapterGetErrorsAreReadOnlyAndSanitized(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		response *http.Response
+		err      error
+	}{
+		{name: "rate limit", response: func() *http.Response {
+			r := leonardoGenerationResponse(http.StatusTooManyRequests, `{"error":"Authorization secret-key"}`)
+			r.Header.Set("Retry-After", "17")
+			return r
+		}()},
+		{name: "server error", response: leonardoGenerationResponse(http.StatusBadGateway, `{"error":"x-api-key secret-key"}`)},
+		{name: "decode", response: leonardoGenerationResponse(http.StatusOK, `{`)},
+		{name: "unknown status", response: leonardoGenerationResponse(http.StatusOK, fmt.Sprintf(`{"generations_by_pk":{"id":%q,"status":"secret-key"}}`, leonardoAdapterGenerationID))},
+		{name: "transport", err: errors.New("Authorization secret-key")},
+		{name: "read", response: &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: leonardoAdapterErrorReadCloser{err: errors.New("Cookie secret-key")}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			upstream := &leonardoGenerationUpstreamMock{response: test.response, err: test.err}
+			adapter, err := NewLeonardoGenerationAdapter(leonardoGenerationAccount(), upstream, leonardoGenerationConfig())
+			require.NoError(t, err)
+			_, err = adapter.GetGeneration(context.Background(), leonardoAdapterGenerationID)
+			require.Error(t, err)
+			require.Equal(t, 1, upstream.calls)
+			require.NotContains(t, err.Error(), "secret-key")
+			require.False(t, errors.Is(err, leonardo.ErrGenerationRequestNotWritten))
+			require.False(t, errors.Is(err, ErrLeonardoGenerationRequestNotWritten))
+			var apiErr *leonardo.LeonardoError
+			if errors.As(err, &apiErr) {
+				require.Empty(t, apiErr.SubmissionStatus)
+				require.Empty(t, apiErr.SideEffectStatus)
+				if test.name == "rate limit" || test.name == "server error" {
+					require.True(t, apiErr.RetryableRead)
+				}
+				if test.name == "rate limit" {
+					require.Equal(t, 17*time.Second, apiErr.RetryAfter)
+				}
+			}
+		})
+	}
 }
 
 func TestLeonardoGenerationAdapterAccountBinding(t *testing.T) {

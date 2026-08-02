@@ -85,6 +85,13 @@ func (a *LeonardoGenerationAdapter) CreateGeneration(ctx context.Context, reques
 	return response, err
 }
 
+func (a *LeonardoGenerationAdapter) GetGeneration(ctx context.Context, generationID string) (*leonardo.Generation, error) {
+	if a == nil || a.client == nil {
+		return nil, errors.New("leonardo generation adapter is not configured")
+	}
+	return a.client.GetGeneration(ctx, generationID)
+}
+
 func (t leonardoGenerationRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.upstream.Do(req, t.proxyURL, t.accountID, t.concurrency)
 }

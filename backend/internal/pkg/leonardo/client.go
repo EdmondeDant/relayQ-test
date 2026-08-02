@@ -155,19 +155,22 @@ func (c *Client) GetGeneration(ctx context.Context, id string) (*Generation, err
 	defer func() { _ = resp.Body.Close() }()
 	body, err := readBody(resp.Body)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrResponseTooLarge) {
+			return nil, err
+		}
+		return nil, errors.New(c.sanitize(err.Error()))
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, c.responseError(resp, body)
 	}
 	var decoded generationResponse
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return nil, fmt.Errorf("leonardo: decode generation status response: %w", err)
+		return nil, errors.New(c.sanitize("leonardo: decode generation status response: " + err.Error()))
 	}
 	switch decoded.Generation.Status {
 	case "PENDING", "COMPLETE", "FAILED":
 	default:
-		return nil, fmt.Errorf("leonardo: unsupported generation status %q", decoded.Generation.Status)
+		return nil, errors.New("leonardo: unsupported generation status")
 	}
 	return &decoded.Generation, nil
 }

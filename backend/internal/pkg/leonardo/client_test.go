@@ -455,3 +455,60 @@ func TestGetGenerationRejectsInvalidIDAndStatus(t *testing.T) {
 		t.Fatal("unknown status accepted")
 	}
 }
+
+func TestGetGenerationDoesNotFollowRedirect(t *testing.T) {
+	var sourceCalls atomic.Int32
+	var targetCalls atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { targetCalls.Add(1) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sourceCalls.Add(1)
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer source.Close()
+	client, err := NewClient(source.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.GetGeneration(context.Background(), testGenerationID)
+	var apiErr *LeonardoError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusTemporaryRedirect || sourceCalls.Load() != 1 || targetCalls.Load() != 0 {
+		t.Fatalf("source=%d target=%d error=%#v", sourceCalls.Load(), targetCalls.Load(), apiErr)
+	}
+	if apiErr.SubmissionStatus != "" || apiErr.SideEffectStatus != "" || errors.Is(err, ErrGenerationRequestNotWritten) {
+		t.Fatalf("GET error has create semantics: %#v", apiErr)
+	}
+}
+
+func TestGetGenerationSanitizesReadDecodeStatusAndTransportErrors(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		transport http.RoundTripper
+	}{
+		{name: "transport", transport: transportFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("Authorization secret-key") })},
+		{name: "read", transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: errorReadCloser{err: errors.New("Cookie secret-key")}}, nil
+		})},
+		{name: "decode", transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{`))}, nil
+		})},
+		{name: "status", transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"generations_by_pk":{"id":%q,"status":"secret-key"}}`, testGenerationID)))}, nil
+		})},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := NewClientWithHTTPClient("https://example.com", "secret-key", time.Second, &http.Client{Transport: test.transport})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.GetGeneration(context.Background(), testGenerationID)
+			if err == nil || strings.Contains(err.Error(), "secret-key") || errors.Is(err, ErrGenerationRequestNotWritten) {
+				t.Fatalf("error = %v", err)
+			}
+			var apiErr *LeonardoError
+			if errors.As(err, &apiErr) && (apiErr.SubmissionStatus != "" || apiErr.SideEffectStatus != "") {
+				t.Fatalf("GET error has create semantics: %#v", apiErr)
+			}
+		})
+	}
+}
