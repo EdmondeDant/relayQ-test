@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -233,6 +235,165 @@ func TestGenerationJobRepositoryUnknownForcesManualReviewAndNilCosts(t *testing.
 	require.Nil(t, update.ActualUpstreamCostAmount)
 	require.Nil(t, update.ActualUpstreamCostUnit)
 	require.Nil(t, update.CustomerCost)
+}
+
+func TestGenerationJobRepositoryPollPending(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-pending")
+	require.NoError(t, repo.Create(ctx, job))
+	now := time.Now().UTC().Truncate(time.Second)
+	status := "PENDING"
+	update := *job
+	update.UpstreamStatus = &status
+	update.PollAttempts = 1
+	update.LastPolledAt = timePointer(now)
+	update.NextPollAt = timePointer(now.Add(time.Minute))
+
+	require.NoError(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, &update))
+	require.Equal(t, service.GenerationJobStatusQueued, update.Status)
+	require.Equal(t, 1, update.PollAttempts)
+	require.Equal(t, status, *update.UpstreamStatus)
+	require.True(t, now.Equal(*update.LastPolledAt))
+	require.True(t, now.Add(time.Minute).Equal(*update.NextPollAt))
+}
+
+func TestGenerationJobRepositoryPollCompletePreservesCosts(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-complete")
+	actualCost := decimal.RequireFromString("0.1234567890")
+	customerCost := decimal.RequireFromString("0.2345678901")
+	unit := "USD"
+	billingReference := "bill-poll"
+	job.ActualUpstreamCostAmount = &actualCost
+	job.ActualUpstreamCostUnit = &unit
+	job.CustomerCost = &customerCost
+	job.BillingStatus = service.GenerationJobBillingStatusSubmitted
+	job.BillingReference = &billingReference
+	job.ResultPayload = map[string]any{"cost": 1.25, "apiCreditCost": 2.0}
+	require.NoError(t, repo.Create(ctx, job))
+	now := time.Now().UTC().Truncate(time.Second)
+	update := *job
+	update.Status = service.GenerationJobStatusSucceeded
+	update.ResultPayload = map[string]any{"cost": 1.25, "apiCreditCost": 2.0, "images": []any{map[string]any{"id": "image-1"}}}
+	update.OutputCount = 1
+	update.PollAttempts = 1
+	update.NextPollAt = nil
+	update.CompletedAt = timePointer(now)
+
+	require.NoError(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, &update))
+	require.Equal(t, service.GenerationJobStatusSucceeded, update.Status)
+	require.Equal(t, 1, update.OutputCount)
+	require.Nil(t, update.NextPollAt)
+	require.True(t, now.Equal(*update.CompletedAt))
+	require.Equal(t, float64(1.25), update.ResultPayload["cost"])
+	require.Equal(t, float64(2), update.ResultPayload["apiCreditCost"])
+	require.Equal(t, actualCost.String(), update.ActualUpstreamCostAmount.String())
+	require.Equal(t, customerCost.String(), update.CustomerCost.String())
+	require.Equal(t, unit, *update.ActualUpstreamCostUnit)
+	require.Equal(t, service.GenerationJobBillingStatusSubmitted, update.BillingStatus)
+	require.Equal(t, billingReference, *update.BillingReference)
+}
+
+func TestGenerationJobRepositoryPollFailedClearsNullableFields(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-failed")
+	old := "old"
+	now := time.Now().UTC().Truncate(time.Second)
+	job.UpstreamStatus = &old
+	job.ErrorCode = &old
+	job.ErrorMessage = &old
+	job.NextPollAt = timePointer(now)
+	job.LastPolledAt = timePointer(now)
+	job.CompletedAt = timePointer(now)
+	require.NoError(t, repo.Create(ctx, job))
+	update := *job
+	update.Status = service.GenerationJobStatusFailed
+	update.UpstreamStatus = nil
+	update.ErrorCode = nil
+	update.ErrorMessage = nil
+	update.NextPollAt = nil
+	update.LastPolledAt = nil
+	update.CompletedAt = nil
+	update.FailedAt = timePointer(now.Add(time.Minute))
+	update.PollAttempts = 1
+
+	require.NoError(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, &update))
+	require.Equal(t, service.GenerationJobStatusFailed, update.Status)
+	require.Nil(t, update.UpstreamStatus)
+	require.Nil(t, update.ErrorCode)
+	require.Nil(t, update.ErrorMessage)
+	require.Nil(t, update.NextPollAt)
+	require.Nil(t, update.LastPolledAt)
+	require.Nil(t, update.CompletedAt)
+	require.True(t, now.Add(time.Minute).Equal(*update.FailedAt))
+}
+
+func TestGenerationJobRepositoryPollCASConflictsAndNotFound(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-conflicts")
+	require.NoError(t, repo.Create(ctx, job))
+	update := *job
+	update.PollAttempts = 1
+
+	require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 1, &update), service.ErrGenerationJobConflict)
+	require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusRunning, 0, &update), service.ErrGenerationJobConflict)
+	require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, "missing", service.GenerationJobStatusQueued, 0, &update), service.ErrGenerationJobNotFound)
+	stored, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, 0, stored.PollAttempts)
+}
+
+func TestGenerationJobRepositoryPollRejectsInvalidTransitions(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-invalid")
+	require.NoError(t, repo.Create(ctx, job))
+
+	require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, nil), service.ErrGenerationJobConflict)
+	for _, expected := range []service.GenerationJobStatus{service.GenerationJobStatusUnknown, service.GenerationJobStatusSucceeded, service.GenerationJobStatusFailed, service.GenerationJobStatusCancelled} {
+		update := *job
+		require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, job.PublicID, expected, 0, &update), service.ErrGenerationJobConflict)
+	}
+	update := *job
+	update.Status = service.GenerationJobStatusUnknown
+	require.ErrorIs(t, repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, &update), service.ErrGenerationJobConflict)
+	stored, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, service.GenerationJobStatusQueued, stored.Status)
+}
+
+func TestGenerationJobRepositoryPollConcurrentCAS(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("job-poll-concurrent")
+	require.NoError(t, repo.Create(ctx, job))
+	first := *job
+	second := *job
+	first.PollAttempts = 1
+	second.PollAttempts = 1
+	start := make(chan struct{})
+	errorsChannel := make(chan error, 2)
+	var ready sync.WaitGroup
+	ready.Add(2)
+	for _, update := range []*service.GenerationJob{&first, &second} {
+		go func(candidate *service.GenerationJob) {
+			ready.Done()
+			<-start
+			errorsChannel <- repo.CompareAndSwapPoll(ctx, job.PublicID, service.GenerationJobStatusQueued, 0, candidate)
+		}(update)
+	}
+	ready.Wait()
+	close(start)
+	err1 := <-errorsChannel
+	err2 := <-errorsChannel
+	require.True(t, (err1 == nil && errors.Is(err2, service.ErrGenerationJobConflict)) || (err2 == nil && errors.Is(err1, service.ErrGenerationJobConflict)))
+	stored, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, 1, stored.PollAttempts)
 }
 
 func minimalGenerationJob(publicID string) *service.GenerationJob {

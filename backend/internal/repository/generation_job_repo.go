@@ -160,6 +160,73 @@ func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publ
 	return service.ErrGenerationJobConflict
 }
 
+func (r *generationJobRepository) CompareAndSwapPoll(ctx context.Context, publicID string, expectedStatus service.GenerationJobStatus, expectedPollAttempts int, job *service.GenerationJob) error {
+	if job == nil ||
+		(expectedStatus != service.GenerationJobStatusQueued && expectedStatus != service.GenerationJobStatusRunning) ||
+		(job.Status != service.GenerationJobStatusQueued && job.Status != service.GenerationJobStatusRunning && job.Status != service.GenerationJobStatusSucceeded && job.Status != service.GenerationJobStatusFailed) ||
+		!service.CanTransitionGenerationJobStatus(expectedStatus, job.Status) {
+		return service.ErrGenerationJobConflict
+	}
+	update := r.client.GenerationJob.Update().
+		Where(
+			generationjob.PublicIDEQ(publicID),
+			generationjob.StatusEQ(generationjob.Status(expectedStatus)),
+			generationjob.PollAttemptsEQ(expectedPollAttempts),
+		).
+		SetStatus(generationjob.Status(job.Status)).
+		SetNillableUpstreamStatus(job.UpstreamStatus).
+		SetResultPayload(job.ResultPayload).
+		SetNillableErrorCode(job.ErrorCode).
+		SetNillableErrorMessage(job.ErrorMessage).
+		SetOutputCount(job.OutputCount).
+		SetPollAttempts(job.PollAttempts).
+		SetNillableNextPollAt(job.NextPollAt).
+		SetNillableLastPolledAt(job.LastPolledAt).
+		SetNillableCompletedAt(job.CompletedAt).
+		SetNillableFailedAt(job.FailedAt)
+	if job.UpstreamStatus == nil {
+		update.ClearUpstreamStatus()
+	}
+	if job.ErrorCode == nil {
+		update.ClearErrorCode()
+	}
+	if job.ErrorMessage == nil {
+		update.ClearErrorMessage()
+	}
+	if job.NextPollAt == nil {
+		update.ClearNextPollAt()
+	}
+	if job.LastPolledAt == nil {
+		update.ClearLastPolledAt()
+	}
+	if job.CompletedAt == nil {
+		update.ClearCompletedAt()
+	}
+	if job.FailedAt == nil {
+		update.ClearFailedAt()
+	}
+	affected, err := update.Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected > 0 {
+		stored, err := r.GetByPublicID(ctx, publicID)
+		if err != nil {
+			return err
+		}
+		*job = *stored
+		return nil
+	}
+	exists, err := r.client.GenerationJob.Query().Where(generationjob.PublicIDEQ(publicID)).Exist(ctx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return service.ErrGenerationJobNotFound
+	}
+	return service.ErrGenerationJobConflict
+}
+
 func generationJobResult(entity *dbent.GenerationJob, err error) (*service.GenerationJob, error) {
 	if dbent.IsNotFound(err) {
 		return nil, service.ErrGenerationJobNotFound
