@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
@@ -33,6 +34,11 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 	if job == nil {
 		return nil, errors.New("generation job is required")
 	}
+	reserved := job.BillingStatus == GenerationJobBillingStatusReserved && job.CustomerCost != nil && job.CustomerCost.Sign() > 0 && job.BillingReference != nil && strings.TrimSpace(*job.BillingReference) != ""
+	hasReservationData := job.BillingStatus == GenerationJobBillingStatusReserved || job.CustomerCost != nil || job.BillingReference != nil
+	if hasReservationData && !reserved {
+		return nil, ErrLeonardoImageCreateReservationInvalid
+	}
 
 	created := *job
 	created.Status = GenerationJobStatusCreated
@@ -44,8 +50,11 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 	created.ErrorMessage = nil
 	created.ActualUpstreamCostAmount = nil
 	created.ActualUpstreamCostUnit = nil
-	created.CustomerCost = nil
-	created.BillingStatus = GenerationJobBillingStatusUnpriced
+	if !reserved {
+		created.CustomerCost = nil
+		created.BillingReference = nil
+		created.BillingStatus = GenerationJobBillingStatusUnpriced
+	}
 	created.SubmittedAt = nil
 	created.FailedAt = nil
 	if err := s.repository.Create(ctx, &created); err != nil {

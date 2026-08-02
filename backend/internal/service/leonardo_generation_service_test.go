@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -163,6 +164,35 @@ func TestLeonardoGenerationServiceSanitizesStoredPayload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, client.calls)
 	requireLeonardoGenerationSecretsAbsent(t, repository)
+}
+
+func TestLeonardoGenerationServiceReservedBilling(t *testing.T) {
+	cost := decimal.RequireFromString("0.005000000000000001")
+	reference := "reservation-1"
+	job := leonardoGenerationJob()
+	job.CustomerCost = &cost
+	job.BillingReference = &reference
+	job.BillingStatus = GenerationJobBillingStatusReserved
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"}}
+	result, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), job, leonardoGenerationRequest())
+	require.NoError(t, err)
+	require.Equal(t, "0.005000000000000001", result.CustomerCost.String())
+	require.Equal(t, reference, *result.BillingReference)
+	require.Equal(t, GenerationJobBillingStatusSubmitted, result.BillingStatus)
+	require.Equal(t, GenerationJobBillingStatusReserved, repository.created[0].BillingStatus)
+}
+
+func TestLeonardoGenerationServiceRejectsPartialReservation(t *testing.T) {
+	job := leonardoGenerationJob()
+	job.BillingStatus = GenerationJobBillingStatusReserved
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{}
+	result, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), job, leonardoGenerationRequest())
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrLeonardoImageCreateReservationInvalid)
+	require.Empty(t, repository.created)
+	require.Zero(t, client.calls)
 }
 
 func leonardoGenerationJob() *GenerationJob {
