@@ -81,6 +81,11 @@ type GenerationJobRepository interface {
 	CompareAndSwapStatus(ctx context.Context, publicID string, expectedStatus GenerationJobStatus, job *GenerationJob) error
 }
 
+type GenerationJobPollRepository interface {
+	GetByPublicID(ctx context.Context, publicID string) (*GenerationJob, error)
+	CompareAndSwapPoll(ctx context.Context, publicID string, expectedStatus GenerationJobStatus, expectedPollAttempts int, job *GenerationJob) error
+}
+
 func NormalizeGenerationJob(job *GenerationJob) {
 	if job == nil || job.Status != GenerationJobStatusUnknown {
 		return
