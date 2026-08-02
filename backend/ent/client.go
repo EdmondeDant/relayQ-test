@@ -27,6 +27,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/generationjob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -84,6 +85,8 @@ type Client struct {
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
+	// GenerationJob is the client for interacting with the GenerationJob builders.
+	GenerationJob *GenerationJobClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
 	// IdeaMessage is the client for interacting with the IdeaMessage builders.
@@ -155,6 +158,7 @@ func (c *Client) init() {
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
+	c.GenerationJob = NewGenerationJobClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.IdeaMessage = NewIdeaMessageClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
@@ -283,6 +287,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
+		GenerationJob:                 NewGenerationJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdeaMessage:                   NewIdeaMessageClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -338,6 +343,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
+		GenerationJob:                 NewGenerationJobClient(cfg),
 		Group:                         NewGroupClient(cfg),
 		IdeaMessage:                   NewIdeaMessageClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -394,8 +400,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.GenerationJob,
+		c.Group, c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
 		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
@@ -414,8 +420,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
-		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.GenerationJob,
+		c.Group, c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
 		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
@@ -454,6 +460,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
 	case *ErrorPassthroughRuleMutation:
 		return c.ErrorPassthroughRule.mutate(ctx, m)
+	case *GenerationJobMutation:
+		return c.GenerationJob.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
 	case *IdeaMessageMutation:
@@ -2407,6 +2415,139 @@ func (c *ErrorPassthroughRuleClient) mutate(ctx context.Context, m *ErrorPassthr
 		return (&ErrorPassthroughRuleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ErrorPassthroughRule mutation op: %q", m.Op())
+	}
+}
+
+// GenerationJobClient is a client for the GenerationJob schema.
+type GenerationJobClient struct {
+	config
+}
+
+// NewGenerationJobClient returns a client for the GenerationJob from the given config.
+func NewGenerationJobClient(c config) *GenerationJobClient {
+	return &GenerationJobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `generationjob.Hooks(f(g(h())))`.
+func (c *GenerationJobClient) Use(hooks ...Hook) {
+	c.hooks.GenerationJob = append(c.hooks.GenerationJob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `generationjob.Intercept(f(g(h())))`.
+func (c *GenerationJobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GenerationJob = append(c.inters.GenerationJob, interceptors...)
+}
+
+// Create returns a builder for creating a GenerationJob entity.
+func (c *GenerationJobClient) Create() *GenerationJobCreate {
+	mutation := newGenerationJobMutation(c.config, OpCreate)
+	return &GenerationJobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GenerationJob entities.
+func (c *GenerationJobClient) CreateBulk(builders ...*GenerationJobCreate) *GenerationJobCreateBulk {
+	return &GenerationJobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GenerationJobClient) MapCreateBulk(slice any, setFunc func(*GenerationJobCreate, int)) *GenerationJobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GenerationJobCreateBulk{err: fmt.Errorf("calling to GenerationJobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GenerationJobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GenerationJobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GenerationJob.
+func (c *GenerationJobClient) Update() *GenerationJobUpdate {
+	mutation := newGenerationJobMutation(c.config, OpUpdate)
+	return &GenerationJobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GenerationJobClient) UpdateOne(_m *GenerationJob) *GenerationJobUpdateOne {
+	mutation := newGenerationJobMutation(c.config, OpUpdateOne, withGenerationJob(_m))
+	return &GenerationJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GenerationJobClient) UpdateOneID(id int64) *GenerationJobUpdateOne {
+	mutation := newGenerationJobMutation(c.config, OpUpdateOne, withGenerationJobID(id))
+	return &GenerationJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GenerationJob.
+func (c *GenerationJobClient) Delete() *GenerationJobDelete {
+	mutation := newGenerationJobMutation(c.config, OpDelete)
+	return &GenerationJobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GenerationJobClient) DeleteOne(_m *GenerationJob) *GenerationJobDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GenerationJobClient) DeleteOneID(id int64) *GenerationJobDeleteOne {
+	builder := c.Delete().Where(generationjob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GenerationJobDeleteOne{builder}
+}
+
+// Query returns a query builder for GenerationJob.
+func (c *GenerationJobClient) Query() *GenerationJobQuery {
+	return &GenerationJobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGenerationJob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GenerationJob entity by its id.
+func (c *GenerationJobClient) Get(ctx context.Context, id int64) (*GenerationJob, error) {
+	return c.Query().Where(generationjob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GenerationJobClient) GetX(ctx context.Context, id int64) *GenerationJob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *GenerationJobClient) Hooks() []Hook {
+	return c.hooks.GenerationJob
+}
+
+// Interceptors returns the client interceptors.
+func (c *GenerationJobClient) Interceptors() []Interceptor {
+	return c.inters.GenerationJob
+}
+
+func (c *GenerationJobClient) mutate(ctx context.Context, m *GenerationJobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GenerationJobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GenerationJobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GenerationJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GenerationJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GenerationJob mutation op: %q", m.Op())
 	}
 }
 
@@ -6341,7 +6482,7 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
+		GenerationJob, Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
 		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
@@ -6352,7 +6493,7 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
+		GenerationJob, Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
 		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,

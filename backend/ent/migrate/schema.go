@@ -633,6 +633,110 @@ var (
 			},
 		},
 	}
+	// GenerationJobsColumns holds the columns for the "generation_jobs" table.
+	GenerationJobsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_id", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "provider", Type: field.TypeString, Size: 32},
+		{Name: "modality", Type: field.TypeString, Size: 32},
+		{Name: "model", Type: field.TypeString, Size: 200},
+		{Name: "upstream_model", Type: field.TypeString, Size: 200},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "api_key_id", Type: field.TypeInt64},
+		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt64},
+		{Name: "upstream_generation_id", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"created", "submitting", "queued", "running", "succeeded", "failed", "cancelled", "unknown"}, Default: "created"},
+		{Name: "upstream_status", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "request_hash", Type: field.TypeString, Size: 128},
+		{Name: "request_payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "result_payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "error_code", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "output_count", Type: field.TypeInt, Default: 0},
+		{Name: "actual_upstream_cost_amount", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "actual_upstream_cost_unit", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "customer_cost", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "billing_status", Type: field.TypeEnum, Enums: []string{"unpriced", "estimated", "reserved", "submitted", "settled", "refunded", "manual_review"}, Default: "unpriced"},
+		{Name: "billing_reference", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "poll_attempts", Type: field.TypeInt, Default: 0},
+		{Name: "next_poll_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_polled_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "submitted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "failed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// GenerationJobsTable holds the schema information for the "generation_jobs" table.
+	GenerationJobsTable = &schema.Table{
+		Name:       "generation_jobs",
+		Columns:    GenerationJobsColumns,
+		PrimaryKey: []*schema.Column{GenerationJobsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "generationjob_provider",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[4]},
+			},
+			{
+				Name:    "generationjob_modality",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[5]},
+			},
+			{
+				Name:    "generationjob_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[8]},
+			},
+			{
+				Name:    "generationjob_api_key_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[9]},
+			},
+			{
+				Name:    "generationjob_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[10]},
+			},
+			{
+				Name:    "generationjob_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[11]},
+			},
+			{
+				Name:    "generationjob_upstream_generation_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[12]},
+			},
+			{
+				Name:    "generationjob_status",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[13]},
+			},
+			{
+				Name:    "generationjob_next_poll_at",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[27]},
+			},
+			{
+				Name:    "generationjob_status_next_poll_at",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[13], GenerationJobsColumns[27]},
+			},
+			{
+				Name:    "generationjob_billing_reference",
+				Unique:  true,
+				Columns: []*schema.Column{GenerationJobsColumns[25]},
+			},
+			{
+				Name:    "generationjob_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[1]},
+			},
+		},
+	}
 	// GroupsColumns holds the columns for the "groups" table.
 	GroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1796,6 +1900,7 @@ var (
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
+		GenerationJobsTable,
 		GroupsTable,
 		AiIdeaMessagesTable,
 		IdempotencyRecordsTable,
@@ -1871,6 +1976,9 @@ func init() {
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",
+	}
+	GenerationJobsTable.Annotation = &entsql.Annotation{
+		Table: "generation_jobs",
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",

@@ -17,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/generationjob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -750,6 +751,171 @@ func init() {
 	errorpassthroughruleDescSkipMonitoring := errorpassthroughruleFields[11].Descriptor()
 	// errorpassthroughrule.DefaultSkipMonitoring holds the default value on creation for the skip_monitoring field.
 	errorpassthroughrule.DefaultSkipMonitoring = errorpassthroughruleDescSkipMonitoring.Default.(bool)
+	generationjobMixin := schema.GenerationJob{}.Mixin()
+	generationjobMixinFields0 := generationjobMixin[0].Fields()
+	_ = generationjobMixinFields0
+	generationjobFields := schema.GenerationJob{}.Fields()
+	_ = generationjobFields
+	// generationjobDescCreatedAt is the schema descriptor for created_at field.
+	generationjobDescCreatedAt := generationjobMixinFields0[0].Descriptor()
+	// generationjob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	generationjob.DefaultCreatedAt = generationjobDescCreatedAt.Default.(func() time.Time)
+	// generationjobDescUpdatedAt is the schema descriptor for updated_at field.
+	generationjobDescUpdatedAt := generationjobMixinFields0[1].Descriptor()
+	// generationjob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	generationjob.DefaultUpdatedAt = generationjobDescUpdatedAt.Default.(func() time.Time)
+	// generationjob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	generationjob.UpdateDefaultUpdatedAt = generationjobDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// generationjobDescPublicID is the schema descriptor for public_id field.
+	generationjobDescPublicID := generationjobFields[0].Descriptor()
+	// generationjob.PublicIDValidator is a validator for the "public_id" field. It is called by the builders before save.
+	generationjob.PublicIDValidator = func() func(string) error {
+		validators := generationjobDescPublicID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(public_id string) error {
+			for _, fn := range fns {
+				if err := fn(public_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescProvider is the schema descriptor for provider field.
+	generationjobDescProvider := generationjobFields[1].Descriptor()
+	// generationjob.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	generationjob.ProviderValidator = func() func(string) error {
+		validators := generationjobDescProvider.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(provider string) error {
+			for _, fn := range fns {
+				if err := fn(provider); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescModality is the schema descriptor for modality field.
+	generationjobDescModality := generationjobFields[2].Descriptor()
+	// generationjob.ModalityValidator is a validator for the "modality" field. It is called by the builders before save.
+	generationjob.ModalityValidator = func() func(string) error {
+		validators := generationjobDescModality.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(modality string) error {
+			for _, fn := range fns {
+				if err := fn(modality); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescModel is the schema descriptor for model field.
+	generationjobDescModel := generationjobFields[3].Descriptor()
+	// generationjob.ModelValidator is a validator for the "model" field. It is called by the builders before save.
+	generationjob.ModelValidator = func() func(string) error {
+		validators := generationjobDescModel.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(model string) error {
+			for _, fn := range fns {
+				if err := fn(model); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescUpstreamModel is the schema descriptor for upstream_model field.
+	generationjobDescUpstreamModel := generationjobFields[4].Descriptor()
+	// generationjob.UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
+	generationjob.UpstreamModelValidator = func() func(string) error {
+		validators := generationjobDescUpstreamModel.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(upstream_model string) error {
+			for _, fn := range fns {
+				if err := fn(upstream_model); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescUpstreamGenerationID is the schema descriptor for upstream_generation_id field.
+	generationjobDescUpstreamGenerationID := generationjobFields[9].Descriptor()
+	// generationjob.UpstreamGenerationIDValidator is a validator for the "upstream_generation_id" field. It is called by the builders before save.
+	generationjob.UpstreamGenerationIDValidator = generationjobDescUpstreamGenerationID.Validators[0].(func(string) error)
+	// generationjobDescUpstreamStatus is the schema descriptor for upstream_status field.
+	generationjobDescUpstreamStatus := generationjobFields[11].Descriptor()
+	// generationjob.UpstreamStatusValidator is a validator for the "upstream_status" field. It is called by the builders before save.
+	generationjob.UpstreamStatusValidator = generationjobDescUpstreamStatus.Validators[0].(func(string) error)
+	// generationjobDescRequestHash is the schema descriptor for request_hash field.
+	generationjobDescRequestHash := generationjobFields[12].Descriptor()
+	// generationjob.RequestHashValidator is a validator for the "request_hash" field. It is called by the builders before save.
+	generationjob.RequestHashValidator = func() func(string) error {
+		validators := generationjobDescRequestHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(request_hash string) error {
+			for _, fn := range fns {
+				if err := fn(request_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// generationjobDescRequestPayload is the schema descriptor for request_payload field.
+	generationjobDescRequestPayload := generationjobFields[13].Descriptor()
+	// generationjob.DefaultRequestPayload holds the default value on creation for the request_payload field.
+	generationjob.DefaultRequestPayload = generationjobDescRequestPayload.Default.(func() map[string]interface{})
+	// generationjobDescResultPayload is the schema descriptor for result_payload field.
+	generationjobDescResultPayload := generationjobFields[14].Descriptor()
+	// generationjob.DefaultResultPayload holds the default value on creation for the result_payload field.
+	generationjob.DefaultResultPayload = generationjobDescResultPayload.Default.(func() map[string]interface{})
+	// generationjobDescErrorCode is the schema descriptor for error_code field.
+	generationjobDescErrorCode := generationjobFields[15].Descriptor()
+	// generationjob.ErrorCodeValidator is a validator for the "error_code" field. It is called by the builders before save.
+	generationjob.ErrorCodeValidator = generationjobDescErrorCode.Validators[0].(func(string) error)
+	// generationjobDescOutputCount is the schema descriptor for output_count field.
+	generationjobDescOutputCount := generationjobFields[17].Descriptor()
+	// generationjob.DefaultOutputCount holds the default value on creation for the output_count field.
+	generationjob.DefaultOutputCount = generationjobDescOutputCount.Default.(int)
+	// generationjob.OutputCountValidator is a validator for the "output_count" field. It is called by the builders before save.
+	generationjob.OutputCountValidator = generationjobDescOutputCount.Validators[0].(func(int) error)
+	// generationjobDescActualUpstreamCostUnit is the schema descriptor for actual_upstream_cost_unit field.
+	generationjobDescActualUpstreamCostUnit := generationjobFields[19].Descriptor()
+	// generationjob.ActualUpstreamCostUnitValidator is a validator for the "actual_upstream_cost_unit" field. It is called by the builders before save.
+	generationjob.ActualUpstreamCostUnitValidator = generationjobDescActualUpstreamCostUnit.Validators[0].(func(string) error)
+	// generationjobDescBillingReference is the schema descriptor for billing_reference field.
+	generationjobDescBillingReference := generationjobFields[22].Descriptor()
+	// generationjob.BillingReferenceValidator is a validator for the "billing_reference" field. It is called by the builders before save.
+	generationjob.BillingReferenceValidator = generationjobDescBillingReference.Validators[0].(func(string) error)
+	// generationjobDescPollAttempts is the schema descriptor for poll_attempts field.
+	generationjobDescPollAttempts := generationjobFields[23].Descriptor()
+	// generationjob.DefaultPollAttempts holds the default value on creation for the poll_attempts field.
+	generationjob.DefaultPollAttempts = generationjobDescPollAttempts.Default.(int)
+	// generationjob.PollAttemptsValidator is a validator for the "poll_attempts" field. It is called by the builders before save.
+	generationjob.PollAttemptsValidator = generationjobDescPollAttempts.Validators[0].(func(int) error)
 	groupMixin := schema.Group{}.Mixin()
 	groupMixinHooks1 := groupMixin[1].Hooks()
 	group.Hooks[0] = groupMixinHooks1[0]

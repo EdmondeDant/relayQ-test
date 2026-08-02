@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
+	"github.com/Wei-Shaw/sub2api/ent/generationjob"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -50,6 +51,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -73,6 +75,7 @@ const (
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
 	TypeErrorPassthroughRule          = "ErrorPassthroughRule"
+	TypeGenerationJob                 = "GenerationJob"
 	TypeGroup                         = "Group"
 	TypeIdeaMessage                   = "IdeaMessage"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
@@ -14849,6 +14852,2496 @@ func (m *ErrorPassthroughRuleMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ErrorPassthroughRule edge %s", name)
+}
+
+// GenerationJobMutation represents an operation that mutates the GenerationJob nodes in the graph.
+type GenerationJobMutation struct {
+	config
+	op                          Op
+	typ                         string
+	id                          *int64
+	created_at                  *time.Time
+	updated_at                  *time.Time
+	public_id                   *string
+	provider                    *string
+	modality                    *string
+	model                       *string
+	upstream_model              *string
+	user_id                     *int64
+	adduser_id                  *int64
+	api_key_id                  *int64
+	addapi_key_id               *int64
+	group_id                    *int64
+	addgroup_id                 *int64
+	account_id                  *int64
+	addaccount_id               *int64
+	upstream_generation_id      *string
+	status                      *generationjob.Status
+	upstream_status             *string
+	request_hash                *string
+	request_payload             *map[string]interface{}
+	result_payload              *map[string]interface{}
+	error_code                  *string
+	error_message               *string
+	output_count                *int
+	addoutput_count             *int
+	actual_upstream_cost_amount **decimal.Decimal
+	actual_upstream_cost_unit   *string
+	customer_cost               **decimal.Decimal
+	billing_status              *generationjob.BillingStatus
+	billing_reference           *string
+	poll_attempts               *int
+	addpoll_attempts            *int
+	next_poll_at                *time.Time
+	last_polled_at              *time.Time
+	submitted_at                *time.Time
+	started_at                  *time.Time
+	completed_at                *time.Time
+	failed_at                   *time.Time
+	clearedFields               map[string]struct{}
+	done                        bool
+	oldValue                    func(context.Context) (*GenerationJob, error)
+	predicates                  []predicate.GenerationJob
+}
+
+var _ ent.Mutation = (*GenerationJobMutation)(nil)
+
+// generationjobOption allows management of the mutation configuration using functional options.
+type generationjobOption func(*GenerationJobMutation)
+
+// newGenerationJobMutation creates new mutation for the GenerationJob entity.
+func newGenerationJobMutation(c config, op Op, opts ...generationjobOption) *GenerationJobMutation {
+	m := &GenerationJobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGenerationJob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGenerationJobID sets the ID field of the mutation.
+func withGenerationJobID(id int64) generationjobOption {
+	return func(m *GenerationJobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *GenerationJob
+		)
+		m.oldValue = func(ctx context.Context) (*GenerationJob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().GenerationJob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGenerationJob sets the old GenerationJob of the mutation.
+func withGenerationJob(node *GenerationJob) generationjobOption {
+	return func(m *GenerationJobMutation) {
+		m.oldValue = func(context.Context) (*GenerationJob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GenerationJobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GenerationJobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GenerationJobMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GenerationJobMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().GenerationJob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *GenerationJobMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *GenerationJobMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *GenerationJobMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *GenerationJobMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *GenerationJobMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *GenerationJobMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetPublicID sets the "public_id" field.
+func (m *GenerationJobMutation) SetPublicID(s string) {
+	m.public_id = &s
+}
+
+// PublicID returns the value of the "public_id" field in the mutation.
+func (m *GenerationJobMutation) PublicID() (r string, exists bool) {
+	v := m.public_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicID returns the old "public_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldPublicID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicID: %w", err)
+	}
+	return oldValue.PublicID, nil
+}
+
+// ResetPublicID resets all changes to the "public_id" field.
+func (m *GenerationJobMutation) ResetPublicID() {
+	m.public_id = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *GenerationJobMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *GenerationJobMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *GenerationJobMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetModality sets the "modality" field.
+func (m *GenerationJobMutation) SetModality(s string) {
+	m.modality = &s
+}
+
+// Modality returns the value of the "modality" field in the mutation.
+func (m *GenerationJobMutation) Modality() (r string, exists bool) {
+	v := m.modality
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModality returns the old "modality" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldModality(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModality is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModality requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModality: %w", err)
+	}
+	return oldValue.Modality, nil
+}
+
+// ResetModality resets all changes to the "modality" field.
+func (m *GenerationJobMutation) ResetModality() {
+	m.modality = nil
+}
+
+// SetModel sets the "model" field.
+func (m *GenerationJobMutation) SetModel(s string) {
+	m.model = &s
+}
+
+// Model returns the value of the "model" field in the mutation.
+func (m *GenerationJobMutation) Model() (r string, exists bool) {
+	v := m.model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModel returns the old "model" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModel: %w", err)
+	}
+	return oldValue.Model, nil
+}
+
+// ResetModel resets all changes to the "model" field.
+func (m *GenerationJobMutation) ResetModel() {
+	m.model = nil
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (m *GenerationJobMutation) SetUpstreamModel(s string) {
+	m.upstream_model = &s
+}
+
+// UpstreamModel returns the value of the "upstream_model" field in the mutation.
+func (m *GenerationJobMutation) UpstreamModel() (r string, exists bool) {
+	v := m.upstream_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamModel returns the old "upstream_model" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldUpstreamModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamModel: %w", err)
+	}
+	return oldValue.UpstreamModel, nil
+}
+
+// ResetUpstreamModel resets all changes to the "upstream_model" field.
+func (m *GenerationJobMutation) ResetUpstreamModel() {
+	m.upstream_model = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *GenerationJobMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *GenerationJobMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *GenerationJobMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *GenerationJobMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *GenerationJobMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *GenerationJobMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *GenerationJobMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldAPIKeyID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *GenerationJobMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *GenerationJobMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *GenerationJobMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *GenerationJobMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *GenerationJobMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *GenerationJobMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *GenerationJobMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearGroupID clears the value of the "group_id" field.
+func (m *GenerationJobMutation) ClearGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	m.clearedFields[generationjob.FieldGroupID] = struct{}{}
+}
+
+// GroupIDCleared returns if the "group_id" field was cleared in this mutation.
+func (m *GenerationJobMutation) GroupIDCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldGroupID]
+	return ok
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *GenerationJobMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	delete(m.clearedFields, generationjob.FieldGroupID)
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *GenerationJobMutation) SetAccountID(i int64) {
+	m.account_id = &i
+	m.addaccount_id = nil
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *GenerationJobMutation) AccountID() (r int64, exists bool) {
+	v := m.account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldAccountID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// AddAccountID adds i to the "account_id" field.
+func (m *GenerationJobMutation) AddAccountID(i int64) {
+	if m.addaccount_id != nil {
+		*m.addaccount_id += i
+	} else {
+		m.addaccount_id = &i
+	}
+}
+
+// AddedAccountID returns the value that was added to the "account_id" field in this mutation.
+func (m *GenerationJobMutation) AddedAccountID() (r int64, exists bool) {
+	v := m.addaccount_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *GenerationJobMutation) ResetAccountID() {
+	m.account_id = nil
+	m.addaccount_id = nil
+}
+
+// SetUpstreamGenerationID sets the "upstream_generation_id" field.
+func (m *GenerationJobMutation) SetUpstreamGenerationID(s string) {
+	m.upstream_generation_id = &s
+}
+
+// UpstreamGenerationID returns the value of the "upstream_generation_id" field in the mutation.
+func (m *GenerationJobMutation) UpstreamGenerationID() (r string, exists bool) {
+	v := m.upstream_generation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamGenerationID returns the old "upstream_generation_id" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldUpstreamGenerationID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamGenerationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamGenerationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamGenerationID: %w", err)
+	}
+	return oldValue.UpstreamGenerationID, nil
+}
+
+// ClearUpstreamGenerationID clears the value of the "upstream_generation_id" field.
+func (m *GenerationJobMutation) ClearUpstreamGenerationID() {
+	m.upstream_generation_id = nil
+	m.clearedFields[generationjob.FieldUpstreamGenerationID] = struct{}{}
+}
+
+// UpstreamGenerationIDCleared returns if the "upstream_generation_id" field was cleared in this mutation.
+func (m *GenerationJobMutation) UpstreamGenerationIDCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldUpstreamGenerationID]
+	return ok
+}
+
+// ResetUpstreamGenerationID resets all changes to the "upstream_generation_id" field.
+func (m *GenerationJobMutation) ResetUpstreamGenerationID() {
+	m.upstream_generation_id = nil
+	delete(m.clearedFields, generationjob.FieldUpstreamGenerationID)
+}
+
+// SetStatus sets the "status" field.
+func (m *GenerationJobMutation) SetStatus(ge generationjob.Status) {
+	m.status = &ge
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *GenerationJobMutation) Status() (r generationjob.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldStatus(ctx context.Context) (v generationjob.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *GenerationJobMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetUpstreamStatus sets the "upstream_status" field.
+func (m *GenerationJobMutation) SetUpstreamStatus(s string) {
+	m.upstream_status = &s
+}
+
+// UpstreamStatus returns the value of the "upstream_status" field in the mutation.
+func (m *GenerationJobMutation) UpstreamStatus() (r string, exists bool) {
+	v := m.upstream_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamStatus returns the old "upstream_status" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldUpstreamStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamStatus: %w", err)
+	}
+	return oldValue.UpstreamStatus, nil
+}
+
+// ClearUpstreamStatus clears the value of the "upstream_status" field.
+func (m *GenerationJobMutation) ClearUpstreamStatus() {
+	m.upstream_status = nil
+	m.clearedFields[generationjob.FieldUpstreamStatus] = struct{}{}
+}
+
+// UpstreamStatusCleared returns if the "upstream_status" field was cleared in this mutation.
+func (m *GenerationJobMutation) UpstreamStatusCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldUpstreamStatus]
+	return ok
+}
+
+// ResetUpstreamStatus resets all changes to the "upstream_status" field.
+func (m *GenerationJobMutation) ResetUpstreamStatus() {
+	m.upstream_status = nil
+	delete(m.clearedFields, generationjob.FieldUpstreamStatus)
+}
+
+// SetRequestHash sets the "request_hash" field.
+func (m *GenerationJobMutation) SetRequestHash(s string) {
+	m.request_hash = &s
+}
+
+// RequestHash returns the value of the "request_hash" field in the mutation.
+func (m *GenerationJobMutation) RequestHash() (r string, exists bool) {
+	v := m.request_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestHash returns the old "request_hash" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldRequestHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestHash: %w", err)
+	}
+	return oldValue.RequestHash, nil
+}
+
+// ResetRequestHash resets all changes to the "request_hash" field.
+func (m *GenerationJobMutation) ResetRequestHash() {
+	m.request_hash = nil
+}
+
+// SetRequestPayload sets the "request_payload" field.
+func (m *GenerationJobMutation) SetRequestPayload(value map[string]interface{}) {
+	m.request_payload = &value
+}
+
+// RequestPayload returns the value of the "request_payload" field in the mutation.
+func (m *GenerationJobMutation) RequestPayload() (r map[string]interface{}, exists bool) {
+	v := m.request_payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestPayload returns the old "request_payload" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldRequestPayload(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestPayload: %w", err)
+	}
+	return oldValue.RequestPayload, nil
+}
+
+// ResetRequestPayload resets all changes to the "request_payload" field.
+func (m *GenerationJobMutation) ResetRequestPayload() {
+	m.request_payload = nil
+}
+
+// SetResultPayload sets the "result_payload" field.
+func (m *GenerationJobMutation) SetResultPayload(value map[string]interface{}) {
+	m.result_payload = &value
+}
+
+// ResultPayload returns the value of the "result_payload" field in the mutation.
+func (m *GenerationJobMutation) ResultPayload() (r map[string]interface{}, exists bool) {
+	v := m.result_payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultPayload returns the old "result_payload" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldResultPayload(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultPayload: %w", err)
+	}
+	return oldValue.ResultPayload, nil
+}
+
+// ResetResultPayload resets all changes to the "result_payload" field.
+func (m *GenerationJobMutation) ResetResultPayload() {
+	m.result_payload = nil
+}
+
+// SetErrorCode sets the "error_code" field.
+func (m *GenerationJobMutation) SetErrorCode(s string) {
+	m.error_code = &s
+}
+
+// ErrorCode returns the value of the "error_code" field in the mutation.
+func (m *GenerationJobMutation) ErrorCode() (r string, exists bool) {
+	v := m.error_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorCode returns the old "error_code" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldErrorCode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorCode: %w", err)
+	}
+	return oldValue.ErrorCode, nil
+}
+
+// ClearErrorCode clears the value of the "error_code" field.
+func (m *GenerationJobMutation) ClearErrorCode() {
+	m.error_code = nil
+	m.clearedFields[generationjob.FieldErrorCode] = struct{}{}
+}
+
+// ErrorCodeCleared returns if the "error_code" field was cleared in this mutation.
+func (m *GenerationJobMutation) ErrorCodeCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldErrorCode]
+	return ok
+}
+
+// ResetErrorCode resets all changes to the "error_code" field.
+func (m *GenerationJobMutation) ResetErrorCode() {
+	m.error_code = nil
+	delete(m.clearedFields, generationjob.FieldErrorCode)
+}
+
+// SetErrorMessage sets the "error_message" field.
+func (m *GenerationJobMutation) SetErrorMessage(s string) {
+	m.error_message = &s
+}
+
+// ErrorMessage returns the value of the "error_message" field in the mutation.
+func (m *GenerationJobMutation) ErrorMessage() (r string, exists bool) {
+	v := m.error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMessage returns the old "error_message" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldErrorMessage(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
+	}
+	return oldValue.ErrorMessage, nil
+}
+
+// ClearErrorMessage clears the value of the "error_message" field.
+func (m *GenerationJobMutation) ClearErrorMessage() {
+	m.error_message = nil
+	m.clearedFields[generationjob.FieldErrorMessage] = struct{}{}
+}
+
+// ErrorMessageCleared returns if the "error_message" field was cleared in this mutation.
+func (m *GenerationJobMutation) ErrorMessageCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldErrorMessage]
+	return ok
+}
+
+// ResetErrorMessage resets all changes to the "error_message" field.
+func (m *GenerationJobMutation) ResetErrorMessage() {
+	m.error_message = nil
+	delete(m.clearedFields, generationjob.FieldErrorMessage)
+}
+
+// SetOutputCount sets the "output_count" field.
+func (m *GenerationJobMutation) SetOutputCount(i int) {
+	m.output_count = &i
+	m.addoutput_count = nil
+}
+
+// OutputCount returns the value of the "output_count" field in the mutation.
+func (m *GenerationJobMutation) OutputCount() (r int, exists bool) {
+	v := m.output_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputCount returns the old "output_count" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldOutputCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputCount: %w", err)
+	}
+	return oldValue.OutputCount, nil
+}
+
+// AddOutputCount adds i to the "output_count" field.
+func (m *GenerationJobMutation) AddOutputCount(i int) {
+	if m.addoutput_count != nil {
+		*m.addoutput_count += i
+	} else {
+		m.addoutput_count = &i
+	}
+}
+
+// AddedOutputCount returns the value that was added to the "output_count" field in this mutation.
+func (m *GenerationJobMutation) AddedOutputCount() (r int, exists bool) {
+	v := m.addoutput_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputCount resets all changes to the "output_count" field.
+func (m *GenerationJobMutation) ResetOutputCount() {
+	m.output_count = nil
+	m.addoutput_count = nil
+}
+
+// SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
+func (m *GenerationJobMutation) SetActualUpstreamCostAmount(d *decimal.Decimal) {
+	m.actual_upstream_cost_amount = &d
+}
+
+// ActualUpstreamCostAmount returns the value of the "actual_upstream_cost_amount" field in the mutation.
+func (m *GenerationJobMutation) ActualUpstreamCostAmount() (r *decimal.Decimal, exists bool) {
+	v := m.actual_upstream_cost_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualUpstreamCostAmount returns the old "actual_upstream_cost_amount" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldActualUpstreamCostAmount(ctx context.Context) (v *decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualUpstreamCostAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualUpstreamCostAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualUpstreamCostAmount: %w", err)
+	}
+	return oldValue.ActualUpstreamCostAmount, nil
+}
+
+// ClearActualUpstreamCostAmount clears the value of the "actual_upstream_cost_amount" field.
+func (m *GenerationJobMutation) ClearActualUpstreamCostAmount() {
+	m.actual_upstream_cost_amount = nil
+	m.clearedFields[generationjob.FieldActualUpstreamCostAmount] = struct{}{}
+}
+
+// ActualUpstreamCostAmountCleared returns if the "actual_upstream_cost_amount" field was cleared in this mutation.
+func (m *GenerationJobMutation) ActualUpstreamCostAmountCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldActualUpstreamCostAmount]
+	return ok
+}
+
+// ResetActualUpstreamCostAmount resets all changes to the "actual_upstream_cost_amount" field.
+func (m *GenerationJobMutation) ResetActualUpstreamCostAmount() {
+	m.actual_upstream_cost_amount = nil
+	delete(m.clearedFields, generationjob.FieldActualUpstreamCostAmount)
+}
+
+// SetActualUpstreamCostUnit sets the "actual_upstream_cost_unit" field.
+func (m *GenerationJobMutation) SetActualUpstreamCostUnit(s string) {
+	m.actual_upstream_cost_unit = &s
+}
+
+// ActualUpstreamCostUnit returns the value of the "actual_upstream_cost_unit" field in the mutation.
+func (m *GenerationJobMutation) ActualUpstreamCostUnit() (r string, exists bool) {
+	v := m.actual_upstream_cost_unit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualUpstreamCostUnit returns the old "actual_upstream_cost_unit" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldActualUpstreamCostUnit(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualUpstreamCostUnit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualUpstreamCostUnit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualUpstreamCostUnit: %w", err)
+	}
+	return oldValue.ActualUpstreamCostUnit, nil
+}
+
+// ClearActualUpstreamCostUnit clears the value of the "actual_upstream_cost_unit" field.
+func (m *GenerationJobMutation) ClearActualUpstreamCostUnit() {
+	m.actual_upstream_cost_unit = nil
+	m.clearedFields[generationjob.FieldActualUpstreamCostUnit] = struct{}{}
+}
+
+// ActualUpstreamCostUnitCleared returns if the "actual_upstream_cost_unit" field was cleared in this mutation.
+func (m *GenerationJobMutation) ActualUpstreamCostUnitCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldActualUpstreamCostUnit]
+	return ok
+}
+
+// ResetActualUpstreamCostUnit resets all changes to the "actual_upstream_cost_unit" field.
+func (m *GenerationJobMutation) ResetActualUpstreamCostUnit() {
+	m.actual_upstream_cost_unit = nil
+	delete(m.clearedFields, generationjob.FieldActualUpstreamCostUnit)
+}
+
+// SetCustomerCost sets the "customer_cost" field.
+func (m *GenerationJobMutation) SetCustomerCost(d *decimal.Decimal) {
+	m.customer_cost = &d
+}
+
+// CustomerCost returns the value of the "customer_cost" field in the mutation.
+func (m *GenerationJobMutation) CustomerCost() (r *decimal.Decimal, exists bool) {
+	v := m.customer_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCustomerCost returns the old "customer_cost" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldCustomerCost(ctx context.Context) (v *decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCustomerCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCustomerCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCustomerCost: %w", err)
+	}
+	return oldValue.CustomerCost, nil
+}
+
+// ClearCustomerCost clears the value of the "customer_cost" field.
+func (m *GenerationJobMutation) ClearCustomerCost() {
+	m.customer_cost = nil
+	m.clearedFields[generationjob.FieldCustomerCost] = struct{}{}
+}
+
+// CustomerCostCleared returns if the "customer_cost" field was cleared in this mutation.
+func (m *GenerationJobMutation) CustomerCostCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldCustomerCost]
+	return ok
+}
+
+// ResetCustomerCost resets all changes to the "customer_cost" field.
+func (m *GenerationJobMutation) ResetCustomerCost() {
+	m.customer_cost = nil
+	delete(m.clearedFields, generationjob.FieldCustomerCost)
+}
+
+// SetBillingStatus sets the "billing_status" field.
+func (m *GenerationJobMutation) SetBillingStatus(gs generationjob.BillingStatus) {
+	m.billing_status = &gs
+}
+
+// BillingStatus returns the value of the "billing_status" field in the mutation.
+func (m *GenerationJobMutation) BillingStatus() (r generationjob.BillingStatus, exists bool) {
+	v := m.billing_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingStatus returns the old "billing_status" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldBillingStatus(ctx context.Context) (v generationjob.BillingStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingStatus: %w", err)
+	}
+	return oldValue.BillingStatus, nil
+}
+
+// ResetBillingStatus resets all changes to the "billing_status" field.
+func (m *GenerationJobMutation) ResetBillingStatus() {
+	m.billing_status = nil
+}
+
+// SetBillingReference sets the "billing_reference" field.
+func (m *GenerationJobMutation) SetBillingReference(s string) {
+	m.billing_reference = &s
+}
+
+// BillingReference returns the value of the "billing_reference" field in the mutation.
+func (m *GenerationJobMutation) BillingReference() (r string, exists bool) {
+	v := m.billing_reference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingReference returns the old "billing_reference" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldBillingReference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingReference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingReference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingReference: %w", err)
+	}
+	return oldValue.BillingReference, nil
+}
+
+// ClearBillingReference clears the value of the "billing_reference" field.
+func (m *GenerationJobMutation) ClearBillingReference() {
+	m.billing_reference = nil
+	m.clearedFields[generationjob.FieldBillingReference] = struct{}{}
+}
+
+// BillingReferenceCleared returns if the "billing_reference" field was cleared in this mutation.
+func (m *GenerationJobMutation) BillingReferenceCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldBillingReference]
+	return ok
+}
+
+// ResetBillingReference resets all changes to the "billing_reference" field.
+func (m *GenerationJobMutation) ResetBillingReference() {
+	m.billing_reference = nil
+	delete(m.clearedFields, generationjob.FieldBillingReference)
+}
+
+// SetPollAttempts sets the "poll_attempts" field.
+func (m *GenerationJobMutation) SetPollAttempts(i int) {
+	m.poll_attempts = &i
+	m.addpoll_attempts = nil
+}
+
+// PollAttempts returns the value of the "poll_attempts" field in the mutation.
+func (m *GenerationJobMutation) PollAttempts() (r int, exists bool) {
+	v := m.poll_attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPollAttempts returns the old "poll_attempts" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldPollAttempts(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPollAttempts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPollAttempts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPollAttempts: %w", err)
+	}
+	return oldValue.PollAttempts, nil
+}
+
+// AddPollAttempts adds i to the "poll_attempts" field.
+func (m *GenerationJobMutation) AddPollAttempts(i int) {
+	if m.addpoll_attempts != nil {
+		*m.addpoll_attempts += i
+	} else {
+		m.addpoll_attempts = &i
+	}
+}
+
+// AddedPollAttempts returns the value that was added to the "poll_attempts" field in this mutation.
+func (m *GenerationJobMutation) AddedPollAttempts() (r int, exists bool) {
+	v := m.addpoll_attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPollAttempts resets all changes to the "poll_attempts" field.
+func (m *GenerationJobMutation) ResetPollAttempts() {
+	m.poll_attempts = nil
+	m.addpoll_attempts = nil
+}
+
+// SetNextPollAt sets the "next_poll_at" field.
+func (m *GenerationJobMutation) SetNextPollAt(t time.Time) {
+	m.next_poll_at = &t
+}
+
+// NextPollAt returns the value of the "next_poll_at" field in the mutation.
+func (m *GenerationJobMutation) NextPollAt() (r time.Time, exists bool) {
+	v := m.next_poll_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNextPollAt returns the old "next_poll_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldNextPollAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNextPollAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNextPollAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNextPollAt: %w", err)
+	}
+	return oldValue.NextPollAt, nil
+}
+
+// ClearNextPollAt clears the value of the "next_poll_at" field.
+func (m *GenerationJobMutation) ClearNextPollAt() {
+	m.next_poll_at = nil
+	m.clearedFields[generationjob.FieldNextPollAt] = struct{}{}
+}
+
+// NextPollAtCleared returns if the "next_poll_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) NextPollAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldNextPollAt]
+	return ok
+}
+
+// ResetNextPollAt resets all changes to the "next_poll_at" field.
+func (m *GenerationJobMutation) ResetNextPollAt() {
+	m.next_poll_at = nil
+	delete(m.clearedFields, generationjob.FieldNextPollAt)
+}
+
+// SetLastPolledAt sets the "last_polled_at" field.
+func (m *GenerationJobMutation) SetLastPolledAt(t time.Time) {
+	m.last_polled_at = &t
+}
+
+// LastPolledAt returns the value of the "last_polled_at" field in the mutation.
+func (m *GenerationJobMutation) LastPolledAt() (r time.Time, exists bool) {
+	v := m.last_polled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastPolledAt returns the old "last_polled_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldLastPolledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastPolledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastPolledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastPolledAt: %w", err)
+	}
+	return oldValue.LastPolledAt, nil
+}
+
+// ClearLastPolledAt clears the value of the "last_polled_at" field.
+func (m *GenerationJobMutation) ClearLastPolledAt() {
+	m.last_polled_at = nil
+	m.clearedFields[generationjob.FieldLastPolledAt] = struct{}{}
+}
+
+// LastPolledAtCleared returns if the "last_polled_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) LastPolledAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldLastPolledAt]
+	return ok
+}
+
+// ResetLastPolledAt resets all changes to the "last_polled_at" field.
+func (m *GenerationJobMutation) ResetLastPolledAt() {
+	m.last_polled_at = nil
+	delete(m.clearedFields, generationjob.FieldLastPolledAt)
+}
+
+// SetSubmittedAt sets the "submitted_at" field.
+func (m *GenerationJobMutation) SetSubmittedAt(t time.Time) {
+	m.submitted_at = &t
+}
+
+// SubmittedAt returns the value of the "submitted_at" field in the mutation.
+func (m *GenerationJobMutation) SubmittedAt() (r time.Time, exists bool) {
+	v := m.submitted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmittedAt returns the old "submitted_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldSubmittedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmittedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmittedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmittedAt: %w", err)
+	}
+	return oldValue.SubmittedAt, nil
+}
+
+// ClearSubmittedAt clears the value of the "submitted_at" field.
+func (m *GenerationJobMutation) ClearSubmittedAt() {
+	m.submitted_at = nil
+	m.clearedFields[generationjob.FieldSubmittedAt] = struct{}{}
+}
+
+// SubmittedAtCleared returns if the "submitted_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) SubmittedAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldSubmittedAt]
+	return ok
+}
+
+// ResetSubmittedAt resets all changes to the "submitted_at" field.
+func (m *GenerationJobMutation) ResetSubmittedAt() {
+	m.submitted_at = nil
+	delete(m.clearedFields, generationjob.FieldSubmittedAt)
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *GenerationJobMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *GenerationJobMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ClearStartedAt clears the value of the "started_at" field.
+func (m *GenerationJobMutation) ClearStartedAt() {
+	m.started_at = nil
+	m.clearedFields[generationjob.FieldStartedAt] = struct{}{}
+}
+
+// StartedAtCleared returns if the "started_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) StartedAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldStartedAt]
+	return ok
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *GenerationJobMutation) ResetStartedAt() {
+	m.started_at = nil
+	delete(m.clearedFields, generationjob.FieldStartedAt)
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *GenerationJobMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *GenerationJobMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *GenerationJobMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[generationjob.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *GenerationJobMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, generationjob.FieldCompletedAt)
+}
+
+// SetFailedAt sets the "failed_at" field.
+func (m *GenerationJobMutation) SetFailedAt(t time.Time) {
+	m.failed_at = &t
+}
+
+// FailedAt returns the value of the "failed_at" field in the mutation.
+func (m *GenerationJobMutation) FailedAt() (r time.Time, exists bool) {
+	v := m.failed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFailedAt returns the old "failed_at" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldFailedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFailedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFailedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFailedAt: %w", err)
+	}
+	return oldValue.FailedAt, nil
+}
+
+// ClearFailedAt clears the value of the "failed_at" field.
+func (m *GenerationJobMutation) ClearFailedAt() {
+	m.failed_at = nil
+	m.clearedFields[generationjob.FieldFailedAt] = struct{}{}
+}
+
+// FailedAtCleared returns if the "failed_at" field was cleared in this mutation.
+func (m *GenerationJobMutation) FailedAtCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldFailedAt]
+	return ok
+}
+
+// ResetFailedAt resets all changes to the "failed_at" field.
+func (m *GenerationJobMutation) ResetFailedAt() {
+	m.failed_at = nil
+	delete(m.clearedFields, generationjob.FieldFailedAt)
+}
+
+// Where appends a list predicates to the GenerationJobMutation builder.
+func (m *GenerationJobMutation) Where(ps ...predicate.GenerationJob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GenerationJobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GenerationJobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.GenerationJob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GenerationJobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GenerationJobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (GenerationJob).
+func (m *GenerationJobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GenerationJobMutation) Fields() []string {
+	fields := make([]string, 0, 32)
+	if m.created_at != nil {
+		fields = append(fields, generationjob.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, generationjob.FieldUpdatedAt)
+	}
+	if m.public_id != nil {
+		fields = append(fields, generationjob.FieldPublicID)
+	}
+	if m.provider != nil {
+		fields = append(fields, generationjob.FieldProvider)
+	}
+	if m.modality != nil {
+		fields = append(fields, generationjob.FieldModality)
+	}
+	if m.model != nil {
+		fields = append(fields, generationjob.FieldModel)
+	}
+	if m.upstream_model != nil {
+		fields = append(fields, generationjob.FieldUpstreamModel)
+	}
+	if m.user_id != nil {
+		fields = append(fields, generationjob.FieldUserID)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, generationjob.FieldAPIKeyID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, generationjob.FieldGroupID)
+	}
+	if m.account_id != nil {
+		fields = append(fields, generationjob.FieldAccountID)
+	}
+	if m.upstream_generation_id != nil {
+		fields = append(fields, generationjob.FieldUpstreamGenerationID)
+	}
+	if m.status != nil {
+		fields = append(fields, generationjob.FieldStatus)
+	}
+	if m.upstream_status != nil {
+		fields = append(fields, generationjob.FieldUpstreamStatus)
+	}
+	if m.request_hash != nil {
+		fields = append(fields, generationjob.FieldRequestHash)
+	}
+	if m.request_payload != nil {
+		fields = append(fields, generationjob.FieldRequestPayload)
+	}
+	if m.result_payload != nil {
+		fields = append(fields, generationjob.FieldResultPayload)
+	}
+	if m.error_code != nil {
+		fields = append(fields, generationjob.FieldErrorCode)
+	}
+	if m.error_message != nil {
+		fields = append(fields, generationjob.FieldErrorMessage)
+	}
+	if m.output_count != nil {
+		fields = append(fields, generationjob.FieldOutputCount)
+	}
+	if m.actual_upstream_cost_amount != nil {
+		fields = append(fields, generationjob.FieldActualUpstreamCostAmount)
+	}
+	if m.actual_upstream_cost_unit != nil {
+		fields = append(fields, generationjob.FieldActualUpstreamCostUnit)
+	}
+	if m.customer_cost != nil {
+		fields = append(fields, generationjob.FieldCustomerCost)
+	}
+	if m.billing_status != nil {
+		fields = append(fields, generationjob.FieldBillingStatus)
+	}
+	if m.billing_reference != nil {
+		fields = append(fields, generationjob.FieldBillingReference)
+	}
+	if m.poll_attempts != nil {
+		fields = append(fields, generationjob.FieldPollAttempts)
+	}
+	if m.next_poll_at != nil {
+		fields = append(fields, generationjob.FieldNextPollAt)
+	}
+	if m.last_polled_at != nil {
+		fields = append(fields, generationjob.FieldLastPolledAt)
+	}
+	if m.submitted_at != nil {
+		fields = append(fields, generationjob.FieldSubmittedAt)
+	}
+	if m.started_at != nil {
+		fields = append(fields, generationjob.FieldStartedAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, generationjob.FieldCompletedAt)
+	}
+	if m.failed_at != nil {
+		fields = append(fields, generationjob.FieldFailedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GenerationJobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case generationjob.FieldCreatedAt:
+		return m.CreatedAt()
+	case generationjob.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case generationjob.FieldPublicID:
+		return m.PublicID()
+	case generationjob.FieldProvider:
+		return m.Provider()
+	case generationjob.FieldModality:
+		return m.Modality()
+	case generationjob.FieldModel:
+		return m.Model()
+	case generationjob.FieldUpstreamModel:
+		return m.UpstreamModel()
+	case generationjob.FieldUserID:
+		return m.UserID()
+	case generationjob.FieldAPIKeyID:
+		return m.APIKeyID()
+	case generationjob.FieldGroupID:
+		return m.GroupID()
+	case generationjob.FieldAccountID:
+		return m.AccountID()
+	case generationjob.FieldUpstreamGenerationID:
+		return m.UpstreamGenerationID()
+	case generationjob.FieldStatus:
+		return m.Status()
+	case generationjob.FieldUpstreamStatus:
+		return m.UpstreamStatus()
+	case generationjob.FieldRequestHash:
+		return m.RequestHash()
+	case generationjob.FieldRequestPayload:
+		return m.RequestPayload()
+	case generationjob.FieldResultPayload:
+		return m.ResultPayload()
+	case generationjob.FieldErrorCode:
+		return m.ErrorCode()
+	case generationjob.FieldErrorMessage:
+		return m.ErrorMessage()
+	case generationjob.FieldOutputCount:
+		return m.OutputCount()
+	case generationjob.FieldActualUpstreamCostAmount:
+		return m.ActualUpstreamCostAmount()
+	case generationjob.FieldActualUpstreamCostUnit:
+		return m.ActualUpstreamCostUnit()
+	case generationjob.FieldCustomerCost:
+		return m.CustomerCost()
+	case generationjob.FieldBillingStatus:
+		return m.BillingStatus()
+	case generationjob.FieldBillingReference:
+		return m.BillingReference()
+	case generationjob.FieldPollAttempts:
+		return m.PollAttempts()
+	case generationjob.FieldNextPollAt:
+		return m.NextPollAt()
+	case generationjob.FieldLastPolledAt:
+		return m.LastPolledAt()
+	case generationjob.FieldSubmittedAt:
+		return m.SubmittedAt()
+	case generationjob.FieldStartedAt:
+		return m.StartedAt()
+	case generationjob.FieldCompletedAt:
+		return m.CompletedAt()
+	case generationjob.FieldFailedAt:
+		return m.FailedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GenerationJobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case generationjob.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case generationjob.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case generationjob.FieldPublicID:
+		return m.OldPublicID(ctx)
+	case generationjob.FieldProvider:
+		return m.OldProvider(ctx)
+	case generationjob.FieldModality:
+		return m.OldModality(ctx)
+	case generationjob.FieldModel:
+		return m.OldModel(ctx)
+	case generationjob.FieldUpstreamModel:
+		return m.OldUpstreamModel(ctx)
+	case generationjob.FieldUserID:
+		return m.OldUserID(ctx)
+	case generationjob.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case generationjob.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case generationjob.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case generationjob.FieldUpstreamGenerationID:
+		return m.OldUpstreamGenerationID(ctx)
+	case generationjob.FieldStatus:
+		return m.OldStatus(ctx)
+	case generationjob.FieldUpstreamStatus:
+		return m.OldUpstreamStatus(ctx)
+	case generationjob.FieldRequestHash:
+		return m.OldRequestHash(ctx)
+	case generationjob.FieldRequestPayload:
+		return m.OldRequestPayload(ctx)
+	case generationjob.FieldResultPayload:
+		return m.OldResultPayload(ctx)
+	case generationjob.FieldErrorCode:
+		return m.OldErrorCode(ctx)
+	case generationjob.FieldErrorMessage:
+		return m.OldErrorMessage(ctx)
+	case generationjob.FieldOutputCount:
+		return m.OldOutputCount(ctx)
+	case generationjob.FieldActualUpstreamCostAmount:
+		return m.OldActualUpstreamCostAmount(ctx)
+	case generationjob.FieldActualUpstreamCostUnit:
+		return m.OldActualUpstreamCostUnit(ctx)
+	case generationjob.FieldCustomerCost:
+		return m.OldCustomerCost(ctx)
+	case generationjob.FieldBillingStatus:
+		return m.OldBillingStatus(ctx)
+	case generationjob.FieldBillingReference:
+		return m.OldBillingReference(ctx)
+	case generationjob.FieldPollAttempts:
+		return m.OldPollAttempts(ctx)
+	case generationjob.FieldNextPollAt:
+		return m.OldNextPollAt(ctx)
+	case generationjob.FieldLastPolledAt:
+		return m.OldLastPolledAt(ctx)
+	case generationjob.FieldSubmittedAt:
+		return m.OldSubmittedAt(ctx)
+	case generationjob.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case generationjob.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	case generationjob.FieldFailedAt:
+		return m.OldFailedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown GenerationJob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GenerationJobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case generationjob.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case generationjob.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case generationjob.FieldPublicID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicID(v)
+		return nil
+	case generationjob.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case generationjob.FieldModality:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModality(v)
+		return nil
+	case generationjob.FieldModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModel(v)
+		return nil
+	case generationjob.FieldUpstreamModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamModel(v)
+		return nil
+	case generationjob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case generationjob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case generationjob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case generationjob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case generationjob.FieldUpstreamGenerationID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamGenerationID(v)
+		return nil
+	case generationjob.FieldStatus:
+		v, ok := value.(generationjob.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case generationjob.FieldUpstreamStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamStatus(v)
+		return nil
+	case generationjob.FieldRequestHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestHash(v)
+		return nil
+	case generationjob.FieldRequestPayload:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestPayload(v)
+		return nil
+	case generationjob.FieldResultPayload:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultPayload(v)
+		return nil
+	case generationjob.FieldErrorCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorCode(v)
+		return nil
+	case generationjob.FieldErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMessage(v)
+		return nil
+	case generationjob.FieldOutputCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputCount(v)
+		return nil
+	case generationjob.FieldActualUpstreamCostAmount:
+		v, ok := value.(*decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualUpstreamCostAmount(v)
+		return nil
+	case generationjob.FieldActualUpstreamCostUnit:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualUpstreamCostUnit(v)
+		return nil
+	case generationjob.FieldCustomerCost:
+		v, ok := value.(*decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCustomerCost(v)
+		return nil
+	case generationjob.FieldBillingStatus:
+		v, ok := value.(generationjob.BillingStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingStatus(v)
+		return nil
+	case generationjob.FieldBillingReference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingReference(v)
+		return nil
+	case generationjob.FieldPollAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPollAttempts(v)
+		return nil
+	case generationjob.FieldNextPollAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNextPollAt(v)
+		return nil
+	case generationjob.FieldLastPolledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastPolledAt(v)
+		return nil
+	case generationjob.FieldSubmittedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmittedAt(v)
+		return nil
+	case generationjob.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case generationjob.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	case generationjob.FieldFailedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFailedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GenerationJob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GenerationJobMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, generationjob.FieldUserID)
+	}
+	if m.addapi_key_id != nil {
+		fields = append(fields, generationjob.FieldAPIKeyID)
+	}
+	if m.addgroup_id != nil {
+		fields = append(fields, generationjob.FieldGroupID)
+	}
+	if m.addaccount_id != nil {
+		fields = append(fields, generationjob.FieldAccountID)
+	}
+	if m.addoutput_count != nil {
+		fields = append(fields, generationjob.FieldOutputCount)
+	}
+	if m.addpoll_attempts != nil {
+		fields = append(fields, generationjob.FieldPollAttempts)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GenerationJobMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case generationjob.FieldUserID:
+		return m.AddedUserID()
+	case generationjob.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
+	case generationjob.FieldGroupID:
+		return m.AddedGroupID()
+	case generationjob.FieldAccountID:
+		return m.AddedAccountID()
+	case generationjob.FieldOutputCount:
+		return m.AddedOutputCount()
+	case generationjob.FieldPollAttempts:
+		return m.AddedPollAttempts()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GenerationJobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case generationjob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case generationjob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
+	case generationjob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case generationjob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAccountID(v)
+		return nil
+	case generationjob.FieldOutputCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputCount(v)
+		return nil
+	case generationjob.FieldPollAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPollAttempts(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GenerationJob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GenerationJobMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(generationjob.FieldGroupID) {
+		fields = append(fields, generationjob.FieldGroupID)
+	}
+	if m.FieldCleared(generationjob.FieldUpstreamGenerationID) {
+		fields = append(fields, generationjob.FieldUpstreamGenerationID)
+	}
+	if m.FieldCleared(generationjob.FieldUpstreamStatus) {
+		fields = append(fields, generationjob.FieldUpstreamStatus)
+	}
+	if m.FieldCleared(generationjob.FieldErrorCode) {
+		fields = append(fields, generationjob.FieldErrorCode)
+	}
+	if m.FieldCleared(generationjob.FieldErrorMessage) {
+		fields = append(fields, generationjob.FieldErrorMessage)
+	}
+	if m.FieldCleared(generationjob.FieldActualUpstreamCostAmount) {
+		fields = append(fields, generationjob.FieldActualUpstreamCostAmount)
+	}
+	if m.FieldCleared(generationjob.FieldActualUpstreamCostUnit) {
+		fields = append(fields, generationjob.FieldActualUpstreamCostUnit)
+	}
+	if m.FieldCleared(generationjob.FieldCustomerCost) {
+		fields = append(fields, generationjob.FieldCustomerCost)
+	}
+	if m.FieldCleared(generationjob.FieldBillingReference) {
+		fields = append(fields, generationjob.FieldBillingReference)
+	}
+	if m.FieldCleared(generationjob.FieldNextPollAt) {
+		fields = append(fields, generationjob.FieldNextPollAt)
+	}
+	if m.FieldCleared(generationjob.FieldLastPolledAt) {
+		fields = append(fields, generationjob.FieldLastPolledAt)
+	}
+	if m.FieldCleared(generationjob.FieldSubmittedAt) {
+		fields = append(fields, generationjob.FieldSubmittedAt)
+	}
+	if m.FieldCleared(generationjob.FieldStartedAt) {
+		fields = append(fields, generationjob.FieldStartedAt)
+	}
+	if m.FieldCleared(generationjob.FieldCompletedAt) {
+		fields = append(fields, generationjob.FieldCompletedAt)
+	}
+	if m.FieldCleared(generationjob.FieldFailedAt) {
+		fields = append(fields, generationjob.FieldFailedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GenerationJobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GenerationJobMutation) ClearField(name string) error {
+	switch name {
+	case generationjob.FieldGroupID:
+		m.ClearGroupID()
+		return nil
+	case generationjob.FieldUpstreamGenerationID:
+		m.ClearUpstreamGenerationID()
+		return nil
+	case generationjob.FieldUpstreamStatus:
+		m.ClearUpstreamStatus()
+		return nil
+	case generationjob.FieldErrorCode:
+		m.ClearErrorCode()
+		return nil
+	case generationjob.FieldErrorMessage:
+		m.ClearErrorMessage()
+		return nil
+	case generationjob.FieldActualUpstreamCostAmount:
+		m.ClearActualUpstreamCostAmount()
+		return nil
+	case generationjob.FieldActualUpstreamCostUnit:
+		m.ClearActualUpstreamCostUnit()
+		return nil
+	case generationjob.FieldCustomerCost:
+		m.ClearCustomerCost()
+		return nil
+	case generationjob.FieldBillingReference:
+		m.ClearBillingReference()
+		return nil
+	case generationjob.FieldNextPollAt:
+		m.ClearNextPollAt()
+		return nil
+	case generationjob.FieldLastPolledAt:
+		m.ClearLastPolledAt()
+		return nil
+	case generationjob.FieldSubmittedAt:
+		m.ClearSubmittedAt()
+		return nil
+	case generationjob.FieldStartedAt:
+		m.ClearStartedAt()
+		return nil
+	case generationjob.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	case generationjob.FieldFailedAt:
+		m.ClearFailedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GenerationJob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GenerationJobMutation) ResetField(name string) error {
+	switch name {
+	case generationjob.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case generationjob.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case generationjob.FieldPublicID:
+		m.ResetPublicID()
+		return nil
+	case generationjob.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case generationjob.FieldModality:
+		m.ResetModality()
+		return nil
+	case generationjob.FieldModel:
+		m.ResetModel()
+		return nil
+	case generationjob.FieldUpstreamModel:
+		m.ResetUpstreamModel()
+		return nil
+	case generationjob.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case generationjob.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case generationjob.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case generationjob.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case generationjob.FieldUpstreamGenerationID:
+		m.ResetUpstreamGenerationID()
+		return nil
+	case generationjob.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case generationjob.FieldUpstreamStatus:
+		m.ResetUpstreamStatus()
+		return nil
+	case generationjob.FieldRequestHash:
+		m.ResetRequestHash()
+		return nil
+	case generationjob.FieldRequestPayload:
+		m.ResetRequestPayload()
+		return nil
+	case generationjob.FieldResultPayload:
+		m.ResetResultPayload()
+		return nil
+	case generationjob.FieldErrorCode:
+		m.ResetErrorCode()
+		return nil
+	case generationjob.FieldErrorMessage:
+		m.ResetErrorMessage()
+		return nil
+	case generationjob.FieldOutputCount:
+		m.ResetOutputCount()
+		return nil
+	case generationjob.FieldActualUpstreamCostAmount:
+		m.ResetActualUpstreamCostAmount()
+		return nil
+	case generationjob.FieldActualUpstreamCostUnit:
+		m.ResetActualUpstreamCostUnit()
+		return nil
+	case generationjob.FieldCustomerCost:
+		m.ResetCustomerCost()
+		return nil
+	case generationjob.FieldBillingStatus:
+		m.ResetBillingStatus()
+		return nil
+	case generationjob.FieldBillingReference:
+		m.ResetBillingReference()
+		return nil
+	case generationjob.FieldPollAttempts:
+		m.ResetPollAttempts()
+		return nil
+	case generationjob.FieldNextPollAt:
+		m.ResetNextPollAt()
+		return nil
+	case generationjob.FieldLastPolledAt:
+		m.ResetLastPolledAt()
+		return nil
+	case generationjob.FieldSubmittedAt:
+		m.ResetSubmittedAt()
+		return nil
+	case generationjob.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case generationjob.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	case generationjob.FieldFailedAt:
+		m.ResetFailedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GenerationJob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GenerationJobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GenerationJobMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GenerationJobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GenerationJobMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GenerationJobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GenerationJobMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GenerationJobMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown GenerationJob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GenerationJobMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown GenerationJob edge %s", name)
 }
 
 // GroupMutation represents an operation that mutates the Group nodes in the graph.

@@ -42,6 +42,9 @@ type ChannelMonitorRequestTemplate func(*sql.Selector)
 // ErrorPassthroughRule is the predicate function for errorpassthroughrule builders.
 type ErrorPassthroughRule func(*sql.Selector)
 
+// GenerationJob is the predicate function for generationjob builders.
+type GenerationJob func(*sql.Selector)
+
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
 
