@@ -3,15 +3,19 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/generationjob"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
 type generationJobRepository struct {
 	client *dbent.Client
 }
+
+var _ service.GenerationJobDuePollRepository = (*generationJobRepository)(nil)
 
 func NewGenerationJobRepository(client *dbent.Client, _ *sql.DB) service.GenerationJobRepository {
 	return &generationJobRepository{client: client}
@@ -66,6 +70,42 @@ func (r *generationJobRepository) GetByPublicID(ctx context.Context, publicID st
 func (r *generationJobRepository) GetByUpstreamGenerationID(ctx context.Context, upstreamGenerationID string) (*service.GenerationJob, error) {
 	entity, err := r.client.GenerationJob.Query().Where(generationjob.UpstreamGenerationIDEQ(upstreamGenerationID)).Only(ctx)
 	return generationJobResult(entity, err)
+}
+
+func (r *generationJobRepository) ListDueLeonardoPollJobs(ctx context.Context, dueAt time.Time, limit int) ([]*service.GenerationJob, error) {
+	if dueAt.IsZero() {
+		return nil, service.ErrGenerationJobDuePollTimeRequired
+	}
+	if limit <= 0 {
+		return nil, service.ErrGenerationJobDuePollLimitInvalid
+	}
+	if limit > service.MaxGenerationJobDuePollBatchSize {
+		limit = service.MaxGenerationJobDuePollBatchSize
+	}
+	dueAt = dueAt.UTC()
+	base := []predicate.GenerationJob{
+		generationjob.ProviderEQ(service.PlatformLeonardo),
+		generationjob.StatusIn(generationjob.StatusQueued, generationjob.StatusRunning),
+		generationjob.UpstreamGenerationIDNotNil(),
+		generationjob.UpstreamGenerationIDNEQ(""),
+	}
+	nilDue, err := r.client.GenerationJob.Query().Where(append(base, generationjob.NextPollAtIsNil())...).Order(dbent.Asc(generationjob.FieldID)).Limit(limit).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	entities := nilDue
+	if len(entities) < limit {
+		dated, err := r.client.GenerationJob.Query().Where(append(base, generationjob.NextPollAtNotNil(), generationjob.NextPollAtLTE(dueAt))...).Order(dbent.Asc(generationjob.FieldNextPollAt), dbent.Asc(generationjob.FieldID)).Limit(limit - len(entities)).All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		entities = append(entities, dated...)
+	}
+	jobs := make([]*service.GenerationJob, len(entities))
+	for i, entity := range entities {
+		jobs[i] = generationJobEntityToService(entity)
+	}
+	return jobs, nil
 }
 
 func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publicID string, expectedStatus service.GenerationJobStatus, job *service.GenerationJob) error {

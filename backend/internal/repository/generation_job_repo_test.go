@@ -396,6 +396,106 @@ func TestGenerationJobRepositoryPollConcurrentCAS(t *testing.T) {
 	require.Equal(t, 1, stored.PollAttempts)
 }
 
+func TestGenerationJobRepositoryListDueLeonardoPollJobsFiltersAndOrders(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	dueAt := time.Date(2026, time.August, 3, 4, 0, 0, 0, time.UTC)
+	create := func(publicID, provider string, status service.GenerationJobStatus, upstreamID *string, next *time.Time) *service.GenerationJob {
+		job := minimalGenerationJob(publicID)
+		job.Provider = provider
+		job.Status = status
+		job.UpstreamGenerationID = upstreamID
+		job.NextPollAt = next
+		require.NoError(t, repo.Create(ctx, job))
+		return job
+	}
+	first := create("nil-1", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-1"), nil)
+	second := create("nil-2", "leonardo", service.GenerationJobStatusRunning, stringPointerRepo("generation-2"), nil)
+	third := create("dated-early", "leonardo", service.GenerationJobStatusRunning, stringPointerRepo("generation-3"), timePointer(dueAt.Add(-time.Minute)))
+	fourth := create("dated-tie-1", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-4"), timePointer(dueAt))
+	fifth := create("dated-tie-2", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-5"), timePointer(dueAt))
+	create("future", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-6"), timePointer(dueAt.Add(time.Nanosecond)))
+	create("other-provider", "openai", service.GenerationJobStatusQueued, stringPointerRepo("generation-7"), nil)
+	for _, status := range []service.GenerationJobStatus{service.GenerationJobStatusCreated, service.GenerationJobStatusSubmitting, service.GenerationJobStatusSucceeded, service.GenerationJobStatusFailed, service.GenerationJobStatusCancelled, service.GenerationJobStatusUnknown} {
+		create("excluded-"+string(status), "leonardo", status, stringPointerRepo("generation-"+string(status)), nil)
+	}
+	create("nil-upstream", "leonardo", service.GenerationJobStatusQueued, nil, nil)
+	create("empty-upstream", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo(""), nil)
+
+	jobs, err := repo.ListDueLeonardoPollJobs(ctx, dueAt, 100)
+	require.NoError(t, err)
+	require.Equal(t, []string{first.PublicID, second.PublicID, third.PublicID, fourth.PublicID, fifth.PublicID}, generationJobPublicIDs(jobs))
+	again, err := repo.ListDueLeonardoPollJobs(ctx, dueAt.In(time.FixedZone("CST", 8*60*60)), 100)
+	require.NoError(t, err)
+	require.Equal(t, generationJobPublicIDs(jobs), generationJobPublicIDs(again))
+	require.Equal(t, first.AccountID, jobs[0].AccountID)
+	require.Equal(t, first.UpstreamGenerationID, jobs[0].UpstreamGenerationID)
+	require.Equal(t, first.BillingStatus, jobs[0].BillingStatus)
+}
+
+func TestGenerationJobRepositoryListDueLeonardoPollJobsLimitAndValidation(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	dueAt := time.Now().UTC()
+	for i := 0; i < 101; i++ {
+		job := minimalGenerationJob(fmt.Sprintf("due-limit-%03d", i))
+		job.UpstreamGenerationID = stringPointerRepo(fmt.Sprintf("generation-%03d", i))
+		require.NoError(t, repo.Create(ctx, job))
+	}
+	jobs, err := repo.ListDueLeonardoPollJobs(ctx, dueAt, 1)
+	require.NoError(t, err)
+	require.Len(t, jobs, 1)
+	jobs, err = repo.ListDueLeonardoPollJobs(ctx, dueAt, 101)
+	require.NoError(t, err)
+	require.Len(t, jobs, service.MaxGenerationJobDuePollBatchSize)
+	_, err = repo.ListDueLeonardoPollJobs(ctx, time.Time{}, 1)
+	require.ErrorIs(t, err, service.ErrGenerationJobDuePollTimeRequired)
+	_, err = repo.ListDueLeonardoPollJobs(ctx, dueAt, 0)
+	require.ErrorIs(t, err, service.ErrGenerationJobDuePollLimitInvalid)
+	_, err = repo.ListDueLeonardoPollJobs(ctx, dueAt, -1)
+	require.ErrorIs(t, err, service.ErrGenerationJobDuePollLimitInvalid)
+}
+
+func TestGenerationJobRepositoryListDueLeonardoPollJobsIsReadOnly(t *testing.T) {
+	repo, _ := newGenerationJobRepoSQLite(t)
+	ctx := context.Background()
+	job := minimalGenerationJob("due-read-only")
+	job.UpstreamGenerationID = stringPointerRepo("generation-read-only")
+	job.PollAttempts = 3
+	job.NextPollAt = timePointer(time.Now().UTC().Add(-time.Minute))
+	job.BillingStatus = service.GenerationJobBillingStatusSubmitted
+	actual := decimal.RequireFromString("0.1234567890")
+	customer := decimal.RequireFromString("0.2345678901")
+	job.ActualUpstreamCostAmount = &actual
+	job.CustomerCost = &customer
+	require.NoError(t, repo.Create(ctx, job))
+	before, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	_, err = repo.ListDueLeonardoPollJobs(ctx, time.Now().UTC(), 10)
+	require.NoError(t, err)
+	after, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, before.Status, after.Status)
+	require.Equal(t, before.PollAttempts, after.PollAttempts)
+	require.Equal(t, before.NextPollAt, after.NextPollAt)
+	require.Equal(t, before.BillingStatus, after.BillingStatus)
+	require.Equal(t, before.ActualUpstreamCostAmount.String(), after.ActualUpstreamCostAmount.String())
+	require.Equal(t, before.CustomerCost.String(), after.CustomerCost.String())
+	require.Equal(t, before.UpdatedAt, after.UpdatedAt)
+}
+
+func generationJobPublicIDs(jobs []*service.GenerationJob) []string {
+	publicIDs := make([]string, len(jobs))
+	for i, job := range jobs {
+		publicIDs[i] = job.PublicID
+	}
+	return publicIDs
+}
+
+func stringPointerRepo(value string) *string {
+	return &value
+}
+
 func minimalGenerationJob(publicID string) *service.GenerationJob {
 	return &service.GenerationJob{
 		PublicID:       publicID,

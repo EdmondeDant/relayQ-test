@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -34,9 +35,13 @@ const (
 )
 
 var (
-	ErrGenerationJobNotFound = infraerrors.NotFound("GENERATION_JOB_NOT_FOUND", "generation job not found")
-	ErrGenerationJobConflict = infraerrors.Conflict("GENERATION_JOB_CONFLICT", "generation job status changed")
+	ErrGenerationJobNotFound            = infraerrors.NotFound("GENERATION_JOB_NOT_FOUND", "generation job not found")
+	ErrGenerationJobConflict            = infraerrors.Conflict("GENERATION_JOB_CONFLICT", "generation job status changed")
+	ErrGenerationJobDuePollTimeRequired = errors.New("generation job due poll time is required")
+	ErrGenerationJobDuePollLimitInvalid = errors.New("generation job due poll limit must be positive")
 )
+
+const MaxGenerationJobDuePollBatchSize = 100
 
 type GenerationJob struct {
 	ID                       int64
@@ -84,6 +89,10 @@ type GenerationJobRepository interface {
 type GenerationJobPollRepository interface {
 	GetByPublicID(ctx context.Context, publicID string) (*GenerationJob, error)
 	CompareAndSwapPoll(ctx context.Context, publicID string, expectedStatus GenerationJobStatus, expectedPollAttempts int, job *GenerationJob) error
+}
+
+type GenerationJobDuePollRepository interface {
+	ListDueLeonardoPollJobs(ctx context.Context, dueAt time.Time, limit int) ([]*GenerationJob, error)
 }
 
 func NormalizeGenerationJob(job *GenerationJob) {
