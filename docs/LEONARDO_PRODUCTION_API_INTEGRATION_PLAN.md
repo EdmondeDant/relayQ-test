@@ -187,23 +187,11 @@ PAYG 迁移期间还可能包含：
 GET https://cloud.leonardo.ai/api/rest/v2/models
 ```
 
-响应：
-
-```json
-{
-  "productionApiAvailableModels": [
-    {
-      "id": "GPT_IMAGE_2",
-      "name": "GPT Image 2",
-      "parameters": {}
-    }
-  ]
-}
-```
-
 `parameters` 是模型参数的 OpenAPI Schema，应作为动态模型能力的官方事实源。
 
-需要注意：模型目录中的 `id` 可能是大写内部 ID，而创建接口使用的 `model` 是 slug（例如 `gpt-image-2`）。必须通过真实响应确认是否同时包含 slug；如果没有，第一阶段使用经过验证的映射表，并在目录模型记录中分别保存：
+LEO-001 实测 `GET /v2/models` 返回 **69 个模型**；每个模型包含 `id`、`name`、`parameters`，其中 `id` 为 UUID，响应中**没有独立 slug 字段**。该结果不能证明 UUID 与创建请求 `model` 值的映射关系。
+
+模型目录 UUID 不能直接作为创建请求的 `model`；第一阶段仅使用经成功创建验证的映射，并在目录模型记录中分别保存：
 
 ```text
 provider_model_id
@@ -214,7 +202,7 @@ request_model_slug
 
 ## 2.4 任务查询
 
-Leonardo 官方 SDK 当前明确存在：
+Leonardo 官方指南确认 v2 创建、v1 查询：
 
 ```http
 GET /generations/{id}
@@ -232,14 +220,14 @@ GET /generations/{id}
 }
 ```
 
-当前文档存在 v2 创建与 v1 查询结构并存的情况。Phase 0 必须用真实 Production API Key 确认最终 URL：
+LEO-002 已执行一次 `POST /api/rest/v2/generations` 创建探针，但响应为 HTTP 500 且没有 `generationId`，因此未执行状态查询；`GET /api/rest/v1/generations/{id}` 来自官方指南，尚未实测。
 
 ```text
-/api/rest/v1/generations/{id}
-或官方当前实际支持的对应查询 URL
+POST /api/rest/v2/generations
+GET  /api/rest/v1/generations/{id}  # 官方指南路径，尚未实测
 ```
 
-在真实确认前，Client 应把查询路径封装为单独方法/常量，不把假设散落在业务代码中。
+Client 仍应把创建与查询路径分别封装为单独方法/常量，不把版本差异散落在业务代码中。
 
 ## 2.5 图片上传
 
@@ -691,17 +679,13 @@ seedream-4.5
 grok-imagine-1.5
 ```
 
-模型目录示例可能返回：
-
-```text
-GPT_IMAGE_2
-```
+LEO-001 实测模型目录返回 UUID，而不是可直接用于创建请求的 slug。目录 UUID、显示名和创建请求 `model` 值必须分别保存。
 
 必须显式保存映射。映射来源优先级：
 
 1. 官方响应中的直接 slug 字段；
 2. 官方 OpenAPI discriminator；
-3. 经真实请求验证的静态映射；
+3. 经成功创建探针验证的静态映射；
 4. 未确认则标记 unavailable，不自动转换。
 
 ---
@@ -825,8 +809,8 @@ result_payload             jsonb (sanitized)
 error_code                 varchar, nullable
 error_message              text, nullable
 output_count               int
-upstream_cost_amount       decimal, nullable
-upstream_cost_unit         varchar, nullable
+actual_upstream_cost_amount decimal, nullable
+actual_upstream_cost_unit   varchar, nullable
 customer_cost              decimal, nullable
 billing_status             varchar
 billing_reference          varchar, nullable
@@ -882,10 +866,13 @@ cancelled
 
 - POST 已发送，但读取响应前网络断开；
 - 上游返回 2xx 但响应体无法解析 generationId；
+- `POST /v2/generations` 请求可能已经发送、返回 HTTP 500 且没有 generationId，并且无法证明上游未受理；
 - 代理在可能送达请求后超时；
 - 无法确认上游是否受理。
 
 **unknown 任务禁止自动重新创建。**
+
+进入 `unknown` 时，`error_code=submission_unknown`、`billing_status=manual_review`；`actual_upstream_cost_amount`、`actual_upstream_cost_unit`、`customer_cost`、`gross_margin` 和 `cost_variance` 均保持 `null`。不得用预估成本、报价或 0 填充实际成本，也不得扣款、结算、退款或释放、消费资金预留，直至取得 Leonardo 明确成本、账单或任务证据并经人工处理。
 
 处理方式：
 
@@ -937,8 +924,9 @@ UploadInitImage(ctx, presigned, file) error
 - 保留安全的 request-id；
 - 解析 `Retry-After`；
 - 不记录 Authorization；
+- 采集上游错误时先限制响应体大小，再对 Key、Authorization、Cookie、签名、预签名字段、内部账号及代理信息脱敏；日志、任务审计和错误响应只能保存脱敏结果；
 - 错误中输出脱敏后的上游 reason；
-- 创建任务方法本身不做自动重试；
+- `POST /v2/generations` 请求体已开始发送或是否发送无法确认后，任何层均不得自动重试或切换账号，包括 Leonardo Client、HTTP Transport、通用 retry middleware、反向代理、任务队列、Worker、超时恢复和故障转移逻辑；HTTP 429、500、502、503、504、超时、连接中断及 2xx 响应解析失败均适用；
 - GET 模型/状态允许受控重试。
 
 ## 9.3 上游错误类型
@@ -947,14 +935,18 @@ UploadInitImage(ctx, presigned, file) error
 
 ```go
 type LeonardoError struct {
-    StatusCode int
-    Code       string
-    Message    string
-    RetryAfter time.Duration
-    Retryable  bool
-    AcceptedUnknown bool
+    StatusCode       int
+    Code             string
+    Message          string
+    Path             string
+    RequestID        string
+    RetryAfter       time.Duration
+    RetryableRead    bool
+    SubmissionStatus string
 }
 ```
+
+Leonardo 响应 `error` → `Message`、`code` → `Code`、`path` → `Path`；`RequestID` 仅取允许采集的响应头 request-id，未返回或未采集时保持空值，不得伪造。`RetryableRead` 只控制 GET 等读取请求，不得使创建 POST 可重试；`SubmissionStatus` 标记创建副作用是否明确。
 
 需要区分：
 
@@ -1357,28 +1349,30 @@ content moderation   -> 不惩罚账号
 - Webhook 后补拉详情；
 - 429 且有 Retry-After 的查询；
 - 查询类 502/503；
-- 确认未到达服务器的连接失败；
+- 请求体尚未开始发送且可证明未到达上游的连接建立失败；
 - 预签名上传在能确认上传未成功时重试。
 
 ## 15.2 不可盲目重试
 
+HTTP 失败只描述响应结果，不代表创建没有产生副作用；`POST /v2/generations` 请求体已开始发送或是否发送无法确认时，不得自动重试。
+
 - `POST /v2/generations` 请求体发送后超时；
+- `POST /v2/generations` 请求可能已经发送、返回 HTTP 500 且没有 generationId，并且无法证明上游未受理；
 - 已收到 2xx 但解析失败；
 - 已拿到 generationId；
 - 客户断开连接；
 - 代理连接中途断开但不能确认上游未受理。
 
-这些情况进入 `unknown` 或继续跟踪原 generationId，禁止自动切账号重复生成。
+这些情况进入 `unknown` 或继续跟踪原 generationId，禁止自动切账号重复生成。仅当创建请求可能已经发送、HTTP 500 响应没有 generationId 且无法证明上游未受理时，才按 `submission_unknown` 处理；能够证明请求体发送前失败的按未提交处理。
 
 ## 15.3 允许切账号
 
 只有在能确认任务**未被上游受理**时：
 
-- 请求建立前连接失败；
+- 请求体尚未开始发送且能可靠证明请求未到达上游的连接建立失败；
 - 明确 401/403；
 - 明确余额不足；
 - 明确 queue full/rate limit 且响应说明未创建任务；
-- 明确的创建前校验 5xx。
 
 即便切账号，也要记录一次 failover 事件和原账号错误。
 
@@ -1587,6 +1581,8 @@ cost_variance
 - `customer_cost`：RelayQ 最终向客户收取的金额；
 - `cost_variance`：实际成本与快照估价的差异。
 
+本次失败创建探针的 `estimated_upstream_cost` 约为 USD 0.003，仅是提交前估价，不得复制到实际成本字段或作为上游已扣费证据。提交结果为 `unknown` 时，实际成本字段必须为 `null`，不得以预估成本、客户报价或 0 代替，`cost_variance` 不计算，计费状态为 `manual_review`；只有获得 Leonardo 明确成本或官方账单证据后才能回填。
+
 客户价格优先级：
 
 1. 后台配置的模型/规格固定销售价；
@@ -1725,7 +1721,7 @@ billing_status
 | Queue 满 | 429/503 | `provider_queue_full` | 受控 |
 | 服务错误 | 502 | `upstream_error` | 仅确认未受理时 |
 | 查询超时 | 504 | `generation_timeout` | 否 |
-| 提交结果不确定 | 202/明确扩展错误 | `submission_unknown` | 否 |
+| 创建请求可能已发送且响应无 generationId、无法证明未受理（含 HTTP 500） | 202 | `submission_unknown` | 否 |
 
 对客户返回的信息不能暴露：
 
@@ -1974,7 +1970,7 @@ backend/internal/server/routes/*
 
 ### LEO-001 Production Key 连接验证
 
-仅调用：
+已使用 Production Key 脱敏实测 `GET /v2/models`：有效 Key 可访问目录，无效 Key 的状态码、响应头和脱敏错误结构已记录；返回 69 个模型，每个模型包含 `id`、`name`、`parameters`，`id` 为 UUID 且没有独立 slug 字段。本任务未执行创建请求或生成状态查询，不能证明 UUID 与 request slug 的映射关系。
 
 ```http
 GET /v2/models
@@ -1993,16 +1989,7 @@ Key 不得写入代码、Markdown、日志或测试 fixture。
 
 ### LEO-002 图片创建与查询
 
-使用最低成本模型做 1 张图片：
-
-- 提交响应；
-- cost/apiCreditCost；
-- generationId；
-- 查询 URL；
-- 状态枚举；
-- 最终图片数组字段；
-- NSFW 字段；
-- CDN URL 行为。
+历史探针已发送且仅发送一次 `POST /v2/generations`：请求使用 `flux-schnell`，响应为 HTTP 500，响应体无 `generationId`、`cost` 和 `apiCreditCost`；受理、任务创建及实际扣费均未知，归类为 `submission_unknown` / `side_effect_unknown`。因无 `generationId`，状态 GET 实际执行次数为 0，查询 URL、状态枚举、结果字段、NSFW 字段和 CDN 行为均未验证。本次请求不得重试；如需再次发送付费创建请求，必须创建新的、独立审批的探针任务，不得视为本次请求的重试、续跑或重放。
 
 ### LEO-003 上传与图生图
 
