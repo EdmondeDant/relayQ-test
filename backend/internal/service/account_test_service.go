@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
@@ -120,6 +121,17 @@ type AccountTestService struct {
 	cfg                       *config.Config
 	tlsFPProfileService       *TLSFingerprintProfileService
 	xaiOAuthService           *XAIOAuthService
+}
+
+type accountTestRoundTripper struct {
+	upstream    HTTPUpstream
+	proxyURL    string
+	accountID   int64
+	concurrency int
+}
+
+func (t accountTestRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return t.upstream.Do(req, t.proxyURL, t.accountID, t.concurrency)
 }
 
 // NewAccountTestService creates a new AccountTestService
@@ -302,10 +314,47 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	case PlatformAnthropic:
 		return s.testClaudeAccountConnection(c, account, modelID)
 	case PlatformLeonardo:
-		return s.sendErrorAndEnd(c, "Leonardo account test is not available until the Leonardo client is configured")
+		return s.testLeonardoAccountConnection(c, account)
 	default:
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account platform: %s", account.Platform))
 	}
+}
+
+func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, account *Account) error {
+	apiKey := account.GetLeonardoAPIKey()
+	if apiKey == "" {
+		return s.sendErrorAndEnd(c, "Leonardo API key is required")
+	}
+	if s.httpUpstream == nil {
+		return s.sendErrorAndEnd(c, "Leonardo HTTP upstream is not configured")
+	}
+	baseURL, err := s.validateUpstreamBaseURL(account.GetLeonardoBaseURL())
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Leonardo base URL is invalid")
+	}
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	client, err := leonardo.NewClientWithHTTPClient(baseURL, apiKey, leonardo.DefaultTimeout, &http.Client{Transport: accountTestRoundTripper{
+		upstream:    s.httpUpstream,
+		proxyURL:    proxyURL,
+		accountID:   account.ID,
+		concurrency: account.Concurrency,
+	}})
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Leonardo account test configuration is invalid")
+	}
+	models, err := client.ListModels(c.Request.Context())
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Leonardo model list failed: %s", err.Error()))
+	}
+	if len(models) == 0 {
+		return s.sendErrorAndEnd(c, "Leonardo model list is empty")
+	}
+	s.sendEvent(c, TestEvent{Type: "content", Text: fmt.Sprintf("Leonardo model list returned %d models", len(models))})
+	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+	return nil
 }
 
 // testClaudeAccountConnection tests an Anthropic Claude account's connection

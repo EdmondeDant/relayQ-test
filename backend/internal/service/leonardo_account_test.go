@@ -4,11 +4,15 @@ package service
 
 import (
 	"context"
+	"errors"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -17,6 +21,7 @@ import (
 type leonardoAccountRepoStub struct {
 	mockAccountRepoForGemini
 	account     *Account
+	getCalls    int
 	createCalls int
 	updateCalls int
 	bulkCalls   int
@@ -24,13 +29,33 @@ type leonardoAccountRepoStub struct {
 	accounts    []*Account
 }
 
+func leonardoInt64Ptr(value int64) *int64 { return &value }
+
 type leonardoHTTPSpy struct {
-	calls int
+	calls       int
+	getCalls    int
+	postCalls   int
+	proxyURL    string
+	accountID   int64
+	concurrency int
+	request     *http.Request
+	response    *http.Response
+	err         error
 }
 
 func (s *leonardoHTTPSpy) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	s.calls++
-	return nil, nil
+	if req.Method == http.MethodGet {
+		s.getCalls++
+	}
+	if req.Method == http.MethodPost {
+		s.postCalls++
+	}
+	s.request = req
+	s.proxyURL = proxyURL
+	s.accountID = accountID
+	s.concurrency = accountConcurrency
+	return s.response, s.err
 }
 
 func (s *leonardoHTTPSpy) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, profile *tlsfingerprint.Profile) (*http.Response, error) {
@@ -52,6 +77,7 @@ func (r *leonardoAccountRepoStub) Create(ctx context.Context, account *Account) 
 }
 
 func (r *leonardoAccountRepoStub) GetByID(ctx context.Context, id int64) (*Account, error) {
+	r.getCalls++
 	return r.account, nil
 }
 
@@ -107,17 +133,94 @@ func TestLeonardoAccountHelpers(t *testing.T) {
 	require.Empty(t, account.GetLeonardoBaseURL())
 }
 
-func TestAccountTestServiceLeonardoDispatchIsExplicit(t *testing.T) {
-	account := &Account{ID: 301, Platform: PlatformLeonardo, Type: AccountTypeAPIKey}
-	spy := &leonardoHTTPSpy{}
-	svc := &AccountTestService{accountRepo: &leonardoAccountRepoStub{account: account}, httpUpstream: spy}
+func TestAccountTestServiceLeonardoListsModelsOnce(t *testing.T) {
+	account := &Account{
+		ID: 301, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Concurrency: 7,
+		Credentials: map[string]any{"api_key": "secret-key", "base_url": DefaultLeonardoBaseURL},
+		ProxyID:     leonardoInt64Ptr(1),
+		Proxy:       &Proxy{Protocol: "http", Host: "proxy.example", Port: 8080},
+	}
+	repo := &leonardoAccountRepoStub{account: account}
+	spy := &leonardoHTTPSpy{response: leonardoHTTPResponse(http.StatusOK, `{"productionApiAvailableModels":[{"id":"model-id","name":"Model Name"}]}`)}
+	svc := &AccountTestService{accountRepo: repo, httpUpstream: spy, cfg: leonardoTestConfig()}
 	c, recorder := newLeonardoTestContext()
 
 	err := svc.TestAccountConnection(c, account.ID, "", "", "")
 
-	require.EqualError(t, err, "Leonardo account test is not available until the Leonardo client is configured")
-	require.Contains(t, recorder.Body.String(), "Leonardo account test is not available until the Leonardo client is configured")
-	require.Zero(t, spy.calls)
+	require.NoError(t, err)
+	require.Contains(t, recorder.Body.String(), "Leonardo model list returned 1 models")
+	require.Contains(t, recorder.Body.String(), `"success":true`)
+	require.Equal(t, 1, repo.getCalls)
+	require.Equal(t, 1, spy.calls)
+	require.Equal(t, 1, spy.getCalls)
+	require.Zero(t, spy.postCalls)
+	require.Equal(t, http.MethodGet, spy.request.Method)
+	require.Equal(t, "/api/rest/v2/models", spy.request.URL.Path)
+	require.Equal(t, "Bearer secret-key", spy.request.Header.Get("Authorization"))
+	require.Equal(t, "http://proxy.example:8080", spy.proxyURL)
+	require.Equal(t, account.ID, spy.accountID)
+	require.Equal(t, account.Concurrency, spy.concurrency)
+}
+
+func leonardoHTTPResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}
+}
+
+func leonardoTestConfig() *config.Config {
+	return &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false, AllowInsecureHTTP: true}}}
+}
+
+func TestAccountTestServiceLeonardoFailures(t *testing.T) {
+	tests := []struct {
+		name      string
+		apiKey    string
+		baseURL   string
+		upstream  HTTPUpstream
+		wantError string
+		wantCode  string
+		secret    string
+		wantCalls int
+	}{
+		{name: "empty key", wantError: "Leonardo API key is required"},
+		{name: "nil upstream", apiKey: "secret-key", wantError: "Leonardo HTTP upstream is not configured"},
+		{name: "invalid base url", apiKey: "secret-key", baseURL: "://invalid", upstream: &leonardoHTTPSpy{}, wantError: "Leonardo base URL is invalid"},
+		{name: "empty models", apiKey: "secret-key", upstream: &leonardoHTTPSpy{response: leonardoHTTPResponse(http.StatusOK, `{"productionApiAvailableModels":[]}`)}, wantError: "Leonardo model list is empty", wantCalls: 1},
+		{name: "upstream error", apiKey: "secret-key", upstream: &leonardoHTTPSpy{err: errors.New("dial failed secret-key authorization=secret-key")}, wantError: "Leonardo model list failed: leonardo: list models:", secret: "secret-key", wantCalls: 1},
+		{name: "rate limited", apiKey: "secret-key", upstream: &leonardoHTTPSpy{response: leonardoHTTPResponse(http.StatusTooManyRequests, `{"error":"rejected secret-key","code":"rate-limit"}`)}, wantError: "HTTP 429", wantCode: "code=rate-limit", secret: "secret-key", wantCalls: 1},
+		{name: "server error", apiKey: "secret-key", upstream: &leonardoHTTPSpy{response: leonardoHTTPResponse(http.StatusBadGateway, `{"error":"failed secret-key","code":"upstream-failure"}`)}, wantError: "HTTP 502", wantCode: "code=upstream-failure", secret: "secret-key", wantCalls: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			credentials := map[string]any{"api_key": tt.apiKey}
+			if tt.baseURL != "" {
+				credentials["base_url"] = tt.baseURL
+			}
+			account := &Account{ID: 303, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: credentials}
+			repo := &leonardoAccountRepoStub{account: account}
+			svc := &AccountTestService{accountRepo: repo, httpUpstream: tt.upstream, cfg: leonardoTestConfig()}
+			c, recorder := newLeonardoTestContext()
+
+			err := svc.TestAccountConnection(c, account.ID, "", "", "")
+
+			result := recorder.Body.String()
+			require.ErrorContains(t, err, tt.wantError)
+			require.Contains(t, result, tt.wantError)
+			if tt.wantCode != "" {
+				require.ErrorContains(t, err, tt.wantCode)
+				require.Contains(t, result, tt.wantCode)
+			}
+			if tt.secret != "" {
+				require.NotContains(t, result, tt.secret)
+			}
+			require.Equal(t, 1, repo.getCalls)
+			if spy, ok := tt.upstream.(*leonardoHTTPSpy); ok {
+				require.Equal(t, tt.wantCalls, spy.calls)
+				require.Equal(t, tt.wantCalls, spy.getCalls)
+				require.Zero(t, spy.postCalls)
+			}
+		})
+	}
 }
 
 func TestAccountTestServiceUnknownPlatformDoesNotFallBackToClaude(t *testing.T) {
