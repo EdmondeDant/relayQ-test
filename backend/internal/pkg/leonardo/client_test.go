@@ -273,11 +273,12 @@ func TestCreateGenerationAPICreditCostMissingAndZero(t *testing.T) {
 func TestCreateGenerationTransportFailures(t *testing.T) {
 	key := "secret-leonardo-key"
 	for _, test := range []struct {
-		name        string
-		wrote       bool
-		wantUnknown bool
+		name           string
+		wrote          bool
+		wantUnknown    bool
+		wantNotWritten bool
 	}{
-		{name: "before write"},
+		{name: "before write", wantNotWritten: true},
 		{name: "after write", wrote: true, wantUnknown: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -298,8 +299,11 @@ func TestCreateGenerationTransportFailures(t *testing.T) {
 			if !errors.As(err, &apiErr) {
 				t.Fatalf("error = %T %v", err, err)
 			}
-			if calls.Load() != 1 || apiErr.SafeToRetry || strings.Contains(apiErr.Error(), key) {
+			if calls.Load() != 1 || apiErr.SafeToRetry != test.wantNotWritten || strings.Contains(apiErr.Error(), key) {
 				t.Fatalf("calls = %d, error = %#v", calls.Load(), apiErr)
+			}
+			if errors.Is(err, ErrGenerationRequestNotWritten) != test.wantNotWritten {
+				t.Fatalf("not-written classification = %v, error = %#v", errors.Is(err, ErrGenerationRequestNotWritten), apiErr)
 			}
 			if (apiErr.SubmissionStatus == SubmissionUnknown) != test.wantUnknown || (apiErr.SideEffectStatus == SideEffectUnknown) != test.wantUnknown {
 				t.Fatalf("error = %#v", apiErr)

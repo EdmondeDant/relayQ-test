@@ -2,9 +2,12 @@ package leonardo
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
+
+var ErrGenerationRequestNotWritten = errors.New("leonardo generation request not written")
 
 type Model struct {
 	ID         string          `json:"id"`
@@ -60,6 +63,7 @@ type LeonardoError struct {
 	SubmissionStatus string
 	SideEffectStatus string
 	SafeToRetry      bool
+	cause            error
 }
 
 func (e *LeonardoError) Error() string {
@@ -74,6 +78,13 @@ func (e *LeonardoError) Error() string {
 		return fmt.Sprintf("leonardo: HTTP %d: %s (code=%s)", e.StatusCode, message, e.Code)
 	}
 	return fmt.Sprintf("leonardo: HTTP %d: %s", e.StatusCode, message)
+}
+
+func (e *LeonardoError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
 }
 
 type errorResponse struct {

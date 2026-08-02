@@ -116,7 +116,7 @@ func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationR
 		if wroteRequest.Load() {
 			return nil, submissionUnknownError(0, message, "", "", "")
 		}
-		return nil, &LeonardoError{Message: message}
+		return nil, &LeonardoError{Message: message, SafeToRetry: true, cause: ErrGenerationRequestNotWritten}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	responseBody, err := readBody(resp.Body)
