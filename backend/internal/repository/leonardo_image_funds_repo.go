@@ -32,9 +32,9 @@ type leonardoFundReservationRow struct {
 	status           string
 }
 
-var _ service.LeonardoImageCreateFunds = (*leonardoImageFundsRepository)(nil)
+var _ service.LeonardoImageFunds = (*leonardoImageFundsRepository)(nil)
 
-func NewLeonardoImageFundsRepository(_ *dbent.Client, sqlDB *sql.DB) service.LeonardoImageCreateFunds {
+func NewLeonardoImageFundsRepository(_ *dbent.Client, sqlDB *sql.DB) service.LeonardoImageFunds {
 	return &leonardoImageFundsRepository{db: sqlDB}
 }
 
@@ -141,7 +141,7 @@ func (r *leonardoImageFundsRepository) Release(ctx context.Context, request serv
 	if err != nil {
 		return err
 	}
-	if row.userID != request.UserID || row.reference != request.Reference || !row.amount.Equal(request.AmountUSD) {
+	if row.userID != request.UserID || row.publicID != request.PublicID || row.reference != request.Reference || !row.amount.Equal(request.AmountUSD) {
 		return service.ErrLeonardoImageCreateReservationConflict
 	}
 	if row.status == "released" {
@@ -162,7 +162,7 @@ WHERE id = $2`, request.AmountUSD, request.UserID)
 		return err
 	}
 	if affected != 1 {
-		return fmt.Errorf("release leonardo reservation: user %d not found", request.UserID)
+		return service.ErrLeonardoImageCreateReservationConflict
 	}
 	result, err = tx.ExecContext(ctx, `
 UPDATE leonardo_image_funds_reservations
@@ -172,6 +172,57 @@ WHERE user_id = $1 AND public_id = $2 AND reference = $3 AND status = 'reserved'
 		return err
 	}
 	affected, err = result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return service.ErrLeonardoImageCreateReservationConflict
+	}
+	return tx.Commit()
+}
+
+func (r *leonardoImageFundsRepository) Settle(ctx context.Context, request service.LeonardoImageFundsSettleRequest) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	request.PublicID = strings.TrimSpace(request.PublicID)
+	request.Reference = strings.TrimSpace(request.Reference)
+	if r == nil || r.db == nil || request.UserID <= 0 || request.PublicID == "" || len(request.PublicID) > 64 || request.Reference == "" || len(request.Reference) > 128 || !validLeonardoFundsAmount(request.AmountUSD) {
+		return service.ErrLeonardoImageCreateReservationInvalid
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	lockKey := fmt.Sprintf("leonardo_image_funds:%d:%s", request.UserID, request.PublicID)
+	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, lockKey); err != nil {
+		return err
+	}
+	row, err := getLeonardoFundReservation(ctx, tx, request.UserID, request.PublicID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrLeonardoImageCreateReservationInvalid
+	}
+	if err != nil {
+		return err
+	}
+	if row.userID != request.UserID || row.publicID != request.PublicID || row.reference != request.Reference || !row.amount.Equal(request.AmountUSD) {
+		return service.ErrLeonardoImageCreateReservationConflict
+	}
+	if row.status == "settled" {
+		return tx.Commit()
+	}
+	if row.status != "reserved" {
+		return service.ErrLeonardoImageCreateReservationConflict
+	}
+	result, err := tx.ExecContext(ctx, `
+UPDATE leonardo_image_funds_reservations
+SET status = 'settled', updated_at = NOW()
+WHERE user_id = $1 AND public_id = $2 AND reference = $3 AND status = 'reserved'`, request.UserID, request.PublicID, request.Reference)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}

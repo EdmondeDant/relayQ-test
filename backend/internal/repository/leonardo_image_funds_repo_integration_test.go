@@ -132,6 +132,79 @@ func TestLeonardoImageFundsRepositoryPostgresPrecisionAndReleaseAfterUserDisable
 	require.Equal(t, "0.00000001", leonardoTestUserBalance(t, userID))
 }
 
+func TestLeonardoImageFundsRepositoryPostgresSettleAndTerminalRace(t *testing.T) {
+	ctx := context.Background()
+	t.Run("settle is idempotent without refund", func(t *testing.T) {
+		userID := createLeonardoFundsTestUser(t, "settle", "1")
+		repo := NewLeonardoImageFundsRepository(nil, integrationDB)
+		reserve := service.LeonardoImageFundsReserveRequest{UserID: userID, PublicID: fmt.Sprintf("job-settle-%d", time.Now().UnixNano()), AmountUSD: decimal.RequireFromString("0.005"), PricingVersion: "2026-08-01", PricingSource: "calculator", PricingMatchType: "exact"}
+		reservation, err := repo.Reserve(ctx, reserve)
+		require.NoError(t, err)
+		settle := service.LeonardoImageFundsSettleRequest{UserID: userID, PublicID: reserve.PublicID, Reference: reservation.Reference, AmountUSD: reserve.AmountUSD}
+		require.NoError(t, repo.Settle(ctx, settle))
+		require.NoError(t, repo.Settle(ctx, settle))
+		require.Equal(t, "settled", leonardoTestReservationStatus(t, userID, reserve.PublicID))
+		require.Equal(t, "0.99500000", leonardoTestUserBalance(t, userID))
+	})
+
+	t.Run("concurrent settle is idempotent without refund", func(t *testing.T) {
+		userID := createLeonardoFundsTestUser(t, "concurrent-settle", "1")
+		repo := NewLeonardoImageFundsRepository(nil, integrationDB)
+		reserve := service.LeonardoImageFundsReserveRequest{UserID: userID, PublicID: fmt.Sprintf("job-concurrent-settle-%d", time.Now().UnixNano()), AmountUSD: decimal.RequireFromString("0.005"), PricingVersion: "2026-08-01", PricingSource: "calculator", PricingMatchType: "exact"}
+		reservation, err := repo.Reserve(ctx, reserve)
+		require.NoError(t, err)
+		settle := service.LeonardoImageFundsSettleRequest{UserID: userID, PublicID: reserve.PublicID, Reference: reservation.Reference, AmountUSD: reserve.AmountUSD}
+		start := make(chan struct{})
+		errs := make(chan error, leonardoFundsConcurrency)
+		var wg sync.WaitGroup
+		for range leonardoFundsConcurrency {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				errs <- repo.Settle(ctx, settle)
+			}()
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			require.NoError(t, err)
+		}
+		require.Equal(t, "settled", leonardoTestReservationStatus(t, userID, reserve.PublicID))
+		require.Equal(t, 1, leonardoTestReservationCount(t, userID))
+		require.Equal(t, "0.99500000", leonardoTestUserBalance(t, userID))
+	})
+
+	t.Run("settle and release have one winner", func(t *testing.T) {
+		userID := createLeonardoFundsTestUser(t, "terminal-race", "1")
+		repo := NewLeonardoImageFundsRepository(nil, integrationDB)
+		reserve := service.LeonardoImageFundsReserveRequest{UserID: userID, PublicID: fmt.Sprintf("job-race-%d", time.Now().UnixNano()), AmountUSD: decimal.RequireFromString("0.005"), PricingVersion: "2026-08-01", PricingSource: "calculator", PricingMatchType: "exact"}
+		reservation, err := repo.Reserve(ctx, reserve)
+		require.NoError(t, err)
+		start := make(chan struct{})
+		errs := make(chan error, 2)
+		go func() {
+			<-start
+			errs <- repo.Settle(ctx, service.LeonardoImageFundsSettleRequest{UserID: userID, PublicID: reserve.PublicID, Reference: reservation.Reference, AmountUSD: reserve.AmountUSD})
+		}()
+		go func() {
+			<-start
+			errs <- repo.Release(ctx, service.LeonardoImageFundsReleaseRequest{UserID: userID, PublicID: reserve.PublicID, Reference: reservation.Reference, AmountUSD: reserve.AmountUSD, Reason: "generation_failed"})
+		}()
+		close(start)
+		first, second := <-errs, <-errs
+		require.True(t, (first == nil && errors.Is(second, service.ErrLeonardoImageCreateReservationConflict)) || (second == nil && errors.Is(first, service.ErrLeonardoImageCreateReservationConflict)))
+		status := leonardoTestReservationStatus(t, userID, reserve.PublicID)
+		if status == "settled" {
+			require.Equal(t, "0.99500000", leonardoTestUserBalance(t, userID))
+		} else {
+			require.Equal(t, "released", status)
+			require.Equal(t, "1.00000000", leonardoTestUserBalance(t, userID))
+		}
+	})
+}
+
 func concurrentlyReserveLeonardoFunds(repo service.LeonardoImageCreateFunds, request service.LeonardoImageFundsReserveRequest, count int) ([]*service.LeonardoImageFundsReservation, []error) {
 	start := make(chan struct{})
 	resultCh := make(chan *service.LeonardoImageFundsReservation, count)

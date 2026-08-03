@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,6 +46,13 @@ func (s *leonardoMediaGetRepositoryStub) CompareAndSwapPoll(context.Context, str
 	return nil
 }
 
+func (s *leonardoMediaGetRepositoryStub) CompareAndSwapStatus(_ context.Context, _ string, _ GenerationJobStatus, job *GenerationJob) error {
+	s.casCalls++
+	stored := *job
+	s.job = &stored
+	return nil
+}
+
 type leonardoMediaGetAccountLoaderStub struct {
 	account *Account
 	err     error
@@ -74,7 +82,7 @@ func leonardoMediaGetInput() LeonardoMediaGetInput {
 }
 
 func leonardoMediaGetService(repository *leonardoMediaGetRepositoryStub, accounts *leonardoMediaGetAccountLoaderStub, upstream *orchestratorUpstreamMock) *LeonardoMediaGetService {
-	poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{})
+	poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{}, &orchestratorFundsMock{})
 	return NewLeonardoMediaGetService(repository, poller)
 }
 
@@ -106,6 +114,47 @@ func TestLeonardoMediaGetServiceReturnsOwnedTerminalJob(t *testing.T) {
 	require.Zero(t, accounts.calls)
 	require.Zero(t, upstream.calls)
 	require.Zero(t, upstream.postCalls)
+}
+
+func TestLeonardoMediaGetServiceReconcilesTerminalBillingWithoutNetwork(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		status   GenerationJobStatus
+		billing  GenerationJobBillingStatus
+		settles  int
+		releases int
+	}{
+		{name: "success", status: GenerationJobStatusSucceeded, billing: GenerationJobBillingStatusSettled, settles: 1},
+		{name: "failure", status: GenerationJobStatusFailed, billing: GenerationJobBillingStatusRefunded, releases: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			job := leonardoMediaOwnedJob()
+			job.Status = test.status
+			job.BillingStatus = GenerationJobBillingStatusSubmitted
+			cost := decimal.RequireFromString("0.005")
+			job.CustomerCost = &cost
+			job.BillingReference = stringPointer("leo_hold_existing")
+			repository := &leonardoMediaGetRepositoryStub{job: job}
+			accounts := &leonardoMediaGetAccountLoaderStub{}
+			upstream := &orchestratorUpstreamMock{}
+			funds := &orchestratorFundsMock{}
+			poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{}, funds)
+			result, err := NewLeonardoMediaGetService(repository, poller).Get(context.Background(), leonardoMediaGetInput())
+			require.NoError(t, err)
+			require.Equal(t, string(test.status), result.Status)
+			require.Equal(t, test.settles, funds.settleCalls)
+			require.Equal(t, test.releases, funds.releaseCalls)
+			require.Equal(t, 1, repository.casCalls)
+			require.Equal(t, test.billing, repository.job.BillingStatus)
+			require.Zero(t, accounts.calls)
+			require.Zero(t, upstream.calls)
+			body, marshalErr := json.Marshal(result)
+			require.NoError(t, marshalErr)
+			for _, secret := range []string{"billing_status", "billing_reference", "leo_hold_existing"} {
+				require.NotContains(t, strings.ToLower(string(body)), secret)
+			}
+		})
+	}
 }
 
 func TestLeonardoMediaGetServiceRejectsInvalidInputWithoutCalls(t *testing.T) {
@@ -347,7 +396,7 @@ func TestLeonardoMediaGetServiceConcurrentCASOneSuccessOneConflict(t *testing.T)
 	repository := &orchestratorRepositoryMock{job: job}
 	accounts := &orchestratorAccountLoaderMock{account: orchestratorAccount()}
 	upstream := &orchestratorUpstreamMock{barrier: make(chan struct{}, 2), release: make(chan struct{}, 2)}
-	poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{})
+	poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{}, &orchestratorFundsMock{})
 	service := NewLeonardoMediaGetService(repository, poller)
 
 	type getOutcome struct {

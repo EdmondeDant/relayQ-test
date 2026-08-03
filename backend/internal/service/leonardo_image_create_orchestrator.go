@@ -67,6 +67,23 @@ type LeonardoImageCreateFunds interface {
 	Release(context.Context, LeonardoImageFundsReleaseRequest) error
 }
 
+type LeonardoImageFundsSettleRequest struct {
+	UserID    int64
+	PublicID  string
+	Reference string
+	AmountUSD decimal.Decimal
+}
+
+type LeonardoImageTerminalFunds interface {
+	Settle(context.Context, LeonardoImageFundsSettleRequest) error
+	Release(context.Context, LeonardoImageFundsReleaseRequest) error
+}
+
+type LeonardoImageFunds interface {
+	LeonardoImageCreateFunds
+	LeonardoImageTerminalFunds
+}
+
 type LeonardoImageCreateAccountReader interface {
 	GetByID(context.Context, int64) (*Account, error)
 }

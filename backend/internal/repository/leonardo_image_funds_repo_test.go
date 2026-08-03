@@ -205,6 +205,61 @@ func TestLeonardoImageFundsRepositoryRelease(t *testing.T) {
 	})
 }
 
+func TestLeonardoImageFundsRepositorySettle(t *testing.T) {
+	t.Run("marks reserved as settled without balance update", func(t *testing.T) {
+		db, mock := newLeonardoFundsSQLMock(t)
+		request := leonardoFundsSettleRequest()
+		expectLeonardoFundsBegin(mock, request.UserID, request.PublicID)
+		mock.ExpectQuery("SELECT reference, user_id, public_id").WithArgs(request.UserID, request.PublicID).WillReturnRows(leonardoReservationRows("reserved"))
+		mock.ExpectExec("UPDATE leonardo_image_funds_reservations").WithArgs(request.UserID, request.PublicID, request.Reference).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+
+		require.NoError(t, NewLeonardoImageFundsRepository(nil, db).Settle(context.Background(), request))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("already settled is idempotent", func(t *testing.T) {
+		db, mock := newLeonardoFundsSQLMock(t)
+		request := leonardoFundsSettleRequest()
+		expectLeonardoFundsBegin(mock, request.UserID, request.PublicID)
+		mock.ExpectQuery("SELECT reference, user_id, public_id").WithArgs(request.UserID, request.PublicID).WillReturnRows(leonardoReservationRows("settled"))
+		mock.ExpectCommit()
+		require.NoError(t, NewLeonardoImageFundsRepository(nil, db).Settle(context.Background(), request))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	for _, test := range []struct {
+		name   string
+		status string
+		mutate func(*service.LeonardoImageFundsSettleRequest)
+	}{
+		{name: "released", status: "released", mutate: func(*service.LeonardoImageFundsSettleRequest) {}},
+		{name: "reference mismatch", status: "reserved", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.Reference = "wrong" }},
+		{name: "amount mismatch", status: "reserved", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.AmountUSD = decimal.RequireFromString("0.006") }},
+	} {
+		t.Run(test.name+" conflicts", func(t *testing.T) {
+			db, mock := newLeonardoFundsSQLMock(t)
+			request := leonardoFundsSettleRequest()
+			test.mutate(&request)
+			expectLeonardoFundsBegin(mock, request.UserID, request.PublicID)
+			mock.ExpectQuery("SELECT reference, user_id, public_id").WithArgs(request.UserID, request.PublicID).WillReturnRows(leonardoReservationRows(test.status))
+			mock.ExpectRollback()
+			require.ErrorIs(t, NewLeonardoImageFundsRepository(nil, db).Settle(context.Background(), request), service.ErrLeonardoImageCreateReservationConflict)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+
+	t.Run("missing reservation is invalid", func(t *testing.T) {
+		db, mock := newLeonardoFundsSQLMock(t)
+		request := leonardoFundsSettleRequest()
+		expectLeonardoFundsBegin(mock, request.UserID, request.PublicID)
+		mock.ExpectQuery("SELECT reference, user_id, public_id").WithArgs(request.UserID, request.PublicID).WillReturnError(sql.ErrNoRows)
+		mock.ExpectRollback()
+		require.ErrorIs(t, NewLeonardoImageFundsRepository(nil, db).Settle(context.Background(), request), service.ErrLeonardoImageCreateReservationInvalid)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
 func TestLeonardoImageFundsRepositoryTransactionFailures(t *testing.T) {
 	t.Run("insert failure rolls back balance", func(t *testing.T) {
 		db, mock := newLeonardoFundsSQLMock(t)
@@ -247,6 +302,7 @@ func TestLeonardoImageFundsRepositoryValidation(t *testing.T) {
 	_, err := repo.Reserve(ctx, leonardoFundsReserveRequest("job-1", "0.005"))
 	require.ErrorIs(t, err, context.Canceled)
 	require.ErrorIs(t, repo.Release(ctx, leonardoFundsReleaseRequest()), context.Canceled)
+	require.ErrorIs(t, repo.Settle(ctx, leonardoFundsSettleRequest()), context.Canceled)
 
 	for _, tc := range []struct {
 		name   string
@@ -300,6 +356,30 @@ func TestLeonardoImageFundsRepositoryValidation(t *testing.T) {
 			require.ErrorIs(t, repo.Release(context.Background(), request), service.ErrLeonardoImageCreateReservationInvalid)
 		})
 	}
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*service.LeonardoImageFundsSettleRequest)
+	}{
+		{name: "invalid user", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.UserID = 0 }},
+		{name: "empty public id", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.PublicID = " " }},
+		{name: "long public id", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.PublicID = strings.Repeat("x", 65) }},
+		{name: "empty reference", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.Reference = " " }},
+		{name: "long reference", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.Reference = strings.Repeat("x", 129) }},
+		{name: "zero amount", mutate: func(r *service.LeonardoImageFundsSettleRequest) { r.AmountUSD = decimal.Zero }},
+		{name: "over precision", mutate: func(r *service.LeonardoImageFundsSettleRequest) {
+			r.AmountUSD = decimal.RequireFromString("0.000000001")
+		}},
+		{name: "over max", mutate: func(r *service.LeonardoImageFundsSettleRequest) {
+			r.AmountUSD = decimal.RequireFromString("1000000000000")
+		}},
+	} {
+		t.Run("settle "+tc.name, func(t *testing.T) {
+			request := leonardoFundsSettleRequest()
+			tc.mutate(&request)
+			require.ErrorIs(t, repo.Settle(context.Background(), request), service.ErrLeonardoImageCreateReservationInvalid)
+		})
+	}
 }
 
 func newLeonardoFundsSQLMock(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
@@ -326,6 +406,10 @@ func leonardoFundsReserveRequest(publicID, amount string) service.LeonardoImageF
 
 func leonardoFundsReleaseRequest() service.LeonardoImageFundsReleaseRequest {
 	return service.LeonardoImageFundsReleaseRequest{UserID: 7, PublicID: "job-1", Reference: "leo_hold_existing", AmountUSD: decimal.RequireFromString("0.005"), Reason: "request_not_written"}
+}
+
+func leonardoFundsSettleRequest() service.LeonardoImageFundsSettleRequest {
+	return service.LeonardoImageFundsSettleRequest{UserID: 7, PublicID: "job-1", Reference: "leo_hold_existing", AmountUSD: decimal.RequireFromString("0.005")}
 }
 
 func leonardoReservationRows(status string) *sqlmock.Rows {

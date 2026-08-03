@@ -502,6 +502,14 @@ func ProvideLeonardoImageAccountAdapterFactory(upstream HTTPUpstream, cfg *confi
 	return NewLeonardoImageAccountAdapterFactory(upstream, cfg)
 }
 
+func ProvideLeonardoImageCreateFunds(funds LeonardoImageFunds) LeonardoImageCreateFunds {
+	return funds
+}
+
+func ProvideLeonardoImageTerminalFunds(funds LeonardoImageFunds) LeonardoImageTerminalFunds {
+	return funds
+}
+
 func ProvideLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts AccountRepository, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository) *LeonardoImageCreateOrchestrator {
 	return NewLeonardoImageCreateOrchestrator(quotes, funds, accounts, clients, jobs)
 }
@@ -516,12 +524,16 @@ func ProvideLeonardoGenerationPollClock() LeonardoGenerationPollClock {
 	return leonardoGenerationPollClock{}
 }
 
-func ProvideGenerationJobPollRepository(repository GenerationJobRepository) GenerationJobPollRepository {
-	return repository.(GenerationJobPollRepository)
+func ProvideLeonardoGenerationPollRepository(repository GenerationJobRepository) LeonardoGenerationPollRepository {
+	return repository.(LeonardoGenerationPollRepository)
 }
 
-func ProvideLeonardoGenerationPollOrchestrator(repository GenerationJobPollRepository, accounts AccountRepository, upstream HTTPUpstream, cfg *config.Config, clock LeonardoGenerationPollClock) *LeonardoGenerationPollOrchestrator {
-	return NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, cfg, clock)
+func ProvideGenerationJobPollRepository(repository LeonardoGenerationPollRepository) GenerationJobPollRepository {
+	return repository
+}
+
+func ProvideLeonardoGenerationPollOrchestrator(repository LeonardoGenerationPollRepository, accounts AccountRepository, upstream HTTPUpstream, cfg *config.Config, clock LeonardoGenerationPollClock, funds LeonardoImageTerminalFunds) *LeonardoGenerationPollOrchestrator {
+	return NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, cfg, clock, funds)
 }
 
 // ProviderSet is the Wire provider set for all services
@@ -614,9 +626,12 @@ var ProviderSet = wire.NewSet(
 	NewModelPricingResolver,
 	NewContentModerationService,
 	ProvideLeonardoImageQuoteGuard,
+	ProvideLeonardoImageCreateFunds,
+	ProvideLeonardoImageTerminalFunds,
 	ProvideLeonardoImageAccountAdapterFactory,
 	ProvideLeonardoImageCreateOrchestrator,
 	NewLeonardoMediaCreateService,
+	ProvideLeonardoGenerationPollRepository,
 	ProvideGenerationJobPollRepository,
 	ProvideLeonardoGenerationPollClock,
 	ProvideLeonardoGenerationPollOrchestrator,
