@@ -494,6 +494,18 @@ func ProvideAPIKeyService(
 	return svc
 }
 
+func ProvideLeonardoImageQuoteGuard(users UserRepository) *LeonardoImageQuoteGuard {
+	return NewLeonardoImageQuoteGuard(NewLeonardoImagePriceResolver(), NewLeonardoImageQuoteUserBalanceReader(users))
+}
+
+func ProvideLeonardoImageAccountAdapterFactory(upstream HTTPUpstream, cfg *config.Config) LeonardoImageGenerationClientFactory {
+	return NewLeonardoImageAccountAdapterFactory(upstream, cfg)
+}
+
+func ProvideLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts AccountRepository, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository) *LeonardoImageCreateOrchestrator {
+	return NewLeonardoImageCreateOrchestrator(quotes, funds, accounts, clients, jobs)
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -583,6 +595,10 @@ var ProviderSet = wire.NewSet(
 	NewChannelService,
 	NewModelPricingResolver,
 	NewContentModerationService,
+	ProvideLeonardoImageQuoteGuard,
+	ProvideLeonardoImageAccountAdapterFactory,
+	ProvideLeonardoImageCreateOrchestrator,
+	NewLeonardoMediaCreateService,
 	NewAffiliateService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,

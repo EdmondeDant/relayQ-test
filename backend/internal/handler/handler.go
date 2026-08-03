@@ -62,6 +62,7 @@ type Handlers struct {
 	AvailableChannel *AvailableChannelHandler
 	RetailGrok       *RetailGrokGatewayHandler
 	Playground       *PlaygroundHandler
+	LeonardoMedia    *LeonardoMediaHandler
 }
 
 // BuildInfo contains build-time information

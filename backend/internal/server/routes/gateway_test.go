@@ -78,6 +78,15 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestGatewayRoutesLeonardoMediaIsPlatformGated(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+	req := httptest.NewRequest(http.MethodPost, "/v1/media/generations", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestGatewayRoutesXAIImagesPathsAreRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

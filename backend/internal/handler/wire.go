@@ -120,6 +120,7 @@ func ProvideHandlers(
 	availableChannelHandler *AvailableChannelHandler,
 	retailGrokGatewayHandler *RetailGrokGatewayHandler,
 	playgroundHandler *PlaygroundHandler,
+	leonardoMediaHandler *LeonardoMediaHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -143,6 +144,7 @@ func ProvideHandlers(
 		AvailableChannel: availableChannelHandler,
 		RetailGrok:       retailGrokGatewayHandler,
 		Playground:       playgroundHandler,
+		LeonardoMedia:    leonardoMediaHandler,
 	}
 }
 
@@ -167,6 +169,7 @@ var ProviderSet = wire.NewSet(
 	NewAvailableChannelHandler,
 	NewRetailGrokGatewayHandler,
 	NewPlaygroundHandler,
+	NewLeonardoMediaHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,
