@@ -9,6 +9,17 @@ import (
 
 var ErrGenerationRequestNotWritten = errors.New("leonardo generation request not written")
 
+const (
+	GenerationErrorClassRequestNotWritten    = "request_not_written"
+	GenerationErrorClassTransportAfterWrite  = "transport_after_write"
+	GenerationErrorClassUpstreamNon2xx       = "upstream_non_2xx"
+	GenerationErrorClassResponseReadFailed   = "response_read_failed"
+	GenerationErrorClassResponseTooLarge     = "response_too_large"
+	GenerationErrorClassResponseDecodeFailed = "response_decode_failed"
+	GenerationErrorClassGenerationIDMissing  = "generation_id_missing"
+	GenerationErrorClassGenerationIDInvalid  = "generation_id_invalid"
+)
+
 type Model struct {
 	ID         string          `json:"id"`
 	Name       string          `json:"name"`
@@ -53,12 +64,16 @@ type generationResponse struct {
 }
 
 type LeonardoError struct {
+	Class            string
 	StatusCode       int
 	Code             string
 	Message          string
 	Path             string
 	RequestID        string
 	RetryAfter       time.Duration
+	BodySHA256       string
+	BodySize         int64
+	BodyTruncated    bool
 	RetryableRead    bool
 	SubmissionStatus string
 	SideEffectStatus string
@@ -69,6 +84,9 @@ type LeonardoError struct {
 func (e *LeonardoError) Error() string {
 	if e == nil {
 		return "leonardo request failed"
+	}
+	if e.SubmissionStatus == SubmissionUnknown {
+		return "leonardo generation submission status is unknown"
 	}
 	message := e.Message
 	if message == "" {

@@ -3,6 +3,7 @@ package leonardo
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -114,17 +115,24 @@ func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationR
 	if err != nil {
 		message := c.sanitize("leonardo: create generation: " + err.Error())
 		if wroteRequest.Load() {
-			return nil, submissionUnknownError(0, message, "", "", "")
+			return nil, submissionUnknownError(GenerationErrorClassTransportAfterWrite, 0, message, "", "", "", nil, false, false)
 		}
-		return nil, &LeonardoError{Message: message, SafeToRetry: true, cause: ErrGenerationRequestNotWritten}
+		return nil, &LeonardoError{Class: GenerationErrorClassRequestNotWritten, Message: message, SafeToRetry: true, cause: ErrGenerationRequestNotWritten}
 	}
 	defer func() { _ = resp.Body.Close() }()
-	responseBody, err := readBody(resp.Body)
+	responseBody, err := readGenerationBody(resp.Body)
 	if err != nil {
-		return nil, submissionUnknownError(resp.StatusCode, c.sanitize(err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "")
+		class := GenerationErrorClassResponseReadFailed
+		if errors.Is(err, ErrResponseTooLarge) {
+			class = GenerationErrorClassResponseTooLarge
+		}
+		return nil, submissionUnknownError(class, resp.StatusCode, c.sanitize(err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, true, false)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		apiErr := c.responseError(resp, responseBody)
+		apiErr.Class = GenerationErrorClassUpstreamNon2xx
+		apiErr.BodySHA256 = bodySHA256(responseBody)
+		apiErr.BodySize = int64(len(responseBody))
 		apiErr.RetryableRead = false
 		apiErr.SubmissionStatus = SubmissionUnknown
 		apiErr.SideEffectStatus = SideEffectUnknown
@@ -132,10 +140,13 @@ func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationR
 	}
 	var decoded CreateGenerationResponse
 	if err := json.Unmarshal(responseBody, &decoded); err != nil {
-		return nil, submissionUnknownError(resp.StatusCode, c.sanitize("leonardo: decode generation response: "+err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "")
+		return nil, submissionUnknownError(GenerationErrorClassResponseDecodeFailed, resp.StatusCode, c.sanitize("leonardo: decode generation response: "+err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
+	}
+	if decoded.GenerationID == "" {
+		return nil, submissionUnknownError(GenerationErrorClassGenerationIDMissing, resp.StatusCode, "leonardo: generation response has missing generationId", "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
 	}
 	if !validUUID(decoded.GenerationID) {
-		return nil, submissionUnknownError(resp.StatusCode, "leonardo: generation response has invalid generationId", "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "")
+		return nil, submissionUnknownError(GenerationErrorClassGenerationIDInvalid, resp.StatusCode, "leonardo: generation response has invalid generationId", "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
 	}
 	return &decoded, nil
 }
@@ -203,6 +214,17 @@ func readBody(reader io.Reader) ([]byte, error) {
 	return body, nil
 }
 
+func readGenerationBody(reader io.Reader) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(reader, MaxResponseBodySize+1))
+	if err != nil {
+		return body, fmt.Errorf("leonardo: read response: %w", err)
+	}
+	if len(body) > MaxResponseBodySize {
+		return body, ErrResponseTooLarge
+	}
+	return body, nil
+}
+
 func (c *Client) responseError(resp *http.Response, body []byte) *LeonardoError {
 	var decoded errorResponse
 	_ = json.Unmarshal(body, &decoded)
@@ -221,8 +243,9 @@ func (c *Client) responseError(resp *http.Response, body []byte) *LeonardoError 
 	}
 }
 
-func submissionUnknownError(statusCode int, message, code, requestID, path string) *LeonardoError {
-	return &LeonardoError{
+func submissionUnknownError(class string, statusCode int, message, code, requestID, path string, body []byte, truncated, complete bool) *LeonardoError {
+	err := &LeonardoError{
+		Class:            class,
 		StatusCode:       statusCode,
 		Code:             code,
 		Message:          message,
@@ -230,7 +253,20 @@ func submissionUnknownError(statusCode int, message, code, requestID, path strin
 		RequestID:        requestID,
 		SubmissionStatus: SubmissionUnknown,
 		SideEffectStatus: SideEffectUnknown,
+		BodyTruncated:    truncated,
 	}
+	if body != nil {
+		err.BodySize = int64(len(body))
+		if complete {
+			err.BodySHA256 = bodySHA256(body)
+		}
+	}
+	return err
+}
+
+func bodySHA256(body []byte) string {
+	hash := sha256.Sum256(body)
+	return fmt.Sprintf("%x", hash)
 }
 
 func (c *Client) sanitize(value string) string {

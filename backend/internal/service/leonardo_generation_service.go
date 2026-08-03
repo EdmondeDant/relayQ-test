@@ -72,7 +72,11 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 		return s.storeSubmissionError(ctx, &submitting, err)
 	}
 	if response == nil || !validLeonardoGenerationUUID(response.GenerationID) {
-		return s.storeSubmissionUnknown(ctx, &submitting)
+		class := leonardo.GenerationErrorClassGenerationIDInvalid
+		if response == nil || response.GenerationID == "" {
+			class = leonardo.GenerationErrorClassGenerationIDMissing
+		}
+		return s.storeSubmissionUnknown(ctx, &submitting, map[string]any{"class": class})
 	}
 
 	queued := submitting
@@ -95,7 +99,7 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 
 func (s *LeonardoGenerationService) storeSubmissionError(ctx context.Context, submitting *GenerationJob, submissionErr error) (*GenerationJob, error) {
 	if !errors.Is(submissionErr, ErrLeonardoGenerationRequestNotWritten) {
-		return s.storeSubmissionUnknown(ctx, submitting)
+		return s.storeSubmissionUnknown(ctx, submitting, leonardoSubmissionDiagnostic(submissionErr))
 	}
 
 	failed := *submitting
@@ -109,15 +113,93 @@ func (s *LeonardoGenerationService) storeSubmissionError(ctx context.Context, su
 	return &failed, submissionErr
 }
 
-func (s *LeonardoGenerationService) storeSubmissionUnknown(ctx context.Context, submitting *GenerationJob) (*GenerationJob, error) {
+func (s *LeonardoGenerationService) storeSubmissionUnknown(ctx context.Context, submitting *GenerationJob, diagnostic map[string]any) (*GenerationJob, error) {
 	unknown := *submitting
 	unknown.Status = GenerationJobStatusUnknown
 	unknown.ErrorMessage = stringPointer("leonardo generation submission status is unknown")
+	unknown.UpstreamGenerationID = nil
+	unknown.UpstreamStatus = nil
+	unknown.ResultPayload = map[string]any{"submission_diagnostic": diagnostic}
+	unknown.OutputCount = 0
+	unknown.ActualUpstreamCostAmount = nil
+	unknown.ActualUpstreamCostUnit = nil
+	unknown.CustomerCost = nil
+	unknown.NextPollAt = nil
+	unknown.LastPolledAt = nil
+	unknown.SubmittedAt = nil
+	unknown.StartedAt = nil
+	unknown.CompletedAt = nil
+	unknown.FailedAt = nil
+	unknown.PollAttempts = 0
 	NormalizeGenerationJob(&unknown)
 	if err := s.repository.CompareAndSwapStatus(ctx, submitting.PublicID, GenerationJobStatusSubmitting, &unknown); err != nil {
 		return submitting, err
 	}
 	return &unknown, nil
+}
+
+func leonardoSubmissionDiagnostic(err error) map[string]any {
+	diagnostic := map[string]any{"class": "unclassified_after_submit"}
+	var apiErr *leonardo.LeonardoError
+	if !errors.As(err, &apiErr) {
+		return diagnostic
+	}
+	if isLeonardoSubmissionUnknownClass(apiErr.Class) {
+		diagnostic["class"] = apiErr.Class
+	}
+	if apiErr.StatusCode != 0 {
+		diagnostic["http_status"] = apiErr.StatusCode
+	}
+	if apiErr.Code != "" {
+		diagnostic["provider_code"] = logredact.RedactText(apiErr.Code, "api_key", "authorization", "cookie", "signature", "x-api-key")
+	}
+	if apiErr.Path != "" {
+		diagnostic["provider_path"] = logredact.RedactText(apiErr.Path, "api_key", "authorization", "cookie", "signature", "x-api-key")
+	}
+	if requestID := sanitizeLeonardoDiagnosticHeader(apiErr.RequestID); requestID != "" {
+		diagnostic["request_id"] = requestID
+	}
+	if apiErr.RetryAfter > 0 {
+		diagnostic["retry_after_seconds"] = int64(apiErr.RetryAfter / time.Second)
+	}
+	if apiErr.BodySHA256 != "" {
+		diagnostic["body_sha256"] = apiErr.BodySHA256
+	}
+	if apiErr.BodySize > 0 {
+		diagnostic["body_size"] = apiErr.BodySize
+	}
+	if apiErr.BodyTruncated {
+		diagnostic["body_truncated"] = true
+	}
+	return diagnostic
+}
+
+func isLeonardoSubmissionUnknownClass(class string) bool {
+	switch class {
+	case leonardo.GenerationErrorClassTransportAfterWrite,
+		leonardo.GenerationErrorClassUpstreamNon2xx,
+		leonardo.GenerationErrorClassResponseReadFailed,
+		leonardo.GenerationErrorClassResponseTooLarge,
+		leonardo.GenerationErrorClassResponseDecodeFailed,
+		leonardo.GenerationErrorClassGenerationIDMissing,
+		leonardo.GenerationErrorClassGenerationIDInvalid:
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeLeonardoDiagnosticHeader(value string) string {
+	value = strings.TrimSpace(logredact.RedactText(value, "api_key", "authorization", "cookie", "signature", "x-api-key"))
+	if len(value) > 256 {
+		return ""
+	}
+	for _, r := range value {
+		if r < 0x21 || r > 0x7e {
+			return ""
+		}
+	}
+	return value
 }
 
 func sanitizeLeonardoGenerationPayload(request leonardo.CreateGenerationRequest) map[string]any {

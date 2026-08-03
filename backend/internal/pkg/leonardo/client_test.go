@@ -1,6 +1,7 @@
 package leonardo
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -31,11 +32,12 @@ func (f transportFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 type errorReadCloser struct {
-	err error
+	body []byte
+	err  error
 }
 
-func (r errorReadCloser) Read([]byte) (int, error) {
-	return 0, r.err
+func (r errorReadCloser) Read(p []byte) (int, error) {
+	return copy(p, r.body), r.err
 }
 
 func (errorReadCloser) Close() error {
@@ -338,6 +340,76 @@ func TestCreateGenerationResponseFailuresAreUnknown(t *testing.T) {
 				t.Fatalf("calls = %d, error = %#v", calls.Load(), apiErr)
 			}
 		})
+	}
+}
+
+func TestCreateGenerationDiagnostics(t *testing.T) {
+	body := []byte(`{"error":"failed","path":"provider.path","code":"provider_code"}`)
+	for _, test := range []struct {
+		name          string
+		status        int
+		body          io.ReadCloser
+		class         string
+		bodySize      int64
+		wantHash      bool
+		wantTruncated bool
+	}{
+		{name: "non 2xx", status: http.StatusBadRequest, body: io.NopCloser(bytes.NewReader(body)), class: GenerationErrorClassUpstreamNon2xx, bodySize: int64(len(body)), wantHash: true},
+		{name: "read failure", status: http.StatusOK, body: errorReadCloser{body: []byte("partial"), err: errors.New("read failed")}, class: GenerationErrorClassResponseReadFailed, bodySize: 7, wantTruncated: true},
+		{name: "too large", status: http.StatusOK, body: io.NopCloser(bytes.NewReader(bytes.Repeat([]byte("x"), MaxResponseBodySize+2))), class: GenerationErrorClassResponseTooLarge, bodySize: MaxResponseBodySize + 1, wantTruncated: true},
+		{name: "decode", status: http.StatusOK, body: io.NopCloser(strings.NewReader("{")), class: GenerationErrorClassResponseDecodeFailed, bodySize: 1, wantHash: true},
+		{name: "missing id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(`{}`)), class: GenerationErrorClassGenerationIDMissing, bodySize: 2, wantHash: true},
+		{name: "invalid id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(`{"generationId":"invalid-secret-id"}`)), class: GenerationErrorClassGenerationIDInvalid, bodySize: int64(len(`{"generationId":"invalid-secret-id"}`)), wantHash: true},
+		{name: "nested id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"sdGenerationJob":{"generationId":%q}}`, testGenerationID))), class: GenerationErrorClassGenerationIDMissing, bodySize: int64(len(fmt.Sprintf(`{"sdGenerationJob":{"generationId":%q}}`, testGenerationID))), wantHash: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var calls atomic.Int32
+			client, err := NewClientWithHTTPClient("https://example.com", "secret-key", time.Second, &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+				calls.Add(1)
+				return &http.Response{StatusCode: test.status, Header: http.Header{"X-Request-ID": []string{"request-1"}}, Body: test.body, Request: req}, nil
+			})})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "model", Parameters: map[string]any{}})
+			var apiErr *LeonardoError
+			if !errors.As(err, &apiErr) {
+				t.Fatalf("error = %T %v", err, err)
+			}
+			if calls.Load() != 1 || apiErr.Class != test.class || apiErr.BodySize != test.bodySize || apiErr.BodyTruncated != test.wantTruncated || (apiErr.BodySHA256 != "") != test.wantHash {
+				t.Fatalf("calls = %d, error = %#v", calls.Load(), apiErr)
+			}
+			if apiErr.SubmissionStatus != SubmissionUnknown || apiErr.SideEffectStatus != SideEffectUnknown || apiErr.SafeToRetry || apiErr.Error() != "leonardo generation submission status is unknown" {
+				t.Fatalf("error = %#v", apiErr)
+			}
+			if strings.Contains(fmt.Sprintf("%#v", apiErr), "invalid-secret-id") {
+				t.Fatal("invalid generation ID leaked")
+			}
+		})
+	}
+}
+
+func TestCreateGenerationSanitizesRequestID(t *testing.T) {
+	for _, requestID := range []string{"valid-request-id", "bad\nrequest", strings.Repeat("x", 257)} {
+		client, err := NewClientWithHTTPClient("https://example.com", "key", time.Second, &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+			header := make(http.Header)
+			header.Set("X-Request-ID", requestID)
+			return &http.Response{StatusCode: http.StatusBadRequest, Header: header, Body: io.NopCloser(strings.NewReader(`{"error":"failed"}`)), Request: req}, nil
+		})})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "model", Parameters: map[string]any{}})
+		var apiErr *LeonardoError
+		if !errors.As(err, &apiErr) {
+			t.Fatal(err)
+		}
+		if requestID == "valid-request-id" && apiErr.RequestID != requestID {
+			t.Fatalf("request ID = %q", apiErr.RequestID)
+		}
+		if requestID != "valid-request-id" && apiErr.RequestID != "" {
+			t.Fatalf("unsafe request ID = %q", apiErr.RequestID)
+		}
 	}
 }
 

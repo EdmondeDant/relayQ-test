@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/shopspring/decimal"
@@ -118,6 +119,102 @@ func TestLeonardoGenerationServiceUnmarkedErrorsAreUnknown(t *testing.T) {
 			requireLeonardoGenerationSecretsAbsent(t, repository)
 		})
 	}
+}
+
+func TestLeonardoGenerationServiceStoresWhitelistedDiagnostics(t *testing.T) {
+	classes := []string{
+		leonardo.GenerationErrorClassTransportAfterWrite,
+		leonardo.GenerationErrorClassUpstreamNon2xx,
+		leonardo.GenerationErrorClassResponseReadFailed,
+		leonardo.GenerationErrorClassResponseTooLarge,
+		leonardo.GenerationErrorClassResponseDecodeFailed,
+		leonardo.GenerationErrorClassGenerationIDMissing,
+		leonardo.GenerationErrorClassGenerationIDInvalid,
+		"",
+		"arbitrary",
+		leonardo.GenerationErrorClassRequestNotWritten,
+	}
+	for _, class := range classes {
+		t.Run(class, func(t *testing.T) {
+			repository := &leonardoGenerationRepositoryMock{}
+			client := &leonardoGenerationClientMock{err: fmt.Errorf("wrapped: %w", &leonardo.LeonardoError{
+				Class: class, StatusCode: 429, Code: "provider-code", Path: "provider.path", RequestID: "request-1", RetryAfter: 7 * time.Second,
+				BodySHA256: strings.Repeat("a", 64), BodySize: 19, BodyTruncated: true, SubmissionStatus: leonardo.SubmissionUnknown,
+			})}
+			job, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
+			require.NoError(t, err)
+			diagnostic := job.ResultPayload["submission_diagnostic"].(map[string]any)
+			wantClass := class
+			if !isLeonardoSubmissionUnknownClass(class) {
+				wantClass = "unclassified_after_submit"
+			}
+			require.Equal(t, wantClass, diagnostic["class"])
+			require.Equal(t, map[string]any{
+				"class": wantClass, "http_status": 429, "provider_code": "provider-code", "provider_path": "provider.path",
+				"request_id": "request-1", "retry_after_seconds": int64(7), "body_sha256": strings.Repeat("a", 64), "body_size": int64(19), "body_truncated": true,
+			}, diagnostic)
+			require.Equal(t, GenerationJobStatusUnknown, job.Status)
+			require.Equal(t, GenerationJobBillingStatusManualReview, job.BillingStatus)
+			require.Equal(t, 1, client.calls)
+			require.Nil(t, job.UpstreamGenerationID)
+			require.Nil(t, job.ActualUpstreamCostAmount)
+			require.Nil(t, job.ActualUpstreamCostUnit)
+			require.Nil(t, job.CustomerCost)
+			require.Nil(t, job.NextPollAt)
+			require.Zero(t, job.PollAttempts)
+			requireLeonardoGenerationSecretsAbsent(t, repository)
+		})
+	}
+}
+
+func TestLeonardoGenerationServiceOmitsUnsafeRequestID(t *testing.T) {
+	for _, requestID := range []string{"bad\nrequest", strings.Repeat("x", 257), "Authorization=auth-secret"} {
+		repository := &leonardoGenerationRepositoryMock{}
+		client := &leonardoGenerationClientMock{err: &leonardo.LeonardoError{Class: leonardo.GenerationErrorClassUpstreamNon2xx, RequestID: requestID, SubmissionStatus: leonardo.SubmissionUnknown}}
+		job, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
+		require.NoError(t, err)
+		diagnostic := job.ResultPayload["submission_diagnostic"].(map[string]any)
+		if value, ok := diagnostic["request_id"]; ok {
+			require.NotContains(t, fmt.Sprint(value), "auth-secret")
+		}
+		requireLeonardoGenerationSecretsAbsent(t, repository)
+	}
+}
+
+func TestLeonardoGenerationServiceUnknownClearsLifecycleFields(t *testing.T) {
+	job := leonardoGenerationJob()
+	upstreamID := "old-id"
+	upstreamStatus := "PENDING"
+	now := time.Now()
+	cost := decimal.NewFromInt(1)
+	job.UpstreamGenerationID = &upstreamID
+	job.UpstreamStatus = &upstreamStatus
+	job.OutputCount = 2
+	job.ActualUpstreamCostAmount = &cost
+	job.ActualUpstreamCostUnit = stringPointer("USD")
+	job.NextPollAt = &now
+	job.LastPolledAt = &now
+	job.SubmittedAt = &now
+	job.StartedAt = &now
+	job.CompletedAt = &now
+	job.FailedAt = &now
+	job.PollAttempts = 3
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{err: errors.New("unknown")}
+	result, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), job, leonardoGenerationRequest())
+	require.NoError(t, err)
+	require.Nil(t, result.UpstreamGenerationID)
+	require.Nil(t, result.UpstreamStatus)
+	require.Zero(t, result.OutputCount)
+	require.Nil(t, result.ActualUpstreamCostAmount)
+	require.Nil(t, result.ActualUpstreamCostUnit)
+	require.Nil(t, result.NextPollAt)
+	require.Nil(t, result.LastPolledAt)
+	require.Nil(t, result.SubmittedAt)
+	require.Nil(t, result.StartedAt)
+	require.Nil(t, result.CompletedAt)
+	require.Nil(t, result.FailedAt)
+	require.Zero(t, result.PollAttempts)
 }
 
 func TestLeonardoGenerationServiceInvalidSuccessIDIsUnknown(t *testing.T) {

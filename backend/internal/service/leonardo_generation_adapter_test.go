@@ -298,6 +298,19 @@ func TestLeonardoGenerationAdapterReadFailureIsUnknown(t *testing.T) {
 	require.NotContains(t, err.Error(), "secret-key")
 }
 
+func TestLeonardoGenerationAdapterPreservesWrappedTypedDiagnostic(t *testing.T) {
+	upstream := &leonardoGenerationUpstreamMock{wrote: true, err: errors.New("reset secret-key")}
+	adapter, err := NewLeonardoGenerationAdapter(leonardoGenerationAccount(), upstream, leonardoGenerationConfig())
+	require.NoError(t, err)
+	_, err = adapter.CreateGeneration(context.Background(), leonardo.CreateGenerationRequest{Model: "model", Parameters: map[string]any{}})
+	wrapped := fmt.Errorf("adapter caller: %w", err)
+	var apiErr *leonardo.LeonardoError
+	require.ErrorAs(t, wrapped, &apiErr)
+	require.Equal(t, leonardo.GenerationErrorClassTransportAfterWrite, apiErr.Class)
+	require.False(t, errors.Is(wrapped, ErrLeonardoGenerationRequestNotWritten))
+	require.NotContains(t, wrapped.Error(), "secret-key")
+}
+
 func leonardoGenerationAccount() *Account {
 	return &Account{ID: 41, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Concurrency: 7, Credentials: map[string]any{"api_key": "secret-key", "base_url": "https://leonardo.example/api/rest"}}
 }
