@@ -5,8 +5,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -143,6 +147,256 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 	requireIndex(t, tx, "payment_orders", "paymentorder_out_trade_no")
 	requirePartialUniqueIndexDefinition(t, tx, "payment_orders", "paymentorder_out_trade_no", "out_trade_no", "WHERE")
 	requireIndexAbsent(t, tx, "payment_orders", "paymentorder_out_trade_no_unique")
+}
+
+func TestMigrationsRunner_GenerationJobsSchemaAndRepositoryStayAligned(t *testing.T) {
+	require.NoError(t, ApplyMigrations(context.Background(), integrationDB))
+	require.NoError(t, ApplyMigrations(context.Background(), integrationDB))
+	tx := testTx(t)
+	prefix := fmt.Sprintf("generation-job-schema-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		_, err := integrationDB.ExecContext(context.Background(), "DELETE FROM generation_jobs WHERE public_id LIKE $1", prefix+"%")
+		require.NoError(t, err)
+	})
+
+	var applied int
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations WHERE filename = '153_create_generation_jobs.sql'").Scan(&applied))
+	require.Equal(t, 1, applied)
+
+	requireColumn(t, tx, "generation_jobs", "id", "bigint", 0, false)
+	requireColumn(t, tx, "generation_jobs", "created_at", "timestamp with time zone", 0, false)
+	requireColumn(t, tx, "generation_jobs", "updated_at", "timestamp with time zone", 0, false)
+	requireColumn(t, tx, "generation_jobs", "public_id", "character varying", 64, false)
+	requireColumn(t, tx, "generation_jobs", "provider", "character varying", 32, false)
+	requireColumn(t, tx, "generation_jobs", "modality", "character varying", 32, false)
+	requireColumn(t, tx, "generation_jobs", "model", "character varying", 200, false)
+	requireColumn(t, tx, "generation_jobs", "upstream_model", "character varying", 200, false)
+	requireColumn(t, tx, "generation_jobs", "user_id", "bigint", 0, false)
+	requireColumn(t, tx, "generation_jobs", "api_key_id", "bigint", 0, false)
+	requireColumn(t, tx, "generation_jobs", "group_id", "bigint", 0, true)
+	requireColumn(t, tx, "generation_jobs", "account_id", "bigint", 0, false)
+	requireColumn(t, tx, "generation_jobs", "upstream_generation_id", "character varying", 128, true)
+	requireColumn(t, tx, "generation_jobs", "status", "character varying", 16, false)
+	requireColumn(t, tx, "generation_jobs", "upstream_status", "character varying", 64, true)
+	requireColumn(t, tx, "generation_jobs", "request_hash", "character varying", 128, false)
+	requireColumn(t, tx, "generation_jobs", "request_payload", "jsonb", 0, false)
+	requireColumn(t, tx, "generation_jobs", "result_payload", "jsonb", 0, false)
+	requireColumn(t, tx, "generation_jobs", "error_code", "character varying", 64, true)
+	requireColumn(t, tx, "generation_jobs", "error_message", "text", 0, true)
+	requireColumn(t, tx, "generation_jobs", "output_count", "integer", 0, false)
+	requireNumericColumn(t, tx, "generation_jobs", "actual_upstream_cost_amount", 20, 10, true)
+	requireColumn(t, tx, "generation_jobs", "actual_upstream_cost_unit", "character varying", 32, true)
+	requireNumericColumn(t, tx, "generation_jobs", "customer_cost", 20, 10, true)
+	requireColumn(t, tx, "generation_jobs", "billing_status", "character varying", 16, false)
+	requireColumn(t, tx, "generation_jobs", "billing_reference", "character varying", 128, true)
+	requireColumn(t, tx, "generation_jobs", "poll_attempts", "integer", 0, false)
+	requireColumn(t, tx, "generation_jobs", "next_poll_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "generation_jobs", "last_polled_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "generation_jobs", "submitted_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "generation_jobs", "started_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "generation_jobs", "completed_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "generation_jobs", "failed_at", "timestamp with time zone", 0, true)
+	requireColumnDefaultContains(t, tx, "generation_jobs", "id", "nextval")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "created_at", "now()")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "updated_at", "now()")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "status", "created")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "request_payload", "{}")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "result_payload", "{}")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "output_count", "0")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "billing_status", "unpriced")
+	requireColumnDefaultContains(t, tx, "generation_jobs", "poll_attempts", "0")
+	requireConstraintDefinitionContains(t, tx, "generation_jobs", "generation_jobs_status_check", "created", "submitting", "queued", "running", "succeeded", "failed", "cancelled", "unknown")
+	requireConstraintDefinitionContains(t, tx, "generation_jobs", "generation_jobs_billing_status_check", "unpriced", "estimated", "reserved", "submitted", "settled", "refunded", "manual_review")
+	requireConstraintDefinitionContains(t, tx, "generation_jobs", "generation_jobs_output_count_check", "output_count >= 0")
+	requireConstraintDefinitionContains(t, tx, "generation_jobs", "generation_jobs_poll_attempts_check", "poll_attempts >= 0")
+	requirePartialUniqueIndexDefinition(t, tx, "generation_jobs", "generation_jobs_public_id_key", "public_id")
+	requirePartialUniqueIndexDefinition(t, tx, "generation_jobs", "generationjob_billing_reference", "billing_reference")
+
+	defaultPublicID := prefix + "-defaults"
+	_, err := integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id, account_id, request_hash
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'defaults-hash')
+`, defaultPublicID)
+	require.NoError(t, err)
+	var status, requestPayload, resultPayload, billingStatus string
+	var outputCount, pollAttempts int
+	var optionalValuesAreNull bool
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+SELECT status, request_payload::text, result_payload::text, output_count, billing_status, poll_attempts,
+	group_id IS NULL AND upstream_generation_id IS NULL AND upstream_status IS NULL AND
+	error_code IS NULL AND error_message IS NULL AND actual_upstream_cost_amount IS NULL AND
+	actual_upstream_cost_unit IS NULL AND customer_cost IS NULL AND billing_reference IS NULL AND
+	next_poll_at IS NULL AND last_polled_at IS NULL AND submitted_at IS NULL AND
+	started_at IS NULL AND completed_at IS NULL AND failed_at IS NULL
+FROM generation_jobs WHERE public_id = $1
+`, defaultPublicID).Scan(&status, &requestPayload, &resultPayload, &outputCount, &billingStatus, &pollAttempts, &optionalValuesAreNull))
+	require.Equal(t, "created", status)
+	require.Equal(t, "{}", requestPayload)
+	require.Equal(t, "{}", resultPayload)
+	require.Zero(t, outputCount)
+	require.Equal(t, "unpriced", billingStatus)
+	require.Zero(t, pollAttempts)
+	require.True(t, optionalValuesAreNull)
+	nullBillingPublicIDs := []string{prefix + "-null-billing-first", prefix + "-null-billing-second"}
+	for _, publicID := range nullBillingPublicIDs {
+		_, err = integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id, account_id, request_hash
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'null-billing-hash')
+`, publicID)
+		require.NoError(t, err)
+	}
+	var nullBillingRows int
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+SELECT COUNT(*) FROM generation_jobs
+WHERE public_id IN ($1, $2) AND billing_reference IS NULL
+`, nullBillingPublicIDs[0], nullBillingPublicIDs[1]).Scan(&nullBillingRows))
+	require.Equal(t, 2, nullBillingRows)
+
+	_, err = integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id,
+	account_id, status, request_hash, output_count, billing_status, poll_attempts
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'invalid', 'hash', 0, 'unpriced', 0)
+`, prefix+"-invalid-status")
+	require.Error(t, err)
+	_, err = integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id,
+	account_id, status, request_hash, output_count, billing_status, poll_attempts
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'created', 'hash', -1, 'unpriced', 0)
+`, prefix+"-negative-output")
+	require.Error(t, err)
+	_, err = integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id,
+	account_id, status, request_hash, output_count, billing_status, poll_attempts
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'created', 'hash', 0, 'invalid', 0)
+`, prefix+"-invalid-billing")
+	require.Error(t, err)
+	_, err = integrationDB.ExecContext(context.Background(), `
+INSERT INTO generation_jobs (
+	public_id, provider, modality, model, upstream_model, user_id, api_key_id,
+	account_id, status, request_hash, output_count, billing_status, poll_attempts
+) VALUES ($1, 'leonardo', 'image', 'flux-schnell', 'flux-schnell', 1, 2, 3, 'created', 'hash', 0, 'unpriced', -1)
+`, prefix+"-negative-poll")
+	require.Error(t, err)
+
+	for _, index := range []string{
+		"generationjob_provider",
+		"generationjob_modality",
+		"generationjob_user_id",
+		"generationjob_api_key_id",
+		"generationjob_group_id",
+		"generationjob_account_id",
+		"generationjob_upstream_generation_id",
+		"generationjob_status",
+		"generationjob_next_poll_at",
+		"generationjob_status_next_poll_at",
+		"generationjob_billing_reference",
+		"generationjob_created_at",
+	} {
+		requireIndex(t, tx, "generation_jobs", index)
+	}
+
+	repo := NewGenerationJobRepository(testEntClient(t), integrationDB)
+	actualCost := decimal.RequireFromString("0.0030000000")
+	customerCost := decimal.RequireFromString("0.0045000000")
+	groupID := int64(4)
+	upstreamID := "upstream-generation-schema"
+	upstreamStatus := "COMPLETE"
+	errorCode := "none"
+	errorMessage := "none"
+	unit := "USD"
+	billingReference := prefix + "-billing"
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	publicID := prefix + "-repository"
+	job := &service.GenerationJob{
+		PublicID:                 publicID,
+		Provider:                 service.PlatformLeonardo,
+		Modality:                 "image",
+		Model:                    "flux-schnell",
+		UpstreamModel:            "flux-schnell",
+		UserID:                   1,
+		APIKeyID:                 2,
+		GroupID:                  &groupID,
+		AccountID:                3,
+		UpstreamGenerationID:     &upstreamID,
+		Status:                   service.GenerationJobStatusSucceeded,
+		UpstreamStatus:           &upstreamStatus,
+		RequestHash:              "generation-job-schema-request-hash",
+		RequestPayload:           map[string]any{"prompt": "schema smoke"},
+		ResultPayload:            map[string]any{"state": "succeeded"},
+		ErrorCode:                &errorCode,
+		ErrorMessage:             &errorMessage,
+		OutputCount:              1,
+		ActualUpstreamCostAmount: &actualCost,
+		ActualUpstreamCostUnit:   &unit,
+		CustomerCost:             &customerCost,
+		BillingStatus:            service.GenerationJobBillingStatusSubmitted,
+		BillingReference:         &billingReference,
+		PollAttempts:             2,
+		NextPollAt:               &now,
+		LastPolledAt:             &now,
+		SubmittedAt:              &now,
+		StartedAt:                &now,
+		CompletedAt:              &now,
+		FailedAt:                 &now,
+	}
+	require.NoError(t, repo.Create(context.Background(), job))
+	stored, err := repo.GetByPublicID(context.Background(), publicID)
+	require.NoError(t, err)
+	require.Equal(t, job.PublicID, stored.PublicID)
+	require.Equal(t, job.Provider, stored.Provider)
+	require.Equal(t, job.Modality, stored.Modality)
+	require.Equal(t, job.Model, stored.Model)
+	require.Equal(t, job.UpstreamModel, stored.UpstreamModel)
+	require.Equal(t, job.UserID, stored.UserID)
+	require.Equal(t, job.APIKeyID, stored.APIKeyID)
+	require.Equal(t, job.GroupID, stored.GroupID)
+	require.Equal(t, job.AccountID, stored.AccountID)
+	require.Equal(t, job.UpstreamGenerationID, stored.UpstreamGenerationID)
+	require.Equal(t, job.Status, stored.Status)
+	require.Equal(t, job.UpstreamStatus, stored.UpstreamStatus)
+	require.Equal(t, job.RequestHash, stored.RequestHash)
+	require.Equal(t, job.RequestPayload, stored.RequestPayload)
+	require.Equal(t, job.ResultPayload, stored.ResultPayload)
+	require.Equal(t, job.ErrorCode, stored.ErrorCode)
+	require.Equal(t, job.ErrorMessage, stored.ErrorMessage)
+	require.Equal(t, job.OutputCount, stored.OutputCount)
+	require.Equal(t, actualCost.String(), stored.ActualUpstreamCostAmount.String())
+	require.Equal(t, job.ActualUpstreamCostUnit, stored.ActualUpstreamCostUnit)
+	require.Equal(t, customerCost.String(), stored.CustomerCost.String())
+	require.Equal(t, job.BillingStatus, stored.BillingStatus)
+	require.Equal(t, job.BillingReference, stored.BillingReference)
+	require.Equal(t, job.PollAttempts, stored.PollAttempts)
+	require.True(t, job.NextPollAt.Equal(*stored.NextPollAt))
+	require.True(t, job.LastPolledAt.Equal(*stored.LastPolledAt))
+	require.True(t, job.SubmittedAt.Equal(*stored.SubmittedAt))
+	require.True(t, job.StartedAt.Equal(*stored.StartedAt))
+	require.True(t, job.CompletedAt.Equal(*stored.CompletedAt))
+	require.True(t, job.FailedAt.Equal(*stored.FailedAt))
+	require.False(t, stored.CreatedAt.IsZero())
+	require.False(t, stored.UpdatedAt.IsZero())
+
+	duplicate := *job
+	duplicate.ID = 0
+	require.Error(t, repo.Create(context.Background(), &duplicate))
+	billingDuplicate := *job
+	billingDuplicate.ID = 0
+	billingDuplicate.PublicID = prefix + "-billing-duplicate"
+	require.Error(t, repo.Create(context.Background(), &billingDuplicate))
+
+	settled := *stored
+	settled.BillingStatus = service.GenerationJobBillingStatusSettled
+	require.NoError(t, repo.CompareAndSwapStatus(context.Background(), publicID, service.GenerationJobStatusSucceeded, &settled))
+	require.Equal(t, service.GenerationJobStatusSucceeded, settled.Status)
+	require.Equal(t, service.GenerationJobBillingStatusSettled, settled.BillingStatus)
+	stored, err = repo.GetByPublicID(context.Background(), publicID)
+	require.NoError(t, err)
+	require.Equal(t, service.GenerationJobStatusSucceeded, stored.Status)
+	require.Equal(t, service.GenerationJobBillingStatusSettled, stored.BillingStatus)
 }
 
 func requireIndex(t *testing.T, tx *sql.Tx, table, index string) {
@@ -305,5 +559,32 @@ WHERE table_schema = 'public'
 		require.Equal(t, "YES", row.Nullable, "nullable mismatch for %s.%s", table, column)
 	} else {
 		require.Equal(t, "NO", row.Nullable, "nullable mismatch for %s.%s", table, column)
+	}
+}
+
+func requireNumericColumn(t *testing.T, tx *sql.Tx, table, column string, precision, scale int64, nullable bool) {
+	t.Helper()
+
+	var row struct {
+		DataType  string
+		Precision sql.NullInt64
+		Scale     sql.NullInt64
+		Nullable  string
+	}
+	err := tx.QueryRowContext(context.Background(), `
+SELECT data_type, numeric_precision, numeric_scale, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = $1
+  AND column_name = $2
+`, table, column).Scan(&row.DataType, &row.Precision, &row.Scale, &row.Nullable)
+	require.NoError(t, err, "query numeric column for %s.%s", table, column)
+	require.Equal(t, "numeric", row.DataType)
+	require.Equal(t, precision, row.Precision.Int64)
+	require.Equal(t, scale, row.Scale.Int64)
+	if nullable {
+		require.Equal(t, "YES", row.Nullable)
+	} else {
+		require.Equal(t, "NO", row.Nullable)
 	}
 }
