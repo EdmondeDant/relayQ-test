@@ -506,6 +506,24 @@ func ProvideLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, fun
 	return NewLeonardoImageCreateOrchestrator(quotes, funds, accounts, clients, jobs)
 }
 
+type leonardoGenerationPollClock struct{}
+
+func (leonardoGenerationPollClock) Now() time.Time {
+	return time.Now()
+}
+
+func ProvideLeonardoGenerationPollClock() LeonardoGenerationPollClock {
+	return leonardoGenerationPollClock{}
+}
+
+func ProvideGenerationJobPollRepository(repository GenerationJobRepository) GenerationJobPollRepository {
+	return repository.(GenerationJobPollRepository)
+}
+
+func ProvideLeonardoGenerationPollOrchestrator(repository GenerationJobPollRepository, accounts AccountRepository, upstream HTTPUpstream, cfg *config.Config, clock LeonardoGenerationPollClock) *LeonardoGenerationPollOrchestrator {
+	return NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, cfg, clock)
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -599,6 +617,10 @@ var ProviderSet = wire.NewSet(
 	ProvideLeonardoImageAccountAdapterFactory,
 	ProvideLeonardoImageCreateOrchestrator,
 	NewLeonardoMediaCreateService,
+	ProvideGenerationJobPollRepository,
+	ProvideLeonardoGenerationPollClock,
+	ProvideLeonardoGenerationPollOrchestrator,
+	NewLeonardoMediaGetService,
 	NewAffiliateService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,

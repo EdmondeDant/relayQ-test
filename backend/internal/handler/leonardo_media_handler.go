@@ -16,6 +16,7 @@ import (
 
 type LeonardoMediaHandler struct {
 	create *service.LeonardoMediaCreateService
+	get    *service.LeonardoMediaGetService
 }
 
 type leonardoMediaCreateHTTPRequest struct {
@@ -33,8 +34,40 @@ type leonardoMediaImageParameters struct {
 	Quantity int `json:"quantity"`
 }
 
-func NewLeonardoMediaHandler(create *service.LeonardoMediaCreateService) *LeonardoMediaHandler {
-	return &LeonardoMediaHandler{create: create}
+func NewLeonardoMediaHandler(create *service.LeonardoMediaCreateService, get *service.LeonardoMediaGetService) *LeonardoMediaHandler {
+	return &LeonardoMediaHandler{create: create, get: get}
+}
+
+func (h *LeonardoMediaHandler) Get(c *gin.Context) {
+	if h == nil || h.get == nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaGetNotConfigured)
+		return
+	}
+	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
+	if !ok || apiKey == nil || apiKey.ID <= 0 {
+		response.Unauthorized(c, "Invalid API key")
+		return
+	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 || apiKey.User == nil || apiKey.User.ID != subject.UserID {
+		response.Unauthorized(c, "Invalid authentication context")
+		return
+	}
+	if apiKey.GroupID == nil || apiKey.Group == nil || apiKey.Group.ID != *apiKey.GroupID || apiKey.Group.Platform != service.PlatformLeonardo {
+		response.BadRequest(c, "Invalid Leonardo group binding")
+		return
+	}
+	publicID := strings.TrimSpace(c.Param("id"))
+	if !service.ValidLeonardoMediaPublicID(publicID) {
+		response.ErrorFrom(c, service.ErrLeonardoMediaGetInputInvalid)
+		return
+	}
+	result, err := h.get.Get(c.Request.Context(), service.LeonardoMediaGetInput{PublicID: publicID, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.JSON(200, result)
 }
 
 func (h *LeonardoMediaHandler) Create(c *gin.Context) {
