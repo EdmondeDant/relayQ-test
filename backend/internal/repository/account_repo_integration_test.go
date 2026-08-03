@@ -629,6 +629,28 @@ func (s *AccountRepoSuite) TestListSchedulableByGroupIDAndPlatform() {
 	s.Require().Equal(a1.ID, accounts[0].ID)
 }
 
+func (s *AccountRepoSuite) TestListSchedulableLeonardoAccountsByAPIKeyBinding() {
+	group := mustCreateGroup(s.T(), s.client, &service.Group{Name: "g-leonardo-api-key", Platform: service.PlatformLeonardo})
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "leo-300a8@example.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-leo-300a8", GroupID: &group.ID})
+	eligible := mustCreateAccount(s.T(), s.client, &service.Account{Name: "leonardo-eligible", Platform: service.PlatformLeonardo, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"api_key": "leo-repository-key"}, Status: service.StatusActive, Schedulable: true})
+	wrongPlatform := mustCreateAccount(s.T(), s.client, &service.Account{Name: "openai-api-key", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Schedulable: true})
+	unbound := mustCreateAccount(s.T(), s.client, &service.Account{Name: "leonardo-unbound", Platform: service.PlatformLeonardo, Type: service.AccountTypeAPIKey, Schedulable: true})
+	mustBindAccountToGroup(s.T(), s.client, eligible.ID, group.ID, 1)
+	mustBindAccountToGroup(s.T(), s.client, wrongPlatform.ID, group.ID, 2)
+
+	accounts, err := s.repo.ListSchedulableByGroupIDAndPlatform(s.ctx, *apiKey.GroupID, service.PlatformLeonardo)
+	s.Require().NoError(err)
+	s.Require().Len(accounts, 1)
+	s.Require().Equal(eligible.ID, accounts[0].ID)
+	s.Require().Equal(service.PlatformLeonardo, accounts[0].Platform)
+	s.Require().Equal(service.AccountTypeAPIKey, accounts[0].Type)
+	s.Require().Equal([]int64{group.ID}, accounts[0].GroupIDs)
+	s.Require().True(accounts[0].IsSchedulable())
+	s.Require().NotEmpty(accounts[0].GetLeonardoAPIKey())
+	s.Require().NotEqual(unbound.ID, accounts[0].ID)
+}
+
 func (s *AccountRepoSuite) TestSetSchedulable() {
 	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-sched", Schedulable: true})
 	cacheRecorder := &schedulerCacheRecorder{}
