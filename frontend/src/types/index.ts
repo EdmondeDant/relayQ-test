@@ -532,7 +532,7 @@ export interface PaginationConfig {
 
 // ==================== API Key & Group Types ====================
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'xai'
+export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'xai' | 'leonardo'
 
 export type SubscriptionType = 'standard' | 'subscription'
 

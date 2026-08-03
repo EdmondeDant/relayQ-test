@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 
-const { createAccountMock } = vi.hoisted(() => ({
+const { authState, createAccountMock } = vi.hoisted(() => ({
+  authState: { isSimpleMode: true },
   createAccountMock: vi.fn()
 }))
 
@@ -16,7 +17,9 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
-    isSimpleMode: true
+    get isSimpleMode() {
+      return authState.isSimpleMode
+    }
   })
 }))
 
@@ -60,6 +63,7 @@ const BaseDialogStub = defineComponent({
 
 describe('CreateAccountModal Leonardo', () => {
   it('creates a Leonardo API Key account with the Production API default URL', async () => {
+    authState.isSimpleMode = true
     createAccountMock.mockReset()
     createAccountMock.mockResolvedValue({})
 
@@ -120,5 +124,50 @@ describe('CreateAccountModal Leonardo', () => {
       }
     })
     expect(Object.keys(createAccountMock.mock.calls[0]?.[0]?.credentials)).toEqual(['base_url', 'api_key'])
+    expect(wrapper.find('[data-tour="account-form-groups"]').exists()).toBe(false)
+  })
+
+  it('binds only Leonardo groups in standard mode', async () => {
+    authState.isSimpleMode = false
+    createAccountMock.mockReset()
+    createAccountMock.mockResolvedValue({})
+
+    const groups = [
+      { id: 31, name: 'Leonardo Group', platform: 'leonardo', rate_multiplier: 1, account_count: 0 },
+      { id: 32, name: 'OpenAI Group', platform: 'openai', rate_multiplier: 1, account_count: 0 }
+    ]
+    const wrapper = mount(CreateAccountModal, {
+      props: { show: true, proxies: [], groups: groups as any },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+          ConfirmDialog: true,
+          Select: true,
+          Icon: true,
+          ProxySelector: true,
+          ProxyAdBanner: true,
+          ModelWhitelistSelector: true,
+          QuotaLimitCard: true,
+          OAuthAuthorizationFlow: true
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="platform-leonardo"]').trigger('click')
+    const form = wrapper.get('form#create-account-form')
+    await form.findAll('input')[0]?.setValue('Leonardo Group Account')
+    const selector = wrapper.get('[data-tour="account-form-groups"]')
+    expect(selector.text()).toContain('Leonardo Group')
+    expect(selector.text()).not.toContain('OpenAI Group')
+    await selector.get('input[type="checkbox"]').setValue(true)
+    const apiKeyInput = form.findAll('input').find(input => input.attributes('placeholder') === 'Leonardo API Key')
+    await apiKeyInput?.setValue('leo-secret')
+    await form.trigger('submit.prevent')
+
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      platform: 'leonardo',
+      type: 'apikey',
+      group_ids: [31]
+    })
   })
 })

@@ -2255,6 +2255,7 @@ export default {
         gemini: 'Gemini',
         antigravity: 'Antigravity',
         xai: 'Grok',
+        leonardo: 'Leonardo',
       },
       saving: '保存中...',
       noGroups: '暂无分组',

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 
-const { updateAccountMock, checkMixedChannelRiskMock } = vi.hoisted(() => ({
+const { authState, updateAccountMock, checkMixedChannelRiskMock } = vi.hoisted(() => ({
+  authState: { isSimpleMode: true },
   updateAccountMock: vi.fn(),
   checkMixedChannelRiskMock: vi.fn()
 }))
@@ -17,7 +18,9 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
-    isSimpleMode: true
+    get isSimpleMode() {
+      return authState.isSimpleMode
+    }
   })
 }))
 
@@ -232,6 +235,26 @@ function mountModal(account = buildAccount()) {
   })
 }
 
+function mountLeonardoModal(groups: any[]) {
+  return mount(EditAccountModal, {
+    props: {
+      show: true,
+      account: buildLeonardoAccount(),
+      proxies: [],
+      groups
+    },
+    global: {
+      stubs: {
+        BaseDialog: BaseDialogStub,
+        Select: SelectStub,
+        Icon: true,
+        ProxySelector: true,
+        ModelWhitelistSelector: ModelWhitelistSelectorStub
+      }
+    }
+  })
+}
+
 describe('EditAccountModal', () => {
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
@@ -351,6 +374,50 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_key')
+  })
+
+  it('updates Leonardo group bindings without exposing other platforms', async () => {
+    authState.isSimpleMode = false
+    const account = buildLeonardoAccount()
+    account.group_ids = [41]
+    const groups = [
+      { id: 41, name: 'Leonardo Existing', platform: 'leonardo', rate_multiplier: 1, account_count: 0 },
+      { id: 42, name: 'Leonardo Next', platform: 'leonardo', rate_multiplier: 1, account_count: 0 },
+      { id: 43, name: 'OpenAI Group', platform: 'openai', rate_multiplier: 1, account_count: 0 }
+    ]
+    updateAccountMock.mockReset()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mount(EditAccountModal, {
+      props: { show: true, account, proxies: [], groups: groups as any },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+          Select: SelectStub,
+          Icon: true,
+          ProxySelector: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub
+        }
+      }
+    })
+    const selector = wrapper.get('[data-tour="account-form-groups"]')
+    expect(selector.text()).toContain('Leonardo Existing')
+    expect(selector.text()).toContain('Leonardo Next')
+    expect(selector.text()).not.toContain('OpenAI Group')
+    const checkboxes = selector.findAll('input[type="checkbox"]')
+    expect((checkboxes[0]?.element as HTMLInputElement).checked).toBe(true)
+    await checkboxes[0]?.setValue(false)
+    await checkboxes[1]?.setValue(true)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]).toMatchObject({ group_ids: [42] })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_key')
+  })
+
+  it('keeps Leonardo group selection hidden in simple mode', () => {
+    authState.isSimpleMode = true
+    const wrapper = mountLeonardoModal([])
+    expect(wrapper.find('[data-tour="account-form-groups"]').exists()).toBe(false)
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {

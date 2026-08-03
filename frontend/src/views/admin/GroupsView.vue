@@ -3143,6 +3143,7 @@ const platformOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "xai", label: "Grok" },
+  { value: "leonardo", label: "Leonardo" },
 ]);
 
 const platformFilterOptions = computed(() => [
@@ -3152,6 +3153,7 @@ const platformFilterOptions = computed(() => [
   { value: "gemini", label: "Gemini" },
   { value: "antigravity", label: "Antigravity" },
   { value: "xai", label: "Grok" },
+  { value: "leonardo", label: "Leonardo" },
 ]);
 
 const editStatusOptions = computed(() => [
@@ -4082,6 +4084,23 @@ const handleEdit = async (group: AdminGroup) => {
     "gemini_image",
   ];
   editForm.mcp_xml_inject = group.mcp_xml_inject ?? true;
+  if (group.platform === "leonardo") {
+    editForm.allow_image_generation = false;
+    editForm.image_rate_independent = false;
+    editForm.image_rate_multiplier = 1;
+    editForm.image_price_1k = null;
+    editForm.image_price_2k = null;
+    editForm.image_price_4k = null;
+    editForm.claude_code_only = false;
+    editForm.fallback_group_id = null;
+    editForm.fallback_group_id_on_invalid_request = null;
+    editForm.allow_messages_dispatch = false;
+    editForm.require_oauth_only = false;
+    editForm.require_privacy_set = false;
+    editForm.model_routing_enabled = false;
+    editForm.supported_model_scopes = [];
+    editForm.mcp_xml_inject = false;
+  }
   editForm.copy_accounts_from_group_ids = []; // 复制账号字段每次编辑时重置为空
   editForm.rpm_limit = group.rpm_limit ?? 0;
   resetModelsListState(editModelsListState, group.models_list_config);
@@ -4253,6 +4272,20 @@ watch(
     if (!["openai", "antigravity", "anthropic", "gemini"].includes(newVal)) {
       createForm.require_oauth_only = false;
       createForm.require_privacy_set = false;
+    }
+    if (newVal === "leonardo") {
+      createForm.allow_image_generation = false;
+      createForm.image_rate_independent = false;
+      createForm.image_rate_multiplier = 1;
+      createForm.image_price_1k = null;
+      createForm.image_price_2k = null;
+      createForm.image_price_4k = null;
+      createForm.claude_code_only = false;
+      createForm.fallback_group_id = null;
+      createForm.model_routing_enabled = false;
+      createForm.supported_model_scopes = [];
+      createForm.mcp_xml_inject = false;
+      createModelRoutingRules.value = [];
     }
     resetModelsListState(createModelsListState);
     loadModelsListCandidates("create", 0, newVal);
