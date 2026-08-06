@@ -78,7 +78,7 @@
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
-        <div v-if="account.platform !== 'antigravity' && account.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
@@ -92,7 +92,7 @@
 
           <template v-else>
             <!-- Mode Toggle -->
-            <div class="mb-4 flex gap-2">
+            <div v-if="account.platform !== 'leonardo'" class="mb-4 flex gap-2">
               <button
                 type="button"
                 @click="modelRestrictionMode = 'whitelist'"
@@ -3728,8 +3728,10 @@ const handleSubmit = async () => {
       }
 
       // Add model mapping if configured（OpenAI 开启自动透传时保留现有映射，不再编辑）
-      if (props.account.platform !== 'leonardo' && shouldApplyModelMapping) {
-        const modelMapping = buildModelRestrictionMapping()
+      if (shouldApplyModelMapping) {
+        const modelMapping = props.account.platform === 'leonardo'
+          ? buildModelMappingObject('whitelist', allowedModels.value, [])
+          : buildModelRestrictionMapping()
         if (modelMapping) {
           newCredentials.model_mapping = modelMapping
         } else {

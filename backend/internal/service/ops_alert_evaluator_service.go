@@ -442,6 +442,15 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		return 0, false
 	}
 	switch strings.TrimSpace(rule.MetricType) {
+	case "leonardo_cost_variance_ratio":
+		if s == nil || s.opsRepo == nil || (platform != "" && platform != PlatformLeonardo) {
+			return 0, false
+		}
+		value, ok, err := s.opsRepo.GetLeonardoCostVarianceRatio(ctx, start, end, groupID)
+		if err != nil {
+			return 0, false
+		}
+		return value, ok
 	case "cpu_usage_percent":
 		if systemMetrics != nil && systemMetrics.CPUUsagePercent != nil {
 			return *systemMetrics.CPUUsagePercent, true

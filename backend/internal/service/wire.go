@@ -510,8 +510,8 @@ func ProvideLeonardoImageTerminalFunds(funds LeonardoImageFunds) LeonardoImageTe
 	return funds
 }
 
-func ProvideLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts AccountRepository, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository) *LeonardoImageCreateOrchestrator {
-	return NewLeonardoImageCreateOrchestrator(quotes, funds, accounts, clients, jobs)
+func ProvideLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts AccountRepository, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository, uploads *LeonardoImageUploadService) *LeonardoImageCreateOrchestrator {
+	return NewLeonardoImageCreateOrchestrator(quotes, funds, accounts, clients, jobs, uploads)
 }
 
 type leonardoGenerationPollClock struct{}
@@ -532,8 +532,31 @@ func ProvideGenerationJobPollRepository(repository LeonardoGenerationPollReposit
 	return repository
 }
 
-func ProvideLeonardoGenerationPollOrchestrator(repository LeonardoGenerationPollRepository, accounts AccountRepository, upstream HTTPUpstream, cfg *config.Config, clock LeonardoGenerationPollClock, funds LeonardoImageTerminalFunds) *LeonardoGenerationPollOrchestrator {
-	return NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, cfg, clock, funds)
+func ProvideLeonardoOutputModerator(moderator *ContentModerationService) LeonardoOutputModerator {
+	return moderator
+}
+
+func ProvideLeonardoGenerationPollOrchestrator(repository LeonardoGenerationPollRepository, accounts AccountRepository, upstream HTTPUpstream, cfg *config.Config, clock LeonardoGenerationPollClock, funds LeonardoImageTerminalFunds, moderator LeonardoOutputModerator, usageLogs UsageLogRepository) *LeonardoGenerationPollOrchestrator {
+	orchestrator := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, cfg, clock, funds, moderator)
+	orchestrator.SetUsageLogWriter(usageLogs)
+	return orchestrator
+}
+
+func ProvideLeonardoGenerationPollBatchRunner(repository GenerationJobRepository, executor *LeonardoGenerationPollOrchestrator, ops OpsRepository, cfg *config.Config) *LeonardoGenerationPollBatchRunner {
+	dueRepository, _ := repository.(GenerationJobDuePollRepository)
+	runner := NewLeonardoGenerationPollBatchRunner(dueRepository, executor, ops)
+	if cfg != nil && cfg.Leonardo.ProviderEnabled && cfg.Leonardo.MediaEnabled {
+		runner.Start()
+	}
+	return runner
+}
+
+func ProvideLeonardoWebhookProcessor(events LeonardoWebhookEventRepository, orchestrator *LeonardoGenerationPollOrchestrator, ops OpsRepository, cfg *config.Config) *LeonardoWebhookProcessor {
+	processor := NewLeonardoWebhookProcessor(events, orchestrator, ops)
+	if cfg != nil && cfg.Leonardo.ProviderEnabled && cfg.Leonardo.WebhookEnabled {
+		processor.Start()
+	}
+	return processor
 }
 
 // ProviderSet is the Wire provider set for all services
@@ -625,16 +648,23 @@ var ProviderSet = wire.NewSet(
 	NewChannelService,
 	NewModelPricingResolver,
 	NewContentModerationService,
+	ProvideLeonardoOutputModerator,
 	ProvideLeonardoImageQuoteGuard,
 	ProvideLeonardoImageCreateFunds,
 	ProvideLeonardoImageTerminalFunds,
 	ProvideLeonardoImageAccountAdapterFactory,
+	NewLeonardoImageUploadCache,
+	NewLeonardoImageUploadService,
 	ProvideLeonardoImageCreateOrchestrator,
 	NewLeonardoMediaCreateService,
+	NewLeonardoWebhookService,
 	ProvideLeonardoGenerationPollRepository,
 	ProvideGenerationJobPollRepository,
 	ProvideLeonardoGenerationPollClock,
 	ProvideLeonardoGenerationPollOrchestrator,
+	ProvideLeonardoGenerationPollBatchRunner,
+	ProvideLeonardoWebhookProcessor,
+	NewLeonardoManualReviewService,
 	NewLeonardoMediaGetService,
 	NewAffiliateService,
 	ProvidePaymentConfigService,

@@ -42,6 +42,7 @@ func ProvideAdminHandlers(
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
 	retailGrokHandler *admin.RetailGrokHandler,
+	leonardoManualReviewHandler *admin.LeonardoManualReviewHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -77,6 +78,7 @@ func ProvideAdminHandlers(
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
 		RetailGrok:             retailGrokHandler,
+		LeonardoManualReview:   leonardoManualReviewHandler,
 	}
 }
 
@@ -121,6 +123,7 @@ func ProvideHandlers(
 	retailGrokGatewayHandler *RetailGrokGatewayHandler,
 	playgroundHandler *PlaygroundHandler,
 	leonardoMediaHandler *LeonardoMediaHandler,
+	leonardoWebhookHandler *LeonardoWebhookHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -145,6 +148,7 @@ func ProvideHandlers(
 		RetailGrok:       retailGrokGatewayHandler,
 		Playground:       playgroundHandler,
 		LeonardoMedia:    leonardoMediaHandler,
+		LeonardoWebhook:  leonardoWebhookHandler,
 	}
 }
 
@@ -170,6 +174,8 @@ var ProviderSet = wire.NewSet(
 	NewRetailGrokGatewayHandler,
 	NewPlaygroundHandler,
 	NewLeonardoMediaHandler,
+	NewLeonardoWebhookHandler,
+	admin.NewLeonardoManualReviewHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

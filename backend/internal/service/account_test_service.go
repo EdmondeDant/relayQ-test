@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
@@ -294,6 +295,10 @@ func createTestPayload(modelID string) (map[string]any, error) {
 // modelID is optional - if empty, defaults to claude.DefaultTestModel
 // mode is optional - "compact" routes OpenAI accounts to the /responses/compact probe path
 func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int64, modelID string, prompt string, mode string) error {
+	return s.TestAccountConnectionWithPaidConfirmation(c, accountID, modelID, prompt, mode, false, false)
+}
+
+func (s *AccountTestService) TestAccountConnectionWithPaidConfirmation(c *gin.Context, accountID int64, modelID string, prompt string, mode string, paid, confirmPaid bool) error {
 	ctx := c.Request.Context()
 
 	// Get account
@@ -314,13 +319,13 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	case PlatformAnthropic:
 		return s.testClaudeAccountConnection(c, account, modelID)
 	case PlatformLeonardo:
-		return s.testLeonardoAccountConnection(c, account)
+		return s.testLeonardoAccountConnection(c, account, modelID, prompt, paid, confirmPaid)
 	default:
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account platform: %s", account.Platform))
 	}
 }
 
-func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, account *Account) error {
+func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, account *Account, modelID, prompt string, paid, confirmPaid bool) error {
 	apiKey := account.GetLeonardoAPIKey()
 	if apiKey == "" {
 		return s.sendErrorAndEnd(c, "Leonardo API key is required")
@@ -345,6 +350,12 @@ func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, accou
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Leonardo account test configuration is invalid")
 	}
+	if paid {
+		if !confirmPaid {
+			return s.sendErrorAndEnd(c, "Paid Leonardo generation test requires explicit confirmation")
+		}
+		return s.testLeonardoPaidGeneration(c, client, modelID, prompt)
+	}
 	models, err := client.ListModels(c.Request.Context())
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Leonardo model list failed: %s", err.Error()))
@@ -355,6 +366,54 @@ func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, accou
 	s.sendEvent(c, TestEvent{Type: "content", Text: fmt.Sprintf("Leonardo model list returned %d models", len(models))})
 	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 	return nil
+}
+
+func (s *AccountTestService) testLeonardoPaidGeneration(c *gin.Context, client *leonardo.Client, modelID, prompt string) error {
+	modelID, prompt = strings.TrimSpace(modelID), strings.TrimSpace(prompt)
+	if _, ok := leonardo.ResolveByRequestModelSlug(modelID); !ok {
+		return s.sendErrorAndEnd(c, "Leonardo paid test model is not verified")
+	}
+	if prompt == "" || len(prompt) > 4000 {
+		return s.sendErrorAndEnd(c, "Leonardo paid test prompt must contain 1 to 4000 characters")
+	}
+	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
+	created, err := client.CreateGeneration(c.Request.Context(), leonardo.CreateGenerationRequest{Model: modelID, Parameters: map[string]any{"prompt": prompt, "width": 896, "height": 896, "quantity": 1}})
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Leonardo paid generation request failed: "+err.Error())
+	}
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		generation, err := client.GetGeneration(c.Request.Context(), created.GenerationID)
+		if err != nil {
+			return s.sendErrorAndEnd(c, "Leonardo paid generation poll failed: "+err.Error())
+		}
+		switch generation.Status {
+		case "PENDING":
+			s.sendEvent(c, TestEvent{Type: "status", Text: "Leonardo generation is pending"})
+			select {
+			case <-c.Request.Context().Done():
+				return c.Request.Context().Err()
+			case <-time.After(time.Second):
+			}
+		case "FAILED":
+			return s.sendErrorAndEnd(c, "Leonardo paid generation failed")
+		case "COMPLETE":
+			if len(generation.GeneratedImages) == 0 {
+				return s.sendErrorAndEnd(c, "Leonardo paid generation returned no images")
+			}
+			for _, image := range generation.GeneratedImages {
+				if image.NSFW == nil || *image.NSFW || apicompat.IsPotentiallyUnsafeRemoteMediaURL(image.URL) || !strings.HasPrefix(image.URL, "https://") {
+					return s.sendErrorAndEnd(c, "Leonardo paid generation output was blocked")
+				}
+			}
+			for _, image := range generation.GeneratedImages {
+				s.sendEvent(c, TestEvent{Type: "image", ImageURL: image.URL, MimeType: "image/*"})
+			}
+			s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+			return nil
+		}
+	}
+	return s.sendErrorAndEnd(c, "Leonardo paid generation timed out")
 }
 
 // testClaudeAccountConnection tests an Anthropic Claude account's connection
@@ -875,17 +934,17 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	}
 	// #region debug-point A:chat-completions-test-input
 	reportProxyTestDebugEvent("A", "account_test_service.go:testOpenAIChatCompletionsConnection", "[DEBUG] assembled chat completions test request", map[string]any{
-		"account_id":        account.ID,
-		"account_platform":  account.Platform,
-		"account_type":      account.Type,
-		"model":             testModelID,
-		"api_url":           apiURL,
-		"normalized_base":   normalizedBaseURL,
-		"has_proxy":         proxyURL != "",
-		"proxy_url":         proxyURL,
-		"concurrency":       account.Concurrency,
-		"tls_fp_enabled":    account.IsTLSFingerprintEnabled(),
-		"is_xai_oauth":      account.Platform == PlatformXAI && account.IsOAuth(),
+		"account_id":       account.ID,
+		"account_platform": account.Platform,
+		"account_type":     account.Type,
+		"model":            testModelID,
+		"api_url":          apiURL,
+		"normalized_base":  normalizedBaseURL,
+		"has_proxy":        proxyURL != "",
+		"proxy_url":        proxyURL,
+		"concurrency":      account.Concurrency,
+		"tls_fp_enabled":   account.IsTLSFingerprintEnabled(),
+		"is_xai_oauth":     account.Platform == PlatformXAI && account.IsOAuth(),
 	})
 	// #endregion
 

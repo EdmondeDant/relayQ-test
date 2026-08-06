@@ -22,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
@@ -699,9 +700,11 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 
 // TestAccountRequest represents the request body for testing an account
 type TestAccountRequest struct {
-	ModelID string `json:"model_id"`
-	Prompt  string `json:"prompt"`
-	Mode    string `json:"mode"`
+	ModelID     string `json:"model_id"`
+	Prompt      string `json:"prompt"`
+	Mode        string `json:"mode"`
+	Paid        bool   `json:"paid"`
+	ConfirmPaid bool   `json:"confirm_paid"`
 }
 
 type SyncFromCRSRequest struct {
@@ -732,7 +735,7 @@ func (h *AccountHandler) Test(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	// Use AccountTestService to test the account with SSE streaming
-	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode); err != nil {
+	if err := h.accountTestService.TestAccountConnectionWithPaidConfirmation(c, accountID, req.ModelID, req.Prompt, req.Mode, req.Paid, req.ConfirmPaid); err != nil {
 		// Error already sent via SSE, just log
 		return
 	}
@@ -1969,6 +1972,24 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	// Handle XAI/Grok accounts
 	if account.Platform == service.PlatformXAI {
 		response.Success(c, xai.DefaultModels)
+		return
+	}
+	if account.Platform == service.PlatformLeonardo {
+		models := leonardo.ListVerifiedModels()
+		mapping := account.GetModelMapping()
+		result := make([]map[string]string, 0, len(models))
+		for _, model := range models {
+			if mapped, ok := mapping[model.RequestModelSlug]; !ok || mapped != model.RequestModelSlug {
+				continue
+			}
+			result = append(result, map[string]string{
+				"id":           model.RequestModelSlug,
+				"type":         "model",
+				"display_name": model.DisplayName,
+				"modality":     string(model.Modality),
+			})
+		}
+		response.Success(c, result)
 		return
 	}
 

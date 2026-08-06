@@ -162,7 +162,10 @@ const allModels = computed<DisplayModel[]>(() =>
         })),
       ),
     )
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) =>
+      Number(a.platform === 'leonardo') - Number(b.platform === 'leonardo') ||
+      a.name.localeCompare(b.name)
+    )
 )
 
 const pagedModels = computed(() => {

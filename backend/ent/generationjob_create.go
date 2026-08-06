@@ -215,6 +215,68 @@ func (_c *GenerationJobCreate) SetNillableOutputCount(v *int) *GenerationJobCrea
 	return _c
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (_c *GenerationJobCreate) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobCreate {
+	_c.mutation.SetEstimatedUpstreamCostAmount(v)
+	return _c
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (_c *GenerationJobCreate) SetEstimatedUpstreamCostUnit(v string) *GenerationJobCreate {
+	_c.mutation.SetEstimatedUpstreamCostUnit(v)
+	return _c
+}
+
+// SetNillableEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableEstimatedUpstreamCostUnit(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetEstimatedUpstreamCostUnit(*v)
+	}
+	return _c
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (_c *GenerationJobCreate) SetPricingSnapshotVersion(v string) *GenerationJobCreate {
+	_c.mutation.SetPricingSnapshotVersion(v)
+	return _c
+}
+
+// SetNillablePricingSnapshotVersion sets the "pricing_snapshot_version" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillablePricingSnapshotVersion(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetPricingSnapshotVersion(*v)
+	}
+	return _c
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (_c *GenerationJobCreate) SetPricingSource(v string) *GenerationJobCreate {
+	_c.mutation.SetPricingSource(v)
+	return _c
+}
+
+// SetNillablePricingSource sets the "pricing_source" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillablePricingSource(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetPricingSource(*v)
+	}
+	return _c
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (_c *GenerationJobCreate) SetPricingMatchType(v string) *GenerationJobCreate {
+	_c.mutation.SetPricingMatchType(v)
+	return _c
+}
+
+// SetNillablePricingMatchType sets the "pricing_match_type" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillablePricingMatchType(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetPricingMatchType(*v)
+	}
+	return _c
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (_c *GenerationJobCreate) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobCreate {
 	_c.mutation.SetActualUpstreamCostAmount(v)
@@ -238,6 +300,18 @@ func (_c *GenerationJobCreate) SetNillableActualUpstreamCostUnit(v *string) *Gen
 // SetCustomerCost sets the "customer_cost" field.
 func (_c *GenerationJobCreate) SetCustomerCost(v *decimal.Decimal) *GenerationJobCreate {
 	_c.mutation.SetCustomerCost(v)
+	return _c
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (_c *GenerationJobCreate) SetGrossMargin(v *decimal.Decimal) *GenerationJobCreate {
+	_c.mutation.SetGrossMargin(v)
+	return _c
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (_c *GenerationJobCreate) SetCostVariance(v *decimal.Decimal) *GenerationJobCreate {
+	_c.mutation.SetCostVariance(v)
 	return _c
 }
 
@@ -538,6 +612,26 @@ func (_c *GenerationJobCreate) check() error {
 			return &ValidationError{Name: "output_count", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.output_count": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.EstimatedUpstreamCostUnit(); ok {
+		if err := generationjob.EstimatedUpstreamCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "estimated_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.estimated_upstream_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.PricingSnapshotVersion(); ok {
+		if err := generationjob.PricingSnapshotVersionValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_snapshot_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_snapshot_version": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.PricingSource(); ok {
+		if err := generationjob.PricingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_source", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_source": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.PricingMatchType(); ok {
+		if err := generationjob.PricingMatchTypeValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_match_type", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_match_type": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.ActualUpstreamCostUnit(); ok {
 		if err := generationjob.ActualUpstreamCostUnitValidator(v); err != nil {
 			return &ValidationError{Name: "actual_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.actual_upstream_cost_unit": %w`, err)}
@@ -671,6 +765,26 @@ func (_c *GenerationJobCreate) createSpec() (*GenerationJob, *sqlgraph.CreateSpe
 		_spec.SetField(generationjob.FieldOutputCount, field.TypeInt, value)
 		_node.OutputCount = value
 	}
+	if value, ok := _c.mutation.EstimatedUpstreamCostAmount(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostAmount, field.TypeOther, value)
+		_node.EstimatedUpstreamCostAmount = value
+	}
+	if value, ok := _c.mutation.EstimatedUpstreamCostUnit(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostUnit, field.TypeString, value)
+		_node.EstimatedUpstreamCostUnit = &value
+	}
+	if value, ok := _c.mutation.PricingSnapshotVersion(); ok {
+		_spec.SetField(generationjob.FieldPricingSnapshotVersion, field.TypeString, value)
+		_node.PricingSnapshotVersion = &value
+	}
+	if value, ok := _c.mutation.PricingSource(); ok {
+		_spec.SetField(generationjob.FieldPricingSource, field.TypeString, value)
+		_node.PricingSource = &value
+	}
+	if value, ok := _c.mutation.PricingMatchType(); ok {
+		_spec.SetField(generationjob.FieldPricingMatchType, field.TypeString, value)
+		_node.PricingMatchType = &value
+	}
 	if value, ok := _c.mutation.ActualUpstreamCostAmount(); ok {
 		_spec.SetField(generationjob.FieldActualUpstreamCostAmount, field.TypeOther, value)
 		_node.ActualUpstreamCostAmount = value
@@ -682,6 +796,14 @@ func (_c *GenerationJobCreate) createSpec() (*GenerationJob, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.CustomerCost(); ok {
 		_spec.SetField(generationjob.FieldCustomerCost, field.TypeOther, value)
 		_node.CustomerCost = value
+	}
+	if value, ok := _c.mutation.GrossMargin(); ok {
+		_spec.SetField(generationjob.FieldGrossMargin, field.TypeOther, value)
+		_node.GrossMargin = value
+	}
+	if value, ok := _c.mutation.CostVariance(); ok {
+		_spec.SetField(generationjob.FieldCostVariance, field.TypeOther, value)
+		_node.CostVariance = value
 	}
 	if value, ok := _c.mutation.BillingStatus(); ok {
 		_spec.SetField(generationjob.FieldBillingStatus, field.TypeEnum, value)
@@ -1059,6 +1181,96 @@ func (u *GenerationJobUpsert) AddOutputCount(v int) *GenerationJobUpsert {
 	return u
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsert) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsert {
+	u.Set(generationjob.FieldEstimatedUpstreamCostAmount, v)
+	return u
+}
+
+// UpdateEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateEstimatedUpstreamCostAmount() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldEstimatedUpstreamCostAmount)
+	return u
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsert) ClearEstimatedUpstreamCostAmount() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldEstimatedUpstreamCostAmount)
+	return u
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsert) SetEstimatedUpstreamCostUnit(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldEstimatedUpstreamCostUnit, v)
+	return u
+}
+
+// UpdateEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateEstimatedUpstreamCostUnit() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldEstimatedUpstreamCostUnit)
+	return u
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsert) ClearEstimatedUpstreamCostUnit() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldEstimatedUpstreamCostUnit)
+	return u
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsert) SetPricingSnapshotVersion(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldPricingSnapshotVersion, v)
+	return u
+}
+
+// UpdatePricingSnapshotVersion sets the "pricing_snapshot_version" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdatePricingSnapshotVersion() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldPricingSnapshotVersion)
+	return u
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsert) ClearPricingSnapshotVersion() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldPricingSnapshotVersion)
+	return u
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (u *GenerationJobUpsert) SetPricingSource(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldPricingSource, v)
+	return u
+}
+
+// UpdatePricingSource sets the "pricing_source" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdatePricingSource() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldPricingSource)
+	return u
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (u *GenerationJobUpsert) ClearPricingSource() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldPricingSource)
+	return u
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (u *GenerationJobUpsert) SetPricingMatchType(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldPricingMatchType, v)
+	return u
+}
+
+// UpdatePricingMatchType sets the "pricing_match_type" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdatePricingMatchType() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldPricingMatchType)
+	return u
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (u *GenerationJobUpsert) ClearPricingMatchType() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldPricingMatchType)
+	return u
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (u *GenerationJobUpsert) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsert {
 	u.Set(generationjob.FieldActualUpstreamCostAmount, v)
@@ -1110,6 +1322,42 @@ func (u *GenerationJobUpsert) UpdateCustomerCost() *GenerationJobUpsert {
 // ClearCustomerCost clears the value of the "customer_cost" field.
 func (u *GenerationJobUpsert) ClearCustomerCost() *GenerationJobUpsert {
 	u.SetNull(generationjob.FieldCustomerCost)
+	return u
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (u *GenerationJobUpsert) SetGrossMargin(v *decimal.Decimal) *GenerationJobUpsert {
+	u.Set(generationjob.FieldGrossMargin, v)
+	return u
+}
+
+// UpdateGrossMargin sets the "gross_margin" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateGrossMargin() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldGrossMargin)
+	return u
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (u *GenerationJobUpsert) ClearGrossMargin() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldGrossMargin)
+	return u
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (u *GenerationJobUpsert) SetCostVariance(v *decimal.Decimal) *GenerationJobUpsert {
+	u.Set(generationjob.FieldCostVariance, v)
+	return u
+}
+
+// UpdateCostVariance sets the "cost_variance" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateCostVariance() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldCostVariance)
+	return u
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (u *GenerationJobUpsert) ClearCostVariance() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldCostVariance)
 	return u
 }
 
@@ -1650,6 +1898,111 @@ func (u *GenerationJobUpsertOne) UpdateOutputCount() *GenerationJobUpsertOne {
 	})
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsertOne) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetEstimatedUpstreamCostAmount(v)
+	})
+}
+
+// UpdateEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateEstimatedUpstreamCostAmount() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateEstimatedUpstreamCostAmount()
+	})
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsertOne) ClearEstimatedUpstreamCostAmount() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearEstimatedUpstreamCostAmount()
+	})
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsertOne) SetEstimatedUpstreamCostUnit(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetEstimatedUpstreamCostUnit(v)
+	})
+}
+
+// UpdateEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateEstimatedUpstreamCostUnit() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateEstimatedUpstreamCostUnit()
+	})
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsertOne) ClearEstimatedUpstreamCostUnit() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearEstimatedUpstreamCostUnit()
+	})
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsertOne) SetPricingSnapshotVersion(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingSnapshotVersion(v)
+	})
+}
+
+// UpdatePricingSnapshotVersion sets the "pricing_snapshot_version" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdatePricingSnapshotVersion() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingSnapshotVersion()
+	})
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsertOne) ClearPricingSnapshotVersion() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingSnapshotVersion()
+	})
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (u *GenerationJobUpsertOne) SetPricingSource(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingSource(v)
+	})
+}
+
+// UpdatePricingSource sets the "pricing_source" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdatePricingSource() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingSource()
+	})
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (u *GenerationJobUpsertOne) ClearPricingSource() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingSource()
+	})
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (u *GenerationJobUpsertOne) SetPricingMatchType(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingMatchType(v)
+	})
+}
+
+// UpdatePricingMatchType sets the "pricing_match_type" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdatePricingMatchType() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingMatchType()
+	})
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (u *GenerationJobUpsertOne) ClearPricingMatchType() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingMatchType()
+	})
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (u *GenerationJobUpsertOne) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsertOne {
 	return u.Update(func(s *GenerationJobUpsert) {
@@ -1710,6 +2063,48 @@ func (u *GenerationJobUpsertOne) UpdateCustomerCost() *GenerationJobUpsertOne {
 func (u *GenerationJobUpsertOne) ClearCustomerCost() *GenerationJobUpsertOne {
 	return u.Update(func(s *GenerationJobUpsert) {
 		s.ClearCustomerCost()
+	})
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (u *GenerationJobUpsertOne) SetGrossMargin(v *decimal.Decimal) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetGrossMargin(v)
+	})
+}
+
+// UpdateGrossMargin sets the "gross_margin" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateGrossMargin() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateGrossMargin()
+	})
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (u *GenerationJobUpsertOne) ClearGrossMargin() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearGrossMargin()
+	})
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (u *GenerationJobUpsertOne) SetCostVariance(v *decimal.Decimal) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetCostVariance(v)
+	})
+}
+
+// UpdateCostVariance sets the "cost_variance" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateCostVariance() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateCostVariance()
+	})
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (u *GenerationJobUpsertOne) ClearCostVariance() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearCostVariance()
 	})
 }
 
@@ -2442,6 +2837,111 @@ func (u *GenerationJobUpsertBulk) UpdateOutputCount() *GenerationJobUpsertBulk {
 	})
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsertBulk) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetEstimatedUpstreamCostAmount(v)
+	})
+}
+
+// UpdateEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateEstimatedUpstreamCostAmount() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateEstimatedUpstreamCostAmount()
+	})
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (u *GenerationJobUpsertBulk) ClearEstimatedUpstreamCostAmount() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearEstimatedUpstreamCostAmount()
+	})
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsertBulk) SetEstimatedUpstreamCostUnit(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetEstimatedUpstreamCostUnit(v)
+	})
+}
+
+// UpdateEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateEstimatedUpstreamCostUnit() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateEstimatedUpstreamCostUnit()
+	})
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (u *GenerationJobUpsertBulk) ClearEstimatedUpstreamCostUnit() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearEstimatedUpstreamCostUnit()
+	})
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsertBulk) SetPricingSnapshotVersion(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingSnapshotVersion(v)
+	})
+}
+
+// UpdatePricingSnapshotVersion sets the "pricing_snapshot_version" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdatePricingSnapshotVersion() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingSnapshotVersion()
+	})
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (u *GenerationJobUpsertBulk) ClearPricingSnapshotVersion() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingSnapshotVersion()
+	})
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (u *GenerationJobUpsertBulk) SetPricingSource(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingSource(v)
+	})
+}
+
+// UpdatePricingSource sets the "pricing_source" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdatePricingSource() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingSource()
+	})
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (u *GenerationJobUpsertBulk) ClearPricingSource() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingSource()
+	})
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (u *GenerationJobUpsertBulk) SetPricingMatchType(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetPricingMatchType(v)
+	})
+}
+
+// UpdatePricingMatchType sets the "pricing_match_type" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdatePricingMatchType() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdatePricingMatchType()
+	})
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (u *GenerationJobUpsertBulk) ClearPricingMatchType() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearPricingMatchType()
+	})
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (u *GenerationJobUpsertBulk) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpsertBulk {
 	return u.Update(func(s *GenerationJobUpsert) {
@@ -2502,6 +3002,48 @@ func (u *GenerationJobUpsertBulk) UpdateCustomerCost() *GenerationJobUpsertBulk 
 func (u *GenerationJobUpsertBulk) ClearCustomerCost() *GenerationJobUpsertBulk {
 	return u.Update(func(s *GenerationJobUpsert) {
 		s.ClearCustomerCost()
+	})
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (u *GenerationJobUpsertBulk) SetGrossMargin(v *decimal.Decimal) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetGrossMargin(v)
+	})
+}
+
+// UpdateGrossMargin sets the "gross_margin" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateGrossMargin() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateGrossMargin()
+	})
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (u *GenerationJobUpsertBulk) ClearGrossMargin() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearGrossMargin()
+	})
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (u *GenerationJobUpsertBulk) SetCostVariance(v *decimal.Decimal) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetCostVariance(v)
+	})
+}
+
+// UpdateCostVariance sets the "cost_variance" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateCostVariance() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateCostVariance()
+	})
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (u *GenerationJobUpsertBulk) ClearCostVariance() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearCostVariance()
 	})
 }
 

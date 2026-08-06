@@ -1105,7 +1105,7 @@
         </div>
 
         <!-- Model Restriction Section (Antigravity 已在上层条件排除) -->
-        <div v-if="form.platform !== 'leonardo'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
@@ -1119,7 +1119,7 @@
 
           <template v-else>
             <!-- Mode Toggle -->
-            <div class="mb-4 flex gap-2">
+            <div v-if="form.platform !== 'leonardo'" class="mb-4 flex gap-2">
               <button
                 type="button"
                 @click="modelRestrictionMode = 'whitelist'"
@@ -4704,8 +4704,11 @@ const handleSubmit = async () => {
   }
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）
-  if (form.platform !== 'leonardo' && !isOpenAIModelRestrictionDisabled.value) {
-    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+  if (!isOpenAIModelRestrictionDisabled.value) {
+    const models = form.platform === 'leonardo'
+      ? allowedModels.value.filter(model => model === 'flux-schnell')
+      : allowedModels.value
+    const modelMapping = buildModelMappingObject(form.platform === 'leonardo' ? 'whitelist' : modelRestrictionMode.value, models, modelMappings.value)
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     }

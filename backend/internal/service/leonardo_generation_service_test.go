@@ -40,18 +40,46 @@ func (m *leonardoGenerationRepositoryMock) CompareAndSwapStatus(_ context.Contex
 }
 
 type leonardoGenerationClientMock struct {
-	response *leonardo.CreateGenerationResponse
-	err      error
-	calls    int
+	response      *leonardo.CreateGenerationResponse
+	err           error
+	calls         int
+	request       leonardo.CreateGenerationRequest
+	rawRequest    []byte
+	initUpload    *leonardo.InitImageUpload
+	initUploadErr error
+	uploadErr     error
+	initCalls     int
+	uploadCalls   int
 }
 
-func (m *leonardoGenerationClientMock) CreateGeneration(context.Context, leonardo.CreateGenerationRequest) (*leonardo.CreateGenerationResponse, error) {
+func (m *leonardoGenerationClientMock) CreateGeneration(_ context.Context, request leonardo.CreateGenerationRequest) (*leonardo.CreateGenerationResponse, error) {
 	m.calls++
+	m.request = request
 	return m.response, m.err
+}
+
+func (m *leonardoGenerationClientMock) CreateGenerationRaw(_ context.Context, request []byte) (*leonardo.CreateGenerationResponse, error) {
+	m.calls++
+	m.rawRequest = append([]byte(nil), request...)
+	_ = json.Unmarshal(request, &m.request)
+	return m.response, m.err
+}
+
+func (m *leonardoGenerationClientMock) CreateInitImageUpload(context.Context, string) (*leonardo.InitImageUpload, error) {
+	m.initCalls++
+	return m.initUpload, m.initUploadErr
+}
+
+func (m *leonardoGenerationClientMock) UploadInitImage(context.Context, *leonardo.InitImageUpload, string, []byte) error {
+	m.uploadCalls++
+	return m.uploadErr
 }
 
 func TestLeonardoGenerationServiceSuccessSeparatesCosts(t *testing.T) {
 	creditCost := 13.5
+	estimatedCost := decimal.RequireFromString("0.10")
+	customerCost := decimal.RequireFromString("0.20")
+	unit := "USD"
 	repository := &leonardoGenerationRepositoryMock{}
 	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{
 		GenerationID:  "1dd50843-d653-4516-a8e3-f0238ee453ff",
@@ -60,7 +88,13 @@ func TestLeonardoGenerationServiceSuccessSeparatesCosts(t *testing.T) {
 	}}
 	service := NewLeonardoGenerationService(repository, client)
 
-	job, err := service.CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
+	input := leonardoGenerationJob()
+	input.EstimatedUpstreamCostAmount = &estimatedCost
+	input.EstimatedUpstreamCostUnit = &unit
+	input.CustomerCost = &customerCost
+	input.BillingStatus = GenerationJobBillingStatusReserved
+	input.BillingReference = stringPointer("reservation-1")
+	job, err := service.CreateGeneration(context.Background(), input, leonardoGenerationRequestWithSecrets())
 
 	require.NoError(t, err)
 	require.Equal(t, 1, client.calls)
@@ -72,9 +106,49 @@ func TestLeonardoGenerationServiceSuccessSeparatesCosts(t *testing.T) {
 	require.Equal(t, "1dd50843-d653-4516-a8e3-f0238ee453ff", *job.UpstreamGenerationID)
 	require.Equal(t, "0.12", job.ActualUpstreamCostAmount.String())
 	require.Equal(t, "USD", *job.ActualUpstreamCostUnit)
+	require.Equal(t, "0.02", job.CostVariance.String())
+	require.Equal(t, "0.08", job.GrossMargin.String())
 	require.Equal(t, map[string]any{"amount": 0.12, "unit": "USD"}, job.ResultPayload["cost"])
 	require.Equal(t, creditCost, job.ResultPayload["apiCreditCost"])
 	requireLeonardoGenerationSecretsAbsent(t, repository)
+}
+
+func TestLeonardoGenerationServiceStoresAPICreditCostWhenCurrencyCostMissing(t *testing.T) {
+	creditCost := 13.5
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{
+		GenerationID:  "1dd50843-d653-4516-a8e3-f0238ee453ff",
+		APICreditCost: &creditCost,
+	}}
+
+	job, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
+
+	require.NoError(t, err)
+	require.Equal(t, "13.5", job.ActualUpstreamCostAmount.String())
+	require.Equal(t, "API_CREDIT", *job.ActualUpstreamCostUnit)
+	require.Equal(t, creditCost, job.ResultPayload["apiCreditCost"])
+}
+
+func TestLeonardoGenerationServiceDoesNotCompareDifferentCostUnits(t *testing.T) {
+	estimatedCost := decimal.RequireFromString("0.10")
+	customerCost := decimal.RequireFromString("0.20")
+	unit := "USD"
+	input := leonardoGenerationJob()
+	input.EstimatedUpstreamCostAmount = &estimatedCost
+	input.EstimatedUpstreamCostUnit = &unit
+	input.CustomerCost = &customerCost
+	input.BillingStatus = GenerationJobBillingStatusReserved
+	input.BillingReference = stringPointer("reservation-1")
+	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{
+		GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff",
+		Cost:         &leonardo.GenerationCost{Amount: 12, Unit: "API_CREDIT"},
+	}}
+
+	job, err := NewLeonardoGenerationService(&leonardoGenerationRepositoryMock{}, client).CreateGeneration(context.Background(), input, leonardoGenerationRequestWithSecrets())
+
+	require.NoError(t, err)
+	require.Nil(t, job.CostVariance)
+	require.Nil(t, job.GrossMargin)
 }
 
 func TestLeonardoGenerationServiceCASConflictDoesNotPost(t *testing.T) {

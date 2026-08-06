@@ -76,6 +76,11 @@ func RegisterAdminRoutes(
 
 		// 系统管理
 		registerSystemRoutes(admin, h)
+		if h.Admin.LeonardoManualReview != nil {
+			admin.GET("/leonardo/manual-review/:id", h.Admin.LeonardoManualReview.Get)
+			admin.POST("/leonardo/manual-review/:id/upstream-id", h.Admin.LeonardoManualReview.AttachUpstreamID)
+			admin.POST("/leonardo/manual-review/:id/refund", h.Admin.LeonardoManualReview.Refund)
+		}
 
 		// 订阅管理
 		registerSubscriptionRoutes(admin, h)

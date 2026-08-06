@@ -151,16 +151,18 @@ export async function remove(id: number): Promise<void> {
 
 export interface ModelDefaultPricing {
   found: boolean
+	billing_mode?: 'token' | 'per_request' | 'image'
   input_price?: number    // per-token price
   output_price?: number
   cache_write_price?: number
   cache_read_price?: number
   image_output_price?: number
+	per_request_price?: number
 }
 
-export async function getModelDefaultPricing(model: string): Promise<ModelDefaultPricing> {
+export async function getModelDefaultPricing(model: string, platform?: string): Promise<ModelDefaultPricing> {
   const { data } = await apiClient.get<ModelDefaultPricing>('/admin/channels/model-pricing', {
-    params: { model }
+		params: { model, platform }
   })
   return data
 }

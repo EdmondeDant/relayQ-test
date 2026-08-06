@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -66,6 +67,11 @@ func TestLeonardoImageCreateOrchestratorSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, GenerationJobStatusQueued, job.Status)
 	require.Equal(t, GenerationJobBillingStatusSubmitted, job.BillingStatus)
+	require.Equal(t, "0.003", job.EstimatedUpstreamCostAmount.String())
+	require.Equal(t, "USD", *job.EstimatedUpstreamCostUnit)
+	require.Equal(t, "2026-08-01", *job.PricingSnapshotVersion)
+	require.Equal(t, "leonardo_authenticated_pricing_calculator", *job.PricingSource)
+	require.Equal(t, "exact", *job.PricingMatchType)
 	require.Equal(t, "0.005", job.CustomerCost.String())
 	require.Equal(t, "reservation-1", *job.BillingReference)
 	require.Equal(t, 1, client.calls)
@@ -73,6 +79,88 @@ func TestLeonardoImageCreateOrchestratorSuccess(t *testing.T) {
 	require.Zero(t, funds.releaseCalls)
 	require.Same(t, accounts.account, factory.account)
 	require.Equal(t, "0.005", funds.reserve.AmountUSD.String())
+}
+
+func TestLeonardoImageCreateOrchestratorUploadsEditImage(t *testing.T) {
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{
+		response:   &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"},
+		initUpload: &leonardo.InitImageUpload{ID: "uploaded-1", URL: "https://upload.example"},
+	}
+	funds := createFundsFake("0.005")
+	request := createImageRequest("0.005")
+	request.InputImage = &LeonardoImageInput{Data: []byte("image"), Extension: "png", FileName: "image.png"}
+	request.ImageCapability = &LeonardoImageReferenceCapability{MaxItems: 1, AllowedStrengths: []string{"MID"}, DefaultStrength: "MID"}
+	orchestrator := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, repository)
+	orchestrator.uploads = NewLeonardoImageUploadService(nil)
+
+	job, err := orchestrator.Create(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusQueued, job.Status)
+	require.Equal(t, 1, client.initCalls)
+	require.Equal(t, 1, client.uploadCalls)
+	require.Equal(t, 1, client.calls)
+	require.Zero(t, funds.releaseCalls)
+	require.JSONEq(t, `{"image_reference":[{"image":{"id":"uploaded-1","type":"UPLOADED"},"strength":"MID"}]}`, marshalLeonardoTestJSON(t, client.request.Parameters["guidances"]))
+}
+
+func TestLeonardoImageCreateOrchestratorBuildsFluxGuidances(t *testing.T) {
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"}}
+	funds := createFundsFake("0.005")
+	request := createImageRequest("0.005")
+	request.FluxGuidances = LeonardoFluxGuidances{
+		Content: []leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "content-1", Type: "UPLOADED"}, Strength: "HIGH"}},
+		Style:   []leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "style-1", Type: "GENERATED"}, Strength: "MAX"}},
+	}
+
+	job, err := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, repository).Create(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusQueued, job.Status)
+	guidances := client.request.Parameters["guidances"].(map[string]any)
+	require.JSONEq(t, `[{"image":{"id":"content-1","type":"UPLOADED"},"strength":"HIGH"}]`, marshalLeonardoTestJSON(t, guidances["content"]))
+	require.JSONEq(t, `[{"image":{"id":"style-1","type":"GENERATED"},"strength":"MAX"}]`, marshalLeonardoTestJSON(t, guidances["style"]))
+	require.NotContains(t, guidances, "image_reference")
+}
+
+func marshalLeonardoTestJSON(t *testing.T, value any) string {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+	return string(encoded)
+}
+
+func TestLeonardoImageCreateOrchestratorRejectsMixedGuidanceProtocols(t *testing.T) {
+	client := &leonardoGenerationClientMock{}
+	funds := createFundsFake("0.005")
+	request := createImageRequest("0.005")
+	request.FluxGuidances = LeonardoFluxGuidances{Content: []leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "content-1", Type: "UPLOADED"}, Strength: "MID"}}}
+	request.ImageReferences = []leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "legacy-1", Type: "UPLOADED"}, Strength: "MID"}}
+
+	_, err := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, &leonardoGenerationRepositoryMock{}).Create(context.Background(), request)
+
+	require.ErrorIs(t, err, ErrLeonardoImageReferenceInvalid)
+	require.Equal(t, 1, funds.releaseCalls)
+	require.Zero(t, client.calls)
+}
+
+func TestLeonardoImageCreateOrchestratorReleasesFundsWhenEditUploadFails(t *testing.T) {
+	client := &leonardoGenerationClientMock{initUploadErr: errors.New("upload unavailable")}
+	funds := createFundsFake("0.005")
+	request := createImageRequest("0.005")
+	request.InputImage = &LeonardoImageInput{Data: []byte("image"), Extension: "png"}
+	request.ImageCapability = &LeonardoImageReferenceCapability{MaxItems: 1, AllowedStrengths: []string{"MID"}, DefaultStrength: "MID"}
+	orchestrator := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, &leonardoGenerationRepositoryMock{})
+	orchestrator.uploads = NewLeonardoImageUploadService(nil)
+
+	_, err := orchestrator.Create(context.Background(), request)
+
+	require.Error(t, err)
+	require.Equal(t, 1, funds.releaseCalls)
+	require.Equal(t, "image_upload_failed", funds.release.Reason)
+	require.Zero(t, client.calls)
 }
 
 func TestLeonardoImageCreateOrchestratorShortCircuits(t *testing.T) {
@@ -146,6 +234,16 @@ func TestLeonardoImageCreateOrchestratorSubmissionCompensation(t *testing.T) {
 			}
 			if job != nil && test.status != "" {
 				require.Equal(t, test.status, job.Status)
+			}
+			if test.name == "unknown" {
+				require.Equal(t, "0.003", job.EstimatedUpstreamCostAmount.String())
+				require.Equal(t, "USD", *job.EstimatedUpstreamCostUnit)
+				require.Equal(t, "2026-08-01", *job.PricingSnapshotVersion)
+				require.Equal(t, "leonardo_authenticated_pricing_calculator", *job.PricingSource)
+				require.Equal(t, "exact", *job.PricingMatchType)
+				require.Nil(t, job.ActualUpstreamCostAmount)
+				require.Nil(t, job.ActualUpstreamCostUnit)
+				require.Equal(t, "0.005", job.CustomerCost.String())
 			}
 		})
 	}

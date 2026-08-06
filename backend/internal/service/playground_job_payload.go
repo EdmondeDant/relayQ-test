@@ -21,9 +21,9 @@ type playgroundJobMedia struct {
 }
 
 type playgroundJobBatchItem struct {
-	Prompt   string                 `json:"prompt"`
-	Media    playgroundJobMedia     `json:"media"`
-	Metadata map[string]any         `json:"metadata"`
+	Prompt   string             `json:"prompt"`
+	Media    playgroundJobMedia `json:"media"`
+	Metadata map[string]any     `json:"metadata"`
 }
 
 type playgroundJobBatch struct {
@@ -31,34 +31,34 @@ type playgroundJobBatch struct {
 }
 
 type playgroundJobPayload struct {
-	Title              string                 `json:"title"`
-	AssetKind          string                 `json:"asset_kind"`
-	Prompt             string                 `json:"prompt"`
-	Text               string                 `json:"text"`
-	Messages           []map[string]any       `json:"messages"`
-	Size               string                 `json:"size"`
-	Quality            string                 `json:"quality"`
-	Style              string                 `json:"style"`
-	Background         string                 `json:"background"`
-	SourceLanguage     string                 `json:"source_language"`
-	TargetLanguage     string                 `json:"target_language"`
-	Filename           string                 `json:"filename"`
-	Language           string                 `json:"language"`
-	AsrLanguage        string                 `json:"asr_language"`
-	OutputMode         string                 `json:"output_mode"`
-	Mode               string                 `json:"mode"`
-	VoicePreset        string                 `json:"voice_preset"`
-	VoiceDescription   string                 `json:"voice_description"`
-	Persona            string                 `json:"persona"`
-	Duration           int                    `json:"duration"`
-	AspectRatio        string                 `json:"aspect_ratio"`
-	Resolution         string                 `json:"resolution"`
-	WatermarkText      string                 `json:"watermark_text"`
-	WatermarkPosition  string                 `json:"watermark_position"`
-	WatermarkStyle     string                 `json:"watermark_style"`
-	Media              playgroundJobMedia     `json:"media"`
-	Batch              *playgroundJobBatch    `json:"batch"`
-	Metadata           map[string]any         `json:"metadata"`
+	Title             string              `json:"title"`
+	AssetKind         string              `json:"asset_kind"`
+	Prompt            string              `json:"prompt"`
+	Text              string              `json:"text"`
+	Messages          []map[string]any    `json:"messages"`
+	Size              string              `json:"size"`
+	Quality           string              `json:"quality"`
+	Style             string              `json:"style"`
+	Background        string              `json:"background"`
+	SourceLanguage    string              `json:"source_language"`
+	TargetLanguage    string              `json:"target_language"`
+	Filename          string              `json:"filename"`
+	Language          string              `json:"language"`
+	AsrLanguage       string              `json:"asr_language"`
+	OutputMode        string              `json:"output_mode"`
+	Mode              string              `json:"mode"`
+	VoicePreset       string              `json:"voice_preset"`
+	VoiceDescription  string              `json:"voice_description"`
+	Persona           string              `json:"persona"`
+	Duration          int                 `json:"duration"`
+	AspectRatio       string              `json:"aspect_ratio"`
+	Resolution        string              `json:"resolution"`
+	WatermarkText     string              `json:"watermark_text"`
+	WatermarkPosition string              `json:"watermark_position"`
+	WatermarkStyle    string              `json:"watermark_style"`
+	Media             playgroundJobMedia  `json:"media"`
+	Batch             *playgroundJobBatch `json:"batch"`
+	Metadata          map[string]any      `json:"metadata"`
 }
 
 func parsePlaygroundJobPayload(kind string, raw json.RawMessage) (*playgroundJobPayload, error) {
@@ -197,6 +197,11 @@ func isPlaygroundGptImageModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
 }
 
+func isPlaygroundLeonardoImage(payload playgroundJobPayload) bool {
+	platform, _ := payload.Metadata["platform"].(string)
+	return strings.EqualFold(strings.TrimSpace(platform), PlatformLeonardo)
+}
+
 func (p playgroundJobPayload) buildImageRequest(kind, model string) (string, json.RawMessage, error) {
 	switch kind {
 	case "image":
@@ -208,7 +213,19 @@ func (p playgroundJobPayload) buildImageRequest(kind, model string) (string, jso
 			"prompt": p.Prompt,
 			"n":      1,
 		}
-		applyPlaygroundImageOptions(body, model, p, false)
+		if isPlaygroundLeonardoImage(p) {
+			body["size"] = map[string]string{"1:1": "1024x1024"}[p.Size]
+			if body["size"] == "" {
+				body["size"] = "1024x1024"
+			}
+			body["quality"] = p.Quality
+			if model == "nano-banana-2" || model == "nano-banana-2-lite" {
+				body["quality"] = "low"
+			}
+			body["response_format"] = "url"
+		} else {
+			applyPlaygroundImageOptions(body, model, p, false)
+		}
 		return "/v1/images/generations", mustJSON(body), nil
 	case "edit", "image-translate", "watermark":
 		body, err := buildPlaygroundImageEditBody(model, p.Prompt, p.Media, p)
@@ -306,7 +323,7 @@ func (p playgroundJobPayload) buildTextRequest(kind, model string) (string, json
 			messages = []map[string]any{{"role": "user", "content": p.Prompt}}
 		}
 		messages = append([]map[string]any{{
-			"role": "system",
+			"role":    "system",
 			"content": fmt.Sprintf("你当前正在扮演并必须如实声明的模型是：%s。用户询问你是什么模型时，只能回答这个模型名，不得自称为其他品牌、其他模型或其他助手。", model),
 		}}, messages...)
 	case "copywriting":

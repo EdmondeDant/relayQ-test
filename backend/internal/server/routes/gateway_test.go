@@ -86,6 +86,7 @@ func TestGatewayRoutesLeonardoMediaIsPlatformGated(t *testing.T) {
 	}{
 		{method: http.MethodPost, path: "/v1/media/generations"},
 		{method: http.MethodGet, path: "/v1/media/generations/gen_rq_0123456789abcdef0123456789abcdef"},
+		{method: http.MethodGet, path: "/v1/media/generations/gen_rq_0123456789abcdef0123456789abcdef/content"},
 	} {
 		req := httptest.NewRequest(test.method, test.path, strings.NewReader(`{}`))
 		req.Header.Set("Content-Type", "application/json")
@@ -132,6 +133,26 @@ func TestGatewayRoutesXAIImagesPathsAreRegistered(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI-compatible images handler for xai", path)
+	}
+}
+
+func TestGatewayRoutesLeonardoImageEditsPathsAreRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	groupID := int64(1)
+	user := &service.User{ID: 1}
+	RegisterGatewayRoutes(router, &handler.Handlers{Gateway: &handler.GatewayHandler{}, OpenAIGateway: &handler.OpenAIGatewayHandler{}, LeonardoMedia: handler.NewLeonardoMediaHandler(nil, nil)}, servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{ID: 1, UserID: 1, User: user, GroupID: &groupID, Group: &service.Group{ID: groupID, Platform: service.PlatformLeonardo}})
+		c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 1})
+		c.Next()
+	}), nil, nil, nil, nil, &config.Config{Leonardo: config.LeonardoConfig{ProviderEnabled: true, MediaEnabled: true}})
+
+	for _, path := range []string{"/v1/images/edits", "/images/edits"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(""))
+		req.Header.Set("Content-Type", "multipart/form-data; boundary=test")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit Leonardo images edits handler", path)
 	}
 }
 
@@ -190,5 +211,55 @@ func TestGatewayRoutesXAIVideosPathsAreRegistered(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit xai videos poll handler", path)
+	}
+}
+
+func TestGatewayRoutesLeonardoVideosGenerationPathsRequireFlag(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	groupID := int64(1)
+	RegisterGatewayRoutes(router, &handler.Handlers{Gateway: &handler.GatewayHandler{}, OpenAIGateway: &handler.OpenAIGatewayHandler{}}, servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{GroupID: &groupID, Group: &service.Group{Platform: service.PlatformLeonardo}})
+		c.Next()
+	}), nil, nil, nil, nil, &config.Config{Leonardo: config.LeonardoConfig{ProviderEnabled: true, VideoEnabled: true}})
+
+	for _, test := range []struct {
+		method string
+		path   string
+		want   int
+	}{
+		{http.MethodPost, "/v1/videos", http.StatusBadRequest},
+		{http.MethodPost, "/videos/generations", http.StatusBadRequest},
+		{http.MethodGet, "/v1/videos/req_123", http.StatusBadRequest},
+		{http.MethodGet, "/videos/req_123/content", http.StatusBadRequest},
+		{http.MethodPost, "/v1/videos/edits", http.StatusNotFound},
+		{http.MethodPost, "/videos/extensions", http.StatusNotFound},
+	} {
+		req := httptest.NewRequest(test.method, test.path, strings.NewReader(`{"model":"video","prompt":"test"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, test.want, w.Code, "path=%s", test.path)
+		if test.want == http.StatusBadRequest {
+			require.Contains(t, w.Body.String(), "not verified")
+		}
+	}
+}
+
+func TestGatewayRoutesLeonardoVideosDefaultToNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	groupID := int64(1)
+	RegisterGatewayRoutes(router, &handler.Handlers{Gateway: &handler.GatewayHandler{}, OpenAIGateway: &handler.OpenAIGatewayHandler{}}, servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
+		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{GroupID: &groupID, Group: &service.Group{Platform: service.PlatformLeonardo}})
+		c.Next()
+	}), nil, nil, nil, nil, &config.Config{})
+
+	for _, path := range []string{"/v1/videos", "/videos/generations"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"video","prompt":"test"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusNotFound, w.Code)
 	}
 }

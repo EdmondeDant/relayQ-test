@@ -111,6 +111,7 @@
               :modelValue="entry.billing_mode"
               @update:modelValue="emit('update', { ...entry, billing_mode: $event as BillingMode, intervals: [] })"
               :options="billingModeOptions"
+              :disabled="isLeonardoPricing"
               class="mt-1"
             />
           </div>
@@ -213,6 +214,9 @@
 
         <!-- Image mode -->
         <div v-else-if="entry.billing_mode === 'image'">
+          <div v-if="isLeonardoPricing" class="mt-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">
+            Leonardo 按服务端本地成本快照动态计费，客户价格固定为本地成本 × 7.1。此处显示 1024×1024、low、1 张的默认价格；实际扣费按请求的模型、尺寸、质量和数量计算。
+          </div>
           <!-- Default image price (per-request, same as per_request mode) -->
           <label class="mt-3 block text-xs font-medium text-gray-500 dark:text-gray-400">
             {{ t('admin.channels.form.defaultImagePrice', '默认图片价格（未命中层级时使用）') }}
@@ -220,11 +224,11 @@
           </label>
           <div class="mt-1 w-48">
             <input :value="entry.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
-              type="number" step="any" min="0" class="input text-sm" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
+              type="number" step="any" min="0" class="input text-sm" :readonly="isLeonardoPricing" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
           </div>
 
           <!-- Image tiers -->
-          <div class="mt-3 flex items-center justify-between">
+          <div v-if="!isLeonardoPricing" class="mt-3 flex items-center justify-between">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.channels.form.imageTiers', '图片计费层级（按次）') }}
             </label>
@@ -232,7 +236,7 @@
               + {{ t('admin.channels.form.addTier', '添加层级') }}
             </button>
           </div>
-          <div v-if="entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
+          <div v-if="!isLeonardoPricing && entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
             <IntervalRow
               v-for="(iv, idx) in entry.intervals"
               :key="idx"
@@ -277,11 +281,15 @@ const emit = defineEmits<{
 // Collapse state: entries with existing models default to collapsed
 const collapsed = ref(props.entry.models.length > 0)
 
-const billingModeOptions = computed(() => [
-  { value: 'token', label: 'Token' },
-  { value: 'per_request', label: t('admin.channels.billingMode.perRequest', '按次') },
-  { value: 'image', label: t('admin.channels.billingMode.image', '图片（按次）') }
-])
+const isLeonardoPricing = computed(() => props.platform === 'leonardo')
+
+const billingModeOptions = computed(() => isLeonardoPricing.value
+  ? [{ value: 'image', label: '本地成本 × 7.1（自动）' }]
+  : [
+      { value: 'token', label: 'Token' },
+      { value: 'per_request', label: t('admin.channels.billingMode.perRequest', '按次') },
+      { value: 'image', label: t('admin.channels.billingMode.image', '图片（按次）') }
+    ])
 
 const billingModeLabel = computed(() => {
   const opt = billingModeOptions.value.find(o => o.value === props.entry.billing_mode)
@@ -335,30 +343,34 @@ function removeInterval(idx: number) {
 
 async function onModelsUpdate(newModels: string[]) {
   const oldModels = props.entry.models
-  emit('update', { ...props.entry, models: newModels })
+  const models = isLeonardoPricing.value && newModels.length > 1 ? [newModels[newModels.length - 1]] : newModels
+  emit('update', { ...props.entry, models, billing_mode: isLeonardoPricing.value ? 'image' : props.entry.billing_mode })
 
   // 只在新增模型且当前无价格时自动填充
-  const addedModels = newModels.filter(m => !oldModels.includes(m))
+  const addedModels = models.filter(m => !oldModels.includes(m))
   if (addedModels.length === 0) return
 
   // 检查是否所有价格字段都为空
   const e = props.entry
   const hasPrice = e.input_price != null || e.output_price != null ||
-                   e.cache_write_price != null || e.cache_read_price != null
+				   e.cache_write_price != null || e.cache_read_price != null ||
+				   e.image_output_price != null || e.per_request_price != null || e.intervals.length > 0
   if (hasPrice) return
 
   // 查询第一个新增模型的默认价格
   try {
-    const result = await channelsAPI.getModelDefaultPricing(addedModels[0])
+		const result = await channelsAPI.getModelDefaultPricing(addedModels[0], props.platform)
     if (result.found) {
       emit('update', {
         ...props.entry,
-        models: newModels,
+        models,
         input_price: perTokenToMTok(result.input_price ?? null),
         output_price: perTokenToMTok(result.output_price ?? null),
         cache_write_price: perTokenToMTok(result.cache_write_price ?? null),
         cache_read_price: perTokenToMTok(result.cache_read_price ?? null),
         image_output_price: perTokenToMTok(result.image_output_price ?? null),
+				per_request_price: result.per_request_price ?? null,
+				billing_mode: result.billing_mode ?? props.entry.billing_mode,
       })
     }
   } catch {

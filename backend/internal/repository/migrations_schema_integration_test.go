@@ -162,6 +162,10 @@ func TestMigrationsRunner_GenerationJobsSchemaAndRepositoryStayAligned(t *testin
 	var applied int
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations WHERE filename = '153_create_generation_jobs.sql'").Scan(&applied))
 	require.Equal(t, 1, applied)
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations WHERE filename = '154_generation_job_pricing_snapshot.sql'").Scan(&applied))
+	require.Equal(t, 1, applied)
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations WHERE filename = '155_leonardo_cost_variance_alert.sql'").Scan(&applied))
+	require.Equal(t, 1, applied)
 
 	requireColumn(t, tx, "generation_jobs", "id", "bigint", 0, false)
 	requireColumn(t, tx, "generation_jobs", "created_at", "timestamp with time zone", 0, false)
@@ -184,9 +188,16 @@ func TestMigrationsRunner_GenerationJobsSchemaAndRepositoryStayAligned(t *testin
 	requireColumn(t, tx, "generation_jobs", "error_code", "character varying", 64, true)
 	requireColumn(t, tx, "generation_jobs", "error_message", "text", 0, true)
 	requireColumn(t, tx, "generation_jobs", "output_count", "integer", 0, false)
+	requireNumericColumn(t, tx, "generation_jobs", "estimated_upstream_cost_amount", 20, 10, true)
+	requireColumn(t, tx, "generation_jobs", "estimated_upstream_cost_unit", "character varying", 32, true)
+	requireColumn(t, tx, "generation_jobs", "pricing_snapshot_version", "character varying", 64, true)
+	requireColumn(t, tx, "generation_jobs", "pricing_source", "character varying", 128, true)
+	requireColumn(t, tx, "generation_jobs", "pricing_match_type", "character varying", 32, true)
 	requireNumericColumn(t, tx, "generation_jobs", "actual_upstream_cost_amount", 20, 10, true)
 	requireColumn(t, tx, "generation_jobs", "actual_upstream_cost_unit", "character varying", 32, true)
 	requireNumericColumn(t, tx, "generation_jobs", "customer_cost", 20, 10, true)
+	requireNumericColumn(t, tx, "generation_jobs", "gross_margin", 20, 10, true)
+	requireNumericColumn(t, tx, "generation_jobs", "cost_variance", 20, 10, true)
 	requireColumn(t, tx, "generation_jobs", "billing_status", "character varying", 16, false)
 	requireColumn(t, tx, "generation_jobs", "billing_reference", "character varying", 128, true)
 	requireColumn(t, tx, "generation_jobs", "poll_attempts", "integer", 0, false)
@@ -225,8 +236,10 @@ INSERT INTO generation_jobs (
 	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
 SELECT status, request_payload::text, result_payload::text, output_count, billing_status, poll_attempts,
 	group_id IS NULL AND upstream_generation_id IS NULL AND upstream_status IS NULL AND
-	error_code IS NULL AND error_message IS NULL AND actual_upstream_cost_amount IS NULL AND
-	actual_upstream_cost_unit IS NULL AND customer_cost IS NULL AND billing_reference IS NULL AND
+	error_code IS NULL AND error_message IS NULL AND estimated_upstream_cost_amount IS NULL AND
+	estimated_upstream_cost_unit IS NULL AND pricing_snapshot_version IS NULL AND pricing_source IS NULL AND
+	pricing_match_type IS NULL AND actual_upstream_cost_amount IS NULL AND actual_upstream_cost_unit IS NULL AND
+	customer_cost IS NULL AND gross_margin IS NULL AND cost_variance IS NULL AND billing_reference IS NULL AND
 	next_poll_at IS NULL AND last_polled_at IS NULL AND submitted_at IS NULL AND
 	started_at IS NULL AND completed_at IS NULL AND failed_at IS NULL
 FROM generation_jobs WHERE public_id = $1

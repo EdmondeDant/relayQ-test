@@ -43,40 +43,49 @@ var (
 
 const MaxGenerationJobDuePollBatchSize = 100
 
+const LeonardoGenerationReconciliationDelay = time.Minute
+
 type GenerationJob struct {
-	ID                       int64
-	PublicID                 string
-	Provider                 string
-	Modality                 string
-	Model                    string
-	UpstreamModel            string
-	UserID                   int64
-	APIKeyID                 int64
-	GroupID                  *int64
-	AccountID                int64
-	UpstreamGenerationID     *string
-	Status                   GenerationJobStatus
-	UpstreamStatus           *string
-	RequestHash              string
-	RequestPayload           map[string]any
-	ResultPayload            map[string]any
-	ErrorCode                *string
-	ErrorMessage             *string
-	OutputCount              int
-	ActualUpstreamCostAmount *decimal.Decimal
-	ActualUpstreamCostUnit   *string
-	CustomerCost             *decimal.Decimal
-	BillingStatus            GenerationJobBillingStatus
-	BillingReference         *string
-	PollAttempts             int
-	NextPollAt               *time.Time
-	LastPolledAt             *time.Time
-	SubmittedAt              *time.Time
-	StartedAt                *time.Time
-	CompletedAt              *time.Time
-	FailedAt                 *time.Time
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	ID                          int64
+	PublicID                    string
+	Provider                    string
+	Modality                    string
+	Model                       string
+	UpstreamModel               string
+	UserID                      int64
+	APIKeyID                    int64
+	GroupID                     *int64
+	AccountID                   int64
+	UpstreamGenerationID        *string
+	Status                      GenerationJobStatus
+	UpstreamStatus              *string
+	RequestHash                 string
+	RequestPayload              map[string]any
+	ResultPayload               map[string]any
+	ErrorCode                   *string
+	ErrorMessage                *string
+	OutputCount                 int
+	EstimatedUpstreamCostAmount *decimal.Decimal
+	EstimatedUpstreamCostUnit   *string
+	PricingSnapshotVersion      *string
+	PricingSource               *string
+	PricingMatchType            *string
+	ActualUpstreamCostAmount    *decimal.Decimal
+	ActualUpstreamCostUnit      *string
+	CustomerCost                *decimal.Decimal
+	GrossMargin                 *decimal.Decimal
+	CostVariance                *decimal.Decimal
+	BillingStatus               GenerationJobBillingStatus
+	BillingReference            *string
+	PollAttempts                int
+	NextPollAt                  *time.Time
+	LastPolledAt                *time.Time
+	SubmittedAt                 *time.Time
+	StartedAt                   *time.Time
+	CompletedAt                 *time.Time
+	FailedAt                    *time.Time
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
 }
 
 type GenerationJobRepository interface {
@@ -104,7 +113,8 @@ func NormalizeGenerationJob(job *GenerationJob) {
 	job.BillingStatus = GenerationJobBillingStatusManualReview
 	job.ActualUpstreamCostAmount = nil
 	job.ActualUpstreamCostUnit = nil
-	job.CustomerCost = nil
+	job.GrossMargin = nil
+	job.CostVariance = nil
 }
 
 func CanTransitionGenerationJobStatus(from, to GenerationJobStatus) bool {

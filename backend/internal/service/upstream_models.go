@@ -12,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 )
 
 const upstreamModelsBodyLimit int64 = 8 << 20
@@ -84,6 +85,9 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	if account.Platform == PlatformAntigravity && account.Type != AccountTypeAPIKey {
 		return s.fetchAntigravityOAuthUpstreamModels(ctx, account)
 	}
+	if account.IsLeonardo() {
+		return s.fetchLeonardoUpstreamModels(ctx, account)
+	}
 
 	if s.httpUpstream == nil {
 		return nil, newUpstreamModelSyncConfigError("Upstream HTTP client is not configured", nil)
@@ -130,6 +134,45 @@ func (s *AccountTestService) FetchUpstreamSupportedModels(ctx context.Context, a
 	}
 
 	return models, nil
+}
+
+func (s *AccountTestService) fetchLeonardoUpstreamModels(ctx context.Context, account *Account) ([]string, error) {
+	if account.Type != AccountTypeAPIKey {
+		return nil, newUpstreamModelSyncUnsupportedError("Leonardo upstream model sync requires an API key account", nil)
+	}
+	apiKey := account.GetLeonardoAPIKey()
+	if apiKey == "" {
+		return nil, newUpstreamModelSyncConfigError("No Leonardo API key is available", nil)
+	}
+	baseURL, err := s.validateUpstreamBaseURL(account.GetLeonardoBaseURL())
+	if err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Leonardo base URL", err)
+	}
+	proxyURL := upstreamModelsProxyURL(account)
+	client, err := leonardo.NewClientWithHTTPClient(baseURL, apiKey, leonardo.DefaultTimeout, &http.Client{Transport: accountTestRoundTripper{
+		upstream:    s.httpUpstream,
+		proxyURL:    proxyURL,
+		accountID:   account.ID,
+		concurrency: account.Concurrency,
+	}})
+	if err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Leonardo model list configuration", err)
+	}
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		return nil, newUpstreamModelSyncUpstreamError("Failed to request Leonardo model list", err)
+	}
+	verified := make([]string, 0, len(models))
+	for _, model := range models {
+		if known, ok := leonardo.ValidateSyncedModel(model); ok {
+			verified = append(verified, known.RequestModelSlug)
+		}
+	}
+	verified = dedupeAndSortModelIDs(verified)
+	if len(verified) == 0 {
+		return nil, newUpstreamModelSyncUpstreamError("Leonardo upstream returned no verified models", nil)
+	}
+	return verified, nil
 }
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {

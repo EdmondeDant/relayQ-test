@@ -93,6 +93,15 @@ type Config struct {
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
+	Leonardo                LeonardoConfig                `mapstructure:"leonardo"`
+}
+
+type LeonardoConfig struct {
+	ProviderEnabled bool `mapstructure:"provider_enabled"`
+	MediaEnabled    bool `mapstructure:"media_enabled"`
+	WebhookEnabled  bool `mapstructure:"webhook_enabled"`
+	VideoEnabled    bool `mapstructure:"video_enabled"`
+	AudioEnabled    bool `mapstructure:"audio_enabled"`
 }
 
 type LogConfig struct {

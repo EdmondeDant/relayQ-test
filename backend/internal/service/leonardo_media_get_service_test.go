@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +42,10 @@ func (s *leonardoMediaGetRepositoryStub) GetByPublicID(context.Context, string) 
 		s.readHook(s.reads, &job)
 	}
 	return &job, nil
+}
+
+func (s *leonardoMediaGetRepositoryStub) GetByUpstreamGenerationID(ctx context.Context, _ string) (*GenerationJob, error) {
+	return s.GetByPublicID(ctx, "")
 }
 
 func (s *leonardoMediaGetRepositoryStub) CompareAndSwapPoll(context.Context, string, GenerationJobStatus, int, *GenerationJob) error {
@@ -84,6 +91,39 @@ func leonardoMediaGetInput() LeonardoMediaGetInput {
 func leonardoMediaGetService(repository *leonardoMediaGetRepositoryStub, accounts *leonardoMediaGetAccountLoaderStub, upstream *orchestratorUpstreamMock) *LeonardoMediaGetService {
 	poller := NewLeonardoGenerationPollOrchestrator(repository, accounts, upstream, &config.Config{}, leonardoMediaGetClock{}, &orchestratorFundsMock{})
 	return NewLeonardoMediaGetService(repository, poller)
+}
+
+func TestLeonardoMediaGetServiceRejectsOwnedVideoBeforePolling(t *testing.T) {
+	job := leonardoMediaOwnedJob()
+	job.Modality = "video"
+	repository := &leonardoMediaGetRepositoryStub{job: job}
+	accounts := &leonardoMediaGetAccountLoaderStub{}
+	upstream := &orchestratorUpstreamMock{}
+	service := leonardoMediaGetService(repository, accounts, upstream)
+
+	_, err := service.Get(context.Background(), leonardoMediaGetInput())
+
+	require.ErrorIs(t, err, ErrLeonardoMediaVideoUnverified)
+	require.Equal(t, 1, repository.reads)
+	require.Zero(t, repository.casCalls)
+	require.Zero(t, accounts.calls)
+	require.Zero(t, upstream.calls)
+}
+
+func TestLeonardoMediaGetServiceRejectsOwned3DBeforePolling(t *testing.T) {
+	job := leonardoMediaOwnedJob()
+	job.Modality = "3d"
+	repository := &leonardoMediaGetRepositoryStub{job: job}
+	accounts := &leonardoMediaGetAccountLoaderStub{}
+	upstream := &orchestratorUpstreamMock{}
+
+	_, err := leonardoMediaGetService(repository, accounts, upstream).Get(context.Background(), leonardoMediaGetInput())
+
+	require.ErrorIs(t, err, ErrLeonardo3DSchemaUnverified)
+	require.Equal(t, 1, repository.reads)
+	require.Zero(t, repository.casCalls)
+	require.Zero(t, accounts.calls)
+	require.Zero(t, upstream.calls)
 }
 
 func TestLeonardoMediaGetServiceReturnsOwnedTerminalJob(t *testing.T) {
@@ -452,13 +492,16 @@ func TestLeonardoMediaGetServiceFiltersUnsafeImagesAndSensitiveFields(t *testing
 		map[string]any{"id": 1, "url": "https://cdn.example/image.png"},
 		map[string]any{"id": "bad-url-type", "url": 1},
 		"not-an-object",
-		map[string]any{"id": "second", "url": " https://cdn.example/second.png ", "nsfw": "invalid"},
+		map[string]any{"id": "second", "url": " https://cdn.example/second.png ", "nsfw": false},
+		map[string]any{"id": "unknown", "url": "https://cdn.example/unknown.png", "nsfw": "invalid"},
 	}}
 	result := newLeonardoMediaGetResult(job)
-	require.Equal(t, []LeonardoMediaGetImage{{ID: "first", URL: "https://cdn.example/first.png", NSFW: true}, {ID: "second", URL: "https://cdn.example/second.png", NSFW: false}}, result.Data)
+	require.Equal(t, []LeonardoMediaGetImage{{ID: "second", URL: "https://cdn.example/second.png", NSFW: false}}, result.Data)
 
 	body, err := json.Marshal(result)
 	require.NoError(t, err)
+	require.NotContains(t, string(body), "https://cdn.example/first.png")
+	require.NotContains(t, string(body), "https://cdn.example/unknown.png")
 	for _, secret := range []string{"account_id", "upstream_generation_id", "request_payload", "result_payload", "billing_reference", "actual_upstream_cost", "api_key", "authorization", "credentials", "proxy", "cookie", "signature"} {
 		require.NotContains(t, strings.ToLower(string(body)), secret)
 	}
@@ -474,4 +517,55 @@ func TestLeonardoMediaGetServiceFailedResultAndEmptyImages(t *testing.T) {
 	require.Equal(t, &LeonardoMediaGetError{Code: "upstream_failed", Message: "safe failure"}, result.Error)
 	require.NotNil(t, result.Data)
 	require.Empty(t, result.Data)
+}
+
+func TestLeonardoMediaGetServiceContentDownloadsValidatedImage(t *testing.T) {
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0}
+	job := leonardoMediaOwnedJob()
+	job.Status = GenerationJobStatusSucceeded
+	job.BillingStatus = GenerationJobBillingStatusSettled
+	job.ResultPayload = map[string]any{"images": []map[string]any{{"id": "image", "url": "https://cdn.example/image.png", "nsfw": false}}}
+	repository := &leonardoMediaGetRepositoryStub{job: job}
+	getService := leonardoMediaGetService(repository, &leonardoMediaGetAccountLoaderStub{}, &orchestratorUpstreamMock{})
+	getService.content = &http.Client{Transport: leonardoMediaRoundTripper(func(r *http.Request) (*http.Response, error) {
+		require.Empty(t, r.Header.Get("Authorization"))
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"image/png"}}, Body: io.NopCloser(strings.NewReader(string(png))), ContentLength: int64(len(png))}, nil
+	})}
+
+	content, err := getService.Content(context.Background(), LeonardoMediaContentInput{LeonardoMediaGetInput: ownedLeonardoMediaGetInput(job), Index: 0})
+	require.NoError(t, err)
+	path := content.path
+	result, err := io.ReadAll(content.File)
+	require.NoError(t, err)
+	require.Equal(t, png, result)
+	require.Equal(t, "image/png", content.ContentType)
+	require.NoError(t, content.Close())
+	_, err = os.Stat(path)
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestLeonardoMediaGetServiceContentRejectsMIMEConfusion(t *testing.T) {
+	job := leonardoMediaOwnedJob()
+	job.Status = GenerationJobStatusSucceeded
+	job.BillingStatus = GenerationJobBillingStatusSettled
+	job.ResultPayload = map[string]any{"images": []map[string]any{{"id": "image", "url": "https://cdn.example/image.png", "nsfw": false}}}
+	repository := &leonardoMediaGetRepositoryStub{job: job}
+	getService := leonardoMediaGetService(repository, &leonardoMediaGetAccountLoaderStub{}, &orchestratorUpstreamMock{})
+	getService.content = &http.Client{Transport: leonardoMediaRoundTripper(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"image/png"}}, Body: io.NopCloser(strings.NewReader("<html>not an image</html>")), ContentLength: 25}, nil
+	})}
+
+	content, err := getService.Content(context.Background(), LeonardoMediaContentInput{LeonardoMediaGetInput: ownedLeonardoMediaGetInput(job), Index: 0})
+	require.ErrorIs(t, err, ErrLeonardoMediaContentFailed)
+	require.Nil(t, content)
+}
+
+func ownedLeonardoMediaGetInput(job *GenerationJob) LeonardoMediaGetInput {
+	return LeonardoMediaGetInput{PublicID: job.PublicID, UserID: job.UserID, APIKeyID: job.APIKeyID, GroupID: *job.GroupID}
+}
+
+type leonardoMediaRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f leonardoMediaRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }

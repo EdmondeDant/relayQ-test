@@ -52,6 +52,17 @@ type orchestratorFundsMock struct {
 	err           error
 }
 
+type orchestratorUsageLogMock struct {
+	logs     []*UsageLog
+	inserted bool
+	err      error
+}
+
+func (m *orchestratorUsageLogMock) Create(_ context.Context, usage *UsageLog) (bool, error) {
+	m.logs = append(m.logs, usage)
+	return m.inserted, m.err
+}
+
 func (f *orchestratorFundsMock) Settle(context.Context, LeonardoImageFundsSettleRequest) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -79,6 +90,10 @@ func (r *orchestratorRepositoryMock) GetByPublicID(context.Context, string) (*Ge
 		r.readHook(r.reads, &job)
 	}
 	return &job, nil
+}
+
+func (r *orchestratorRepositoryMock) GetByUpstreamGenerationID(context.Context, string) (*GenerationJob, error) {
+	return r.GetByPublicID(context.Background(), "")
 }
 
 func (r *orchestratorRepositoryMock) CompareAndSwapPoll(_ context.Context, publicID string, status GenerationJobStatus, attempts int, job *GenerationJob) error {
@@ -198,7 +213,7 @@ func TestLeonardoGenerationPollOrchestratorRejectsIneligibleBeforeAccountLookup(
 	}{
 		{name: "created", status: GenerationJobStatusCreated, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
 		{name: "submitting", status: GenerationJobStatusSubmitting, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
-		{name: "unknown", status: GenerationJobStatusUnknown, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
+		{name: "unknown without id", status: GenerationJobStatusUnknown, provider: PlatformLeonardo},
 		{name: "succeeded", status: GenerationJobStatusSucceeded, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
 		{name: "failed", status: GenerationJobStatusFailed, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
 		{name: "cancelled", status: GenerationJobStatusCancelled, provider: PlatformLeonardo, id: stringPointer(orchestratorGenerationID)},
@@ -345,6 +360,74 @@ func TestLeonardoGenerationPollOrchestratorReconcilesStoredTerminalJobsWithoutNe
 			require.Zero(t, upstream.calls)
 		})
 	}
+}
+
+func TestLeonardoGenerationPollOrchestratorDoesNotBillUnverified3DTerminalJob(t *testing.T) {
+	job := orchestratorJob(GenerationJobStatusSucceeded)
+	job.Modality = "3d"
+	job.BillingStatus = GenerationJobBillingStatusSubmitted
+	job.BillingReference = stringPointer("leo_hold_existing")
+	repository := &orchestratorRepositoryMock{job: job}
+	funds := &orchestratorFundsMock{}
+
+	result, err := NewLeonardoGenerationPollOrchestrator(repository, &orchestratorAccountLoaderMock{}, &orchestratorUpstreamMock{}, &config.Config{}, generationPollClockMock{now: time.Now()}, funds).Poll(context.Background(), job.PublicID)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobBillingStatusManualReview, result.BillingStatus)
+	require.Zero(t, funds.settleCalls)
+	require.Zero(t, funds.releaseCalls)
+}
+
+func TestLeonardoGenerationPollOrchestratorWritesIdempotentUsageLog(t *testing.T) {
+	job := orchestratorJob(GenerationJobStatusSucceeded)
+	job.BillingStatus = GenerationJobBillingStatusSubmitted
+	job.OutputCount = 1
+	cost := decimal.RequireFromString("0.005")
+	job.CustomerCost = &cost
+	job.BillingReference = stringPointer("leo_hold_existing")
+	repository := &orchestratorRepositoryMock{job: job}
+	usageLogs := &orchestratorUsageLogMock{inserted: true}
+	orchestrator := NewLeonardoGenerationPollOrchestrator(repository, &orchestratorAccountLoaderMock{}, &orchestratorUpstreamMock{}, &config.Config{}, generationPollClockMock{now: time.Now()}, &orchestratorFundsMock{})
+	orchestrator.SetUsageLogWriter(usageLogs)
+
+	result, err := orchestrator.Poll(context.Background(), job.PublicID)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobBillingStatusSettled, result.BillingStatus)
+	require.Len(t, usageLogs.logs, 1)
+	usage := usageLogs.logs[0]
+	require.Equal(t, job.PublicID, usage.RequestID)
+	require.Equal(t, job.UserID, usage.UserID)
+	require.Equal(t, job.APIKeyID, usage.APIKeyID)
+	require.Equal(t, job.AccountID, usage.AccountID)
+	require.Equal(t, job.Model, usage.Model)
+	require.Equal(t, job.UpstreamModel, *usage.UpstreamModel)
+	require.Equal(t, 0.005, usage.TotalCost)
+	require.Equal(t, 0.005, usage.ActualCost)
+	require.Equal(t, 1, usage.ImageCount)
+	require.Equal(t, "1K", *usage.ImageSize)
+	require.Equal(t, "image", *usage.BillingMode)
+}
+
+func TestLeonardoGenerationPollOrchestratorUsageLogFailureLeavesBillingRetryable(t *testing.T) {
+	job := orchestratorJob(GenerationJobStatusSucceeded)
+	job.BillingStatus = GenerationJobBillingStatusSubmitted
+	cost := decimal.RequireFromString("0.005")
+	job.CustomerCost = &cost
+	job.BillingReference = stringPointer("leo_hold_existing")
+	repository := &orchestratorRepositoryMock{job: job}
+	usageErr := errors.New("usage log failed")
+	usageLogs := &orchestratorUsageLogMock{err: usageErr}
+	funds := &orchestratorFundsMock{}
+	orchestrator := NewLeonardoGenerationPollOrchestrator(repository, &orchestratorAccountLoaderMock{}, &orchestratorUpstreamMock{}, &config.Config{}, generationPollClockMock{now: time.Now()}, funds)
+	orchestrator.SetUsageLogWriter(usageLogs)
+
+	result, err := orchestrator.Poll(context.Background(), job.PublicID)
+
+	require.ErrorIs(t, err, usageErr)
+	require.Equal(t, GenerationJobBillingStatusSubmitted, result.BillingStatus)
+	require.Equal(t, 1, funds.settleCalls)
+	require.Zero(t, repository.statusCASCalls)
 }
 
 func TestLeonardoGenerationPollOrchestratorTerminalFundsFailureDoesNotUpdateBilling(t *testing.T) {
@@ -541,6 +624,7 @@ func orchestratorJob(status GenerationJobStatus) *GenerationJob {
 	return &GenerationJob{
 		PublicID:             "job-1",
 		Provider:             PlatformLeonardo,
+		Modality:             "image",
 		Status:               status,
 		UserID:               7,
 		AccountID:            41,

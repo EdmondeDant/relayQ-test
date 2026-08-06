@@ -222,6 +222,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	idempotencyRepository := repository.NewIdempotencyRepository(client, db)
 	generationJobRepository := repository.NewGenerationJobRepository(client, db)
 	leonardoImageFunds := repository.NewLeonardoImageFundsRepository(client, db)
+	leonardoWebhookEventRepository := repository.NewLeonardoWebhookEventRepository(client, db)
 	systemOperationLockService := service.ProvideSystemOperationLockService(idempotencyRepository, configConfig)
 	systemHandler := handler.ProvideSystemHandler(updateService, systemOperationLockService)
 	adminSubscriptionHandler := admin.NewSubscriptionHandler(subscriptionService)
@@ -254,7 +255,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	retailGrokUsageLogRepository := repository.NewRetailGrokUsageLogRepository(db)
 	retailGrokService := service.NewRetailGrokService(retailGrokKeyRepository, retailGrokUsageLogRepository, groupRepository)
 	retailGrokHandler := admin.NewRetailGrokHandler(retailGrokService)
-	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminIdeaMessageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, xaiOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, paymentHandler, affiliateHandler, retailGrokHandler)
+	leonardoImageTerminalFunds := service.ProvideLeonardoImageTerminalFunds(leonardoImageFunds)
+	leonardoManualReviewService := service.NewLeonardoManualReviewService(generationJobRepository, leonardoImageTerminalFunds)
+	leonardoManualReviewHandler := admin.NewLeonardoManualReviewHandler(leonardoManualReviewService)
+	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminIdeaMessageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, xaiOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, paymentHandler, affiliateHandler, retailGrokHandler, leonardoManualReviewHandler)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
 	userMessageQueueService := service.ProvideUserMessageQueueService(userMsgQueueCache, rpmCache, configConfig)
@@ -275,16 +279,22 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	leonardoImageQuoteGuard := service.ProvideLeonardoImageQuoteGuard(userRepository)
 	leonardoImageAccountAdapterFactory := service.ProvideLeonardoImageAccountAdapterFactory(httpUpstream, configConfig)
 	leonardoImageCreateFunds := service.ProvideLeonardoImageCreateFunds(leonardoImageFunds)
-	leonardoImageCreateOrchestrator := service.ProvideLeonardoImageCreateOrchestrator(leonardoImageQuoteGuard, leonardoImageCreateFunds, accountRepository, leonardoImageAccountAdapterFactory, generationJobRepository)
+	leonardoImageUploadCache := service.NewLeonardoImageUploadCache(redisClient)
+	leonardoImageUploadService := service.NewLeonardoImageUploadService(leonardoImageUploadCache)
+	leonardoImageCreateOrchestrator := service.ProvideLeonardoImageCreateOrchestrator(leonardoImageQuoteGuard, leonardoImageCreateFunds, accountRepository, leonardoImageAccountAdapterFactory, generationJobRepository, leonardoImageUploadService)
 	leonardoMediaCreateService := service.NewLeonardoMediaCreateService(accountRepository, leonardoImageCreateOrchestrator)
 	leonardoGenerationPollRepository := service.ProvideLeonardoGenerationPollRepository(generationJobRepository)
 	generationJobPollRepository := service.ProvideGenerationJobPollRepository(leonardoGenerationPollRepository)
 	leonardoGenerationPollClock := service.ProvideLeonardoGenerationPollClock()
-	leonardoImageTerminalFunds := service.ProvideLeonardoImageTerminalFunds(leonardoImageFunds)
-	leonardoGenerationPollOrchestrator := service.ProvideLeonardoGenerationPollOrchestrator(leonardoGenerationPollRepository, accountRepository, httpUpstream, configConfig, leonardoGenerationPollClock, leonardoImageTerminalFunds)
+	leonardoOutputModerator := service.ProvideLeonardoOutputModerator(contentModerationService)
+	leonardoGenerationPollOrchestrator := service.ProvideLeonardoGenerationPollOrchestrator(leonardoGenerationPollRepository, accountRepository, httpUpstream, configConfig, leonardoGenerationPollClock, leonardoImageTerminalFunds, leonardoOutputModerator, usageLogRepository)
+	leonardoGenerationPollBatchRunner := service.ProvideLeonardoGenerationPollBatchRunner(generationJobRepository, leonardoGenerationPollOrchestrator, opsRepository, configConfig)
+	leonardoWebhookProcessor := service.ProvideLeonardoWebhookProcessor(leonardoWebhookEventRepository, leonardoGenerationPollOrchestrator, opsRepository, configConfig)
 	leonardoMediaGetService := service.NewLeonardoMediaGetService(generationJobPollRepository, leonardoGenerationPollOrchestrator)
 	leonardoMediaHandler := handler.NewLeonardoMediaHandler(leonardoMediaCreateService, leonardoMediaGetService)
-	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, ideaMessageHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, retailGrokGatewayHandler, playgroundHandler, leonardoMediaHandler, idempotencyCoordinator, idempotencyCleanupService)
+	leonardoWebhookService := service.NewLeonardoWebhookService(accountRepository, leonardoWebhookEventRepository)
+	leonardoWebhookHandler := handler.NewLeonardoWebhookHandler(leonardoWebhookService)
+	handlers := handler.ProvideHandlers(authHandler, userHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, ideaMessageHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, retailGrokGatewayHandler, playgroundHandler, leonardoMediaHandler, leonardoWebhookHandler, idempotencyCoordinator, idempotencyCleanupService)
 	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(authService, userService)
 	adminAuthMiddleware := middleware.NewAdminAuthMiddleware(authService, userService, settingService)
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
@@ -303,7 +313,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, playgroundService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, playgroundService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, leonardoGenerationPollBatchRunner, leonardoWebhookProcessor)
 	application := &Application{
 		Server:  httpServer,
 		Cleanup: v,
@@ -360,6 +370,8 @@ func provideCleanup(
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
+	leonardoPollRunner *service.LeonardoGenerationPollBatchRunner,
+	leonardoWebhookProcessor *service.LeonardoWebhookProcessor,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -371,6 +383,18 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"LeonardoWebhookProcessor", func() error {
+				if leonardoWebhookProcessor != nil {
+					leonardoWebhookProcessor.Stop()
+				}
+				return nil
+			}},
+			{"LeonardoGenerationPollBatchRunner", func() error {
+				if leonardoPollRunner != nil {
+					leonardoPollRunner.Stop()
+				}
+				return nil
+			}},
 			{"OpsScheduledReportService", func() error {
 				if opsScheduledReport != nil {
 					opsScheduledReport.Stop()

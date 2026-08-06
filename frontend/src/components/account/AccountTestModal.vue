@@ -194,6 +194,15 @@
         </Transition>
       </Teleport>
 
+      <ConfirmDialog
+		:show="showPaidConfirmation"
+		:title="t('admin.accounts.paidImageTestTitle')"
+		:message="t('admin.accounts.paidImageTestMessage')"
+		:confirm-text="t('admin.accounts.confirmPaidImageTest')"
+		@confirm="confirmPaidTest"
+		@cancel="showPaidConfirmation = false"
+	  />
+
       <!-- Test Info -->
       <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
         <div class="flex items-center gap-3">
@@ -224,7 +233,16 @@
           {{ t('common.close') }}
         </button>
         <button
-          @click="startTest"
+		  v-if="supportsLeonardoImageTest"
+		  @click="showPaidConfirmation = true"
+		  :disabled="status === 'connecting' || !selectedModelId || !testPrompt.trim()"
+		  class="flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+		>
+          <Icon name="eye" size="sm" :stroke-width="2" />
+		  <span>{{ t('admin.accounts.paidImageTest') }}</span>
+		</button>
+		<button
+          @click="startTest()"
           :disabled="status === 'connecting' || !selectedModelId"
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
@@ -267,6 +285,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { splitModelMappingObject } from '@/composables/useModelWhitelist'
@@ -319,6 +338,7 @@ const openAITestModeOptions = computed(() => [
   { value: 'compact', label: t('admin.accounts.openai.testModeCompact') }
 ])
 const previewImageUrl = ref('')
+const showPaidConfirmation = ref(false)
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
@@ -339,13 +359,21 @@ const supportsXAIImageTest = computed(() => {
   return props.account?.platform === 'xai'
 })
 
+const selectedModel = computed(() => availableModels.value.find((model) => model.id === selectedModelId.value))
+const supportsLeonardoImageTest = computed(() => {
+	if (props.account?.platform !== 'leonardo') return false
+	const modality = selectedModel.value?.modality
+	if (modality) return modality === 'image'
+	return ['flux-schnell', 'gpt-image-2', 'nano-banana-2', 'nano-banana-2-lite'].includes(selectedModelId.value)
+})
+
 const supportsXAIVideoTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
   if (!modelID.startsWith('grok-imagine-video')) return false
   return props.account?.platform === 'xai'
 })
 
-const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value || supportsXAIImageTest.value)
+const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value || supportsXAIImageTest.value || supportsLeonardoImageTest.value)
 const supportsVideoTest = computed(() => supportsXAIVideoTest.value)
 
 const sortTestModels = (models: ClaudeModel[]) => {
@@ -448,20 +476,7 @@ const loadAvailableModels = async () => {
       (credentials.model_mapping as Record<string, unknown> | undefined) ?? undefined
     )
     const hasWhitelist = allowedModels.length > 0
-    const candidateModels = [...unfilteredModels]
-    if (hasWhitelist) {
-      for (const modelId of allowedModels.map((model) => model.trim()).filter(Boolean)) {
-        if (!candidateModels.some((model) => model.id === modelId)) {
-          candidateModels.push({
-            id: modelId,
-            type: 'model',
-            display_name: modelId,
-            created_at: ''
-          })
-        }
-      }
-    }
-    availableModels.value = hasWhitelist ? filterModelsByWhitelist(candidateModels) : candidateModels
+	availableModels.value = hasWhitelist ? filterModelsByWhitelist(unfilteredModels) : unfilteredModels
     // Default selection by platform
     if (availableModels.value.length > 0) {
       if (props.account.platform === 'gemini') {
@@ -515,7 +530,12 @@ const scrollToBottom = async () => {
   }
 }
 
-const startTest = async () => {
+const confirmPaidTest = () => {
+	showPaidConfirmation.value = false
+	void startTest(true)
+}
+
+const startTest = async (paid = false) => {
   if (!props.account || !selectedModelId.value) return
 
   resetState()
@@ -542,7 +562,9 @@ const startTest = async () => {
       body: JSON.stringify({
         model_id: selectedModelId.value,
         prompt: supportsImageTest.value || supportsVideoTest.value ? testPrompt.value.trim() : '',
-        mode: isOpenAIAccount.value ? testMode.value : 'default'
+        mode: isOpenAIAccount.value ? testMode.value : 'default',
+        paid,
+        confirm_paid: paid
       }),
       signal: abortController.signal
     })

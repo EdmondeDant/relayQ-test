@@ -73,7 +73,7 @@ func TestLeonardoGenerationAdapterAccountBoundGet(t *testing.T) {
 	generation, err := pollClient.GetGeneration(context.Background(), leonardoAdapterGenerationID)
 	require.NoError(t, err)
 	require.Equal(t, "COMPLETE", generation.Status)
-	require.Equal(t, []leonardo.GeneratedImage{{ID: "image-1", URL: "https://example.com/image.png", NSFW: true}}, generation.GeneratedImages)
+	require.Equal(t, []leonardo.GeneratedImage{{ID: "image-1", URL: "https://example.com/image.png", NSFW: leonardoNSFW(true)}}, generation.GeneratedImages)
 	require.Equal(t, 1, upstream.calls)
 	require.Equal(t, 0, upstream.tlsCalls)
 	require.Equal(t, http.MethodGet, upstream.request.Method)

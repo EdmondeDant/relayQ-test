@@ -364,6 +364,7 @@ export default {
     groups: 'Groups',
     channels: 'Channels',
     availableChannels: 'Available Channels',
+    pricingCalculator: 'Pricing Calculator',
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     proxies: 'Proxies',
@@ -4102,6 +4103,10 @@ export default {
       imageTestMode: 'Mode: Image generation test',
       imagePreview: 'Generated images:',
       imageReceived: 'Received test image #{count}',
+	  paidImageTest: 'Paid Image Test',
+	  paidImageTestTitle: 'Confirm Paid Image Test',
+	  paidImageTestMessage: 'This sends a real 896×896 image generation request to Leonardo and may consume API Credits. Continue?',
+	  confirmPaidImageTest: 'Confirm and Generate',
       // Stats Modal
       viewStats: 'View Stats',
       usageStatistics: 'Usage Statistics',

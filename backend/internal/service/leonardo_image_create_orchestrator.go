@@ -31,7 +31,14 @@ type LeonardoImageCreateRequest struct {
 	Height           int
 	Quantity         int
 	Public           bool
+	QualityTier      string
 	CustomerQuoteUSD decimal.Decimal
+	InputImage       *LeonardoImageInput
+	ImageReferences  []leonardo.ImageReference
+	ImageCapability  *LeonardoImageReferenceCapability
+	FluxGuidances    LeonardoFluxGuidances
+	RawBody          []byte
+	MultipartImages  map[string]*LeonardoImageInput
 }
 
 type LeonardoImageFundsReserveRequest struct {
@@ -116,10 +123,15 @@ type LeonardoImageCreateOrchestrator struct {
 	accounts LeonardoImageCreateAccountReader
 	clients  LeonardoImageGenerationClientFactory
 	jobs     GenerationJobRepository
+	uploads  *LeonardoImageUploadService
 }
 
-func NewLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts LeonardoImageCreateAccountReader, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository) *LeonardoImageCreateOrchestrator {
-	return &LeonardoImageCreateOrchestrator{quotes: quotes, funds: funds, accounts: accounts, clients: clients, jobs: jobs}
+func NewLeonardoImageCreateOrchestrator(quotes *LeonardoImageQuoteGuard, funds LeonardoImageCreateFunds, accounts LeonardoImageCreateAccountReader, clients LeonardoImageGenerationClientFactory, jobs GenerationJobRepository, uploads ...*LeonardoImageUploadService) *LeonardoImageCreateOrchestrator {
+	orchestrator := &LeonardoImageCreateOrchestrator{quotes: quotes, funds: funds, accounts: accounts, clients: clients, jobs: jobs}
+	if len(uploads) > 0 {
+		orchestrator.uploads = uploads[0]
+	}
+	return orchestrator
 }
 
 func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request LeonardoImageCreateRequest) (*GenerationJob, error) {
@@ -130,10 +142,11 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		return nil, ErrLeonardoImageCreateNotConfigured
 	}
 	publicID, requestHash, model, prompt := strings.TrimSpace(request.PublicID), strings.TrimSpace(request.RequestHash), strings.TrimSpace(request.Model), strings.TrimSpace(request.Prompt)
-	if publicID == "" || len(publicID) > 64 || request.UserID <= 0 || request.APIKeyID <= 0 || request.AccountID <= 0 || requestHash == "" || len(requestHash) > 128 || model == "" || prompt == "" || request.Width <= 0 || request.Height <= 0 || request.Quantity <= 0 || request.CustomerQuoteUSD.Sign() <= 0 || (request.GroupID != nil && *request.GroupID <= 0) {
+	matchReferenceSize := len(request.RawBody) > 0 && (model == "nano-banana-2" || model == "nano-banana-2-lite") && request.Width == 0 && request.Height == 0
+	if publicID == "" || len(publicID) > 64 || request.UserID <= 0 || request.APIKeyID <= 0 || request.AccountID <= 0 || requestHash == "" || len(requestHash) > 128 || model == "" || prompt == "" || (!matchReferenceSize && (request.Width <= 0 || request.Height <= 0)) || request.Quantity <= 0 || request.CustomerQuoteUSD.Sign() <= 0 || (request.GroupID != nil && *request.GroupID <= 0) {
 		return nil, ErrLeonardoImageCreateRequestInvalid
 	}
-	quote, err := o.quotes.Prepare(ctx, LeonardoImageQuoteRequest{UserID: request.UserID, PricingRequest: LeonardoImagePriceRequest{Model: model, Width: request.Width, Height: request.Height, Quantity: request.Quantity, Public: request.Public}, CustomerQuoteUSD: request.CustomerQuoteUSD})
+	quote, err := o.quotes.Prepare(ctx, LeonardoImageQuoteRequest{UserID: request.UserID, PricingRequest: LeonardoImagePriceRequest{Model: model, Width: request.Width, Height: request.Height, Quantity: request.Quantity, Public: request.Public, QualityTier: request.QualityTier}, CustomerQuoteUSD: request.CustomerQuoteUSD})
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +176,88 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reservation.Reference, quote.CustomerQuoteUSD, "context_cancelled_before_submit"))
 	}
 	customerCost := quote.CustomerQuoteUSD
+	estimatedCost := quote.EstimatedUpstreamCostUSD
+	estimatedCostUnit := "USD"
+	pricingVersion := quote.PricingVersion
+	pricingSource := quote.PricingSource
+	pricingMatchType := quote.MatchType
 	reference := strings.TrimSpace(reservation.Reference)
-	job := &GenerationJob{PublicID: publicID, Provider: PlatformLeonardo, Modality: "image", Model: model, UpstreamModel: model, UserID: request.UserID, APIKeyID: request.APIKeyID, GroupID: request.GroupID, AccountID: account.ID, RequestHash: requestHash, CustomerCost: &customerCost, BillingStatus: GenerationJobBillingStatusReserved, BillingReference: &reference}
-	upstreamRequest := leonardo.CreateGenerationRequest{Model: model, Public: request.Public, Parameters: map[string]any{"prompt": prompt, "width": request.Width, "height": request.Height, "quantity": request.Quantity}}
+	job := &GenerationJob{PublicID: publicID, Provider: PlatformLeonardo, Modality: "image", Model: model, UpstreamModel: model, UserID: request.UserID, APIKeyID: request.APIKeyID, GroupID: request.GroupID, AccountID: account.ID, RequestHash: requestHash, EstimatedUpstreamCostAmount: &estimatedCost, EstimatedUpstreamCostUnit: &estimatedCostUnit, PricingSnapshotVersion: &pricingVersion, PricingSource: &pricingSource, PricingMatchType: &pricingMatchType, CustomerCost: &customerCost, BillingStatus: GenerationJobBillingStatusReserved, BillingReference: &reference}
+	if len(request.RawBody) > 0 {
+		body := request.RawBody
+		sources, sourceErr := ParseLeonardoFluxImageSources(body)
+		if sourceErr != nil {
+			return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+		}
+		if len(sources) > 0 {
+			uploadClient, ok := client.(LeonardoInitImageClient)
+			if !ok || o.uploads == nil {
+				return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+			}
+			for _, source := range sources {
+				input, resolveErr := ResolveLeonardoRawImageSource(ctx, source.Value, request.MultipartImages, 20<<20)
+				if resolveErr != nil {
+					return nil, errors.Join(resolveErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+				}
+				uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, input)
+				if uploadErr != nil {
+					return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+				}
+				body, sourceErr = SetLeonardoRawImageID(body, source, uploadedID)
+				if sourceErr != nil {
+					return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+				}
+			}
+		}
+		result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGenerationRaw(ctx, job, body)
+		return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)
+	}
+	parameters := map[string]any{"prompt": prompt, "width": request.Width, "height": request.Height, "quantity": request.Quantity}
+	if model == "gpt-image-2" {
+		parameters["quality"] = strings.ToUpper(strings.TrimSpace(request.QualityTier))
+	}
+	if (len(request.FluxGuidances.Content) > 0 || len(request.FluxGuidances.Style) > 0) && (request.InputImage != nil || len(request.ImageReferences) > 0 || request.ImageCapability != nil) {
+		return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+	}
+	fluxGuidances, err := BuildLeonardoFluxGuidances(model, request.FluxGuidances)
+	if err != nil {
+		return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+	}
+	if fluxGuidances != nil {
+		parameters["guidances"] = fluxGuidances
+	}
+	references := append([]leonardo.ImageReference(nil), request.ImageReferences...)
+	if request.InputImage != nil {
+		strength := ""
+		if request.ImageCapability != nil {
+			strength = request.ImageCapability.DefaultStrength
+		}
+		strengthRequired := request.ImageCapability != nil && (request.ImageCapability.StrengthRequired || len(request.ImageCapability.AllowedStrengths) > 0)
+		if request.ImageCapability == nil || (strengthRequired && strength == "") {
+			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+		}
+		references = append([]leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "pending", Type: "UPLOADED"}, Strength: strength}}, references...)
+		if _, err := BuildLeonardoImageReferenceGuidance(references, request.ImageCapability); err != nil {
+			return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+		}
+		uploadClient, ok := client.(LeonardoInitImageClient)
+		if !ok || o.uploads == nil {
+			return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		}
+		uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, request.InputImage)
+		if uploadErr != nil {
+			return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		}
+		references[0].Image.ID = uploadedID
+	}
+	guidance, err := BuildLeonardoImageReferenceGuidance(references, request.ImageCapability)
+	if err != nil {
+		return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
+	}
+	if guidance != nil && fluxGuidances == nil {
+		parameters["guidances"] = guidance
+	}
+	upstreamRequest := leonardo.CreateGenerationRequest{Model: model, Public: request.Public, Parameters: parameters}
 	result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGeneration(ctx, job, upstreamRequest)
 	return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)
 }

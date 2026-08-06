@@ -54,12 +54,26 @@ const (
 	FieldErrorMessage = "error_message"
 	// FieldOutputCount holds the string denoting the output_count field in the database.
 	FieldOutputCount = "output_count"
+	// FieldEstimatedUpstreamCostAmount holds the string denoting the estimated_upstream_cost_amount field in the database.
+	FieldEstimatedUpstreamCostAmount = "estimated_upstream_cost_amount"
+	// FieldEstimatedUpstreamCostUnit holds the string denoting the estimated_upstream_cost_unit field in the database.
+	FieldEstimatedUpstreamCostUnit = "estimated_upstream_cost_unit"
+	// FieldPricingSnapshotVersion holds the string denoting the pricing_snapshot_version field in the database.
+	FieldPricingSnapshotVersion = "pricing_snapshot_version"
+	// FieldPricingSource holds the string denoting the pricing_source field in the database.
+	FieldPricingSource = "pricing_source"
+	// FieldPricingMatchType holds the string denoting the pricing_match_type field in the database.
+	FieldPricingMatchType = "pricing_match_type"
 	// FieldActualUpstreamCostAmount holds the string denoting the actual_upstream_cost_amount field in the database.
 	FieldActualUpstreamCostAmount = "actual_upstream_cost_amount"
 	// FieldActualUpstreamCostUnit holds the string denoting the actual_upstream_cost_unit field in the database.
 	FieldActualUpstreamCostUnit = "actual_upstream_cost_unit"
 	// FieldCustomerCost holds the string denoting the customer_cost field in the database.
 	FieldCustomerCost = "customer_cost"
+	// FieldGrossMargin holds the string denoting the gross_margin field in the database.
+	FieldGrossMargin = "gross_margin"
+	// FieldCostVariance holds the string denoting the cost_variance field in the database.
+	FieldCostVariance = "cost_variance"
 	// FieldBillingStatus holds the string denoting the billing_status field in the database.
 	FieldBillingStatus = "billing_status"
 	// FieldBillingReference holds the string denoting the billing_reference field in the database.
@@ -105,9 +119,16 @@ var Columns = []string{
 	FieldErrorCode,
 	FieldErrorMessage,
 	FieldOutputCount,
+	FieldEstimatedUpstreamCostAmount,
+	FieldEstimatedUpstreamCostUnit,
+	FieldPricingSnapshotVersion,
+	FieldPricingSource,
+	FieldPricingMatchType,
 	FieldActualUpstreamCostAmount,
 	FieldActualUpstreamCostUnit,
 	FieldCustomerCost,
+	FieldGrossMargin,
+	FieldCostVariance,
 	FieldBillingStatus,
 	FieldBillingReference,
 	FieldPollAttempts,
@@ -162,6 +183,14 @@ var (
 	DefaultOutputCount int
 	// OutputCountValidator is a validator for the "output_count" field. It is called by the builders before save.
 	OutputCountValidator func(int) error
+	// EstimatedUpstreamCostUnitValidator is a validator for the "estimated_upstream_cost_unit" field. It is called by the builders before save.
+	EstimatedUpstreamCostUnitValidator func(string) error
+	// PricingSnapshotVersionValidator is a validator for the "pricing_snapshot_version" field. It is called by the builders before save.
+	PricingSnapshotVersionValidator func(string) error
+	// PricingSourceValidator is a validator for the "pricing_source" field. It is called by the builders before save.
+	PricingSourceValidator func(string) error
+	// PricingMatchTypeValidator is a validator for the "pricing_match_type" field. It is called by the builders before save.
+	PricingMatchTypeValidator func(string) error
 	// ActualUpstreamCostUnitValidator is a validator for the "actual_upstream_cost_unit" field. It is called by the builders before save.
 	ActualUpstreamCostUnitValidator func(string) error
 	// BillingReferenceValidator is a validator for the "billing_reference" field. It is called by the builders before save.
@@ -333,6 +362,31 @@ func ByOutputCount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOutputCount, opts...).ToFunc()
 }
 
+// ByEstimatedUpstreamCostAmount orders the results by the estimated_upstream_cost_amount field.
+func ByEstimatedUpstreamCostAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEstimatedUpstreamCostAmount, opts...).ToFunc()
+}
+
+// ByEstimatedUpstreamCostUnit orders the results by the estimated_upstream_cost_unit field.
+func ByEstimatedUpstreamCostUnit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEstimatedUpstreamCostUnit, opts...).ToFunc()
+}
+
+// ByPricingSnapshotVersion orders the results by the pricing_snapshot_version field.
+func ByPricingSnapshotVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPricingSnapshotVersion, opts...).ToFunc()
+}
+
+// ByPricingSource orders the results by the pricing_source field.
+func ByPricingSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPricingSource, opts...).ToFunc()
+}
+
+// ByPricingMatchType orders the results by the pricing_match_type field.
+func ByPricingMatchType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPricingMatchType, opts...).ToFunc()
+}
+
 // ByActualUpstreamCostAmount orders the results by the actual_upstream_cost_amount field.
 func ByActualUpstreamCostAmount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActualUpstreamCostAmount, opts...).ToFunc()
@@ -346,6 +400,16 @@ func ByActualUpstreamCostUnit(opts ...sql.OrderTermOption) OrderOption {
 // ByCustomerCost orders the results by the customer_cost field.
 func ByCustomerCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCustomerCost, opts...).ToFunc()
+}
+
+// ByGrossMargin orders the results by the gross_margin field.
+func ByGrossMargin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGrossMargin, opts...).ToFunc()
+}
+
+// ByCostVariance orders the results by the cost_variance field.
+func ByCostVariance(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCostVariance, opts...).ToFunc()
 }
 
 // ByBillingStatus orders the results by the billing_status field.

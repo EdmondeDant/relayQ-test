@@ -11,6 +11,7 @@ import (
 )
 
 type pollBatchRepositoryMock struct {
+	mu    sync.Mutex
 	jobs  []*GenerationJob
 	err   error
 	calls int
@@ -19,10 +20,18 @@ type pollBatchRepositoryMock struct {
 }
 
 func (r *pollBatchRepositoryMock) ListDueLeonardoPollJobs(_ context.Context, dueAt time.Time, limit int) ([]*GenerationJob, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.calls++
 	r.dueAt = dueAt
 	r.limit = limit
 	return r.jobs, r.err
+}
+
+func (r *pollBatchRepositoryMock) callCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
 }
 
 type pollBatchExecutorMock struct {
@@ -165,6 +174,40 @@ func TestLeonardoGenerationPollBatchRunnerRepositoryFailure(t *testing.T) {
 	require.ErrorIs(t, err, repositoryErr)
 	require.Equal(t, 1, repository.calls)
 	require.Empty(t, executor.calls)
+}
+
+func TestLeonardoGenerationPollBatchRunnerHeartbeat(t *testing.T) {
+	var heartbeat *OpsUpsertJobHeartbeatInput
+	ops := &opsRepoMock{UpsertJobHeartbeatFn: func(_ context.Context, input *OpsUpsertJobHeartbeatInput) error {
+		heartbeat = input
+		return nil
+	}}
+	runner := NewLeonardoGenerationPollBatchRunner(&pollBatchRepositoryMock{}, &pollBatchExecutorMock{}, ops)
+	runner.heartbeat(time.Now(), &LeonardoGenerationPollBatchResult{Scanned: 3, Attempted: 2, Succeeded: 1, Failed: 1}, nil)
+
+	require.NotNil(t, heartbeat)
+	require.Equal(t, "leonardo_generation_poll_worker", heartbeat.JobName)
+	require.NotNil(t, heartbeat.LastSuccessAt)
+	require.Equal(t, "scanned=3 attempted=2 succeeded=1 failed=1", *heartbeat.LastResult)
+}
+
+func TestLeonardoGenerationPollBatchRunnerLifecycle(t *testing.T) {
+	repository := &pollBatchRepositoryMock{}
+	runner := NewLeonardoGenerationPollBatchRunner(repository, &pollBatchExecutorMock{})
+	runner.interval = 10 * time.Millisecond
+	runner.Start()
+	runner.Start()
+	require.Eventually(t, func() bool { return repository.callCount() >= 2 }, time.Second, 5*time.Millisecond)
+	runner.Stop()
+	runner.Stop()
+	calls := repository.callCount()
+	time.Sleep(30 * time.Millisecond)
+	require.Equal(t, calls, repository.callCount())
+	require.NotPanics(t, func() {
+		var nilRunner *LeonardoGenerationPollBatchRunner
+		nilRunner.Start()
+		nilRunner.Stop()
+	})
 }
 
 func pollBatchJobs(publicIDs ...string) []*GenerationJob {

@@ -14,8 +14,15 @@ var _ OpsRepository = (*stubOpsRepo)(nil)
 
 type stubOpsRepo struct {
 	OpsRepository
-	overview *OpsDashboardOverview
-	err      error
+	overview            *OpsDashboardOverview
+	leonardoVariance    float64
+	leonardoVarianceOK  bool
+	leonardoVarianceErr error
+	err                 error
+}
+
+func (s *stubOpsRepo) GetLeonardoCostVarianceRatio(context.Context, time.Time, time.Time, *int64) (float64, bool, error) {
+	return s.leonardoVariance, s.leonardoVarianceOK, s.leonardoVarianceErr
 }
 
 func (s *stubOpsRepo) GetDashboardOverview(ctx context.Context, filter *OpsDashboardFilter) (*OpsDashboardOverview, error) {
@@ -209,4 +216,19 @@ func TestComputeRuleMetricNewIndicators(t *testing.T) {
 			require.InDelta(t, tt.wantValue, gotValue, 0.0001)
 		})
 	}
+}
+
+func TestComputeRuleMetricLeonardoCostVariance(t *testing.T) {
+	t.Parallel()
+	start := time.Now().UTC().Add(-5 * time.Minute)
+	end := time.Now().UTC()
+	rule := &OpsAlertRule{MetricType: "leonardo_cost_variance_ratio"}
+	svc := &OpsAlertEvaluatorService{opsRepo: &stubOpsRepo{leonardoVariance: 25, leonardoVarianceOK: true}}
+
+	value, ok := svc.computeRuleMetric(context.Background(), rule, nil, start, end, PlatformLeonardo, nil)
+	require.True(t, ok)
+	require.Equal(t, 25.0, value)
+
+	_, ok = svc.computeRuleMetric(context.Background(), rule, nil, start, end, PlatformOpenAI, nil)
+	require.False(t, ok)
 }

@@ -13,6 +13,7 @@ type opsRepoMock struct {
 	ListSystemLogsFn              func(ctx context.Context, filter *OpsSystemLogFilter) (*OpsSystemLogList, error)
 	DeleteSystemLogsFn            func(ctx context.Context, filter *OpsSystemLogCleanupFilter) (int64, error)
 	InsertSystemLogCleanupAuditFn func(ctx context.Context, input *OpsSystemLogCleanupAudit) error
+	UpsertJobHeartbeatFn          func(ctx context.Context, input *OpsUpsertJobHeartbeatInput) error
 }
 
 func (m *opsRepoMock) InsertErrorLog(ctx context.Context, input *OpsInsertErrorLogInput) (int64, error) {
@@ -113,7 +114,14 @@ func (m *opsRepoMock) GetLatestSystemMetrics(ctx context.Context, windowMinutes 
 	return &OpsSystemMetricsSnapshot{}, nil
 }
 
+func (m *opsRepoMock) GetLeonardoCostVarianceRatio(context.Context, time.Time, time.Time, *int64) (float64, bool, error) {
+	return 0, false, nil
+}
+
 func (m *opsRepoMock) UpsertJobHeartbeat(ctx context.Context, input *OpsUpsertJobHeartbeatInput) error {
+	if m.UpsertJobHeartbeatFn != nil {
+		return m.UpsertJobHeartbeatFn(ctx, input)
+	}
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -85,11 +86,36 @@ func (a *LeonardoGenerationAdapter) CreateGeneration(ctx context.Context, reques
 	return response, err
 }
 
+func (a *LeonardoGenerationAdapter) CreateGenerationRaw(ctx context.Context, body []byte) (*leonardo.CreateGenerationResponse, error) {
+	if a == nil || a.client == nil {
+		return nil, errors.New("leonardo generation adapter is not configured")
+	}
+	response, err := a.client.CreateGenerationRaw(ctx, body)
+	if errors.Is(err, leonardo.ErrGenerationRequestNotWritten) {
+		return nil, fmt.Errorf("%w: %w", ErrLeonardoGenerationRequestNotWritten, err)
+	}
+	return response, err
+}
+
 func (a *LeonardoGenerationAdapter) GetGeneration(ctx context.Context, generationID string) (*leonardo.Generation, error) {
 	if a == nil || a.client == nil {
 		return nil, errors.New("leonardo generation adapter is not configured")
 	}
 	return a.client.GetGeneration(ctx, generationID)
+}
+
+func (a *LeonardoGenerationAdapter) CreateInitImageUpload(ctx context.Context, extension string) (*leonardo.InitImageUpload, error) {
+	if a == nil || a.client == nil {
+		return nil, errors.New("leonardo generation adapter is not configured")
+	}
+	return a.client.CreateInitImageUpload(ctx, extension)
+}
+
+func (a *LeonardoGenerationAdapter) UploadInitImage(ctx context.Context, upload *leonardo.InitImageUpload, filename string, data []byte) error {
+	if a == nil || a.client == nil {
+		return errors.New("leonardo generation adapter is not configured")
+	}
+	return a.client.UploadInitImage(ctx, upload, filename, bytes.NewReader(data))
 }
 
 func (t leonardoGenerationRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

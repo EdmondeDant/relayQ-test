@@ -746,6 +746,7 @@ export interface ClaudeModel {
   type: string
   display_name: string
   created_at: string
+	modality?: 'image' | 'video' | 'audio' | '3d'
 }
 
 export interface Proxy {

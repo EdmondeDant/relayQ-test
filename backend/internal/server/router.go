@@ -115,6 +115,9 @@ func registerRoutes(
 	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, cfg)
 	routes.RegisterRetailGrokRoutes(r, h, retailGrokAuth)
 	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth, adminAuth, settingService)
+	if cfg.Leonardo.ProviderEnabled && cfg.Leonardo.WebhookEnabled {
+		routes.RegisterLeonardoWebhookRoutes(r, h.LeonardoWebhook)
+	}
 
 	handler.RegisterPageRoutes(v1, cfg.Pricing.DataDir, gin.HandlerFunc(jwtAuth), gin.HandlerFunc(adminAuth), settingService)
 }

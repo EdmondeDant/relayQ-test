@@ -78,4 +78,32 @@ describe('ModelWhitelistSelector', () => {
       '同步上游模型失败：Upstream model list request failed with HTTP 403: gateway disabled /models for this key',
     )
   })
+
+  it('syncs Leonardo verified models without duplicates', async () => {
+    syncUpstreamModelsPreviewMock.mockResolvedValue({ models: ['flux-schnell', 'flux-schnell'] })
+    const wrapper = mount(ModelWhitelistSelector, {
+      props: {
+        modelValue: [],
+        syncCredentials: {
+          platform: 'leonardo',
+          type: 'apikey',
+          base_url: 'https://cloud.leonardo.ai',
+          api_key: 'leonardo-key'
+        }
+      },
+      global: {
+        stubs: {
+          ModelIcon: true,
+          Icon: true
+        }
+      }
+    })
+
+    const syncButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.syncUpstreamModels'))
+    expect(syncButton).toBeDefined()
+    await syncButton?.trigger('click')
+
+    expect(syncUpstreamModelsPreviewMock).toHaveBeenCalledOnce()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([['flux-schnell']])
+  })
 })

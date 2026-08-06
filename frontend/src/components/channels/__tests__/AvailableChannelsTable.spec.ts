@@ -68,6 +68,7 @@ describe('AvailableChannelsTable', () => {
         noModelsLabel: 'No models configured',
         emptyLabel: 'No channels',
         userGroupRates: {},
+        currentPage: 1,
       },
       global: {
         stubs: {
@@ -130,6 +131,7 @@ describe('AvailableChannelsTable', () => {
         noModelsLabel: 'No models configured',
         emptyLabel: 'No channels',
         userGroupRates: {},
+        currentPage: 1,
       },
       global: {
         stubs: {
@@ -139,5 +141,40 @@ describe('AvailableChannelsTable', () => {
     })
 
     expect(wrapper.text()).toContain('—')
+  })
+
+  it('places Leonardo models after models from other platforms', () => {
+    const model = (name: string, platform: string) => ({
+      name,
+      platform,
+      summary: '',
+      pricing: null,
+      image_pricing: null,
+    })
+    const wrapper = mount(AvailableChannelsTable, {
+      props: {
+        columns: { name: 'Channel', description: 'Description', supportedModels: 'Supported Models' },
+        rows: [{
+          name: 'Main Channel',
+          description: '',
+          platforms: [
+            { platform: 'leonardo', groups: [], supported_models: [model('a-leonardo', 'leonardo'), model('b-leonardo', 'leonardo')] },
+            { platform: 'openai', groups: [], supported_models: [model('z-openai', 'openai')] },
+          ],
+        }],
+        loading: false,
+        pricingKeyPrefix: 'availableChannels.pricing',
+        noPricingLabel: 'Pricing not configured',
+        noModelsLabel: 'No models configured',
+        emptyLabel: 'No channels',
+        userGroupRates: {},
+        currentPage: 1,
+        modelsPerPage: 10,
+      },
+      global: { stubs: { Icon: true } },
+    })
+    const text = wrapper.text()
+    expect(text.indexOf('z-openai')).toBeLessThan(text.indexOf('a-leonardo'))
+    expect(text.indexOf('a-leonardo')).toBeLessThan(text.indexOf('b-leonardo'))
   })
 })

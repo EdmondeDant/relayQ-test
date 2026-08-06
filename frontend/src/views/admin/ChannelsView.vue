@@ -447,7 +447,7 @@
                   :key="idx"
                   :entry="entry"
                   :platform="section.platform"
-                  :model-options="getModelOptionsForGroupIds(section.group_ids)"
+                  :model-options="getModelOptionsForGroupIds(section.group_ids, section.platform)"
                   :show-summary-field="true"
                   @update="updatePricingEntry(sIdx, idx, $event)"
                   @remove="removePricingEntry(sIdx, idx)"
@@ -764,7 +764,7 @@ const form = reactive({
 let abortController: AbortController | null = null
 
 // ── Platform config ──
-const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'xai']
+const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'xai', 'leonardo']
 
 // ── Helpers ──
 function formatDate(value: string): string {
@@ -808,7 +808,7 @@ function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
 
 function getModelOptionsForGroupIds(groupIds: number[], platform?: GroupPlatform): string[] {
   const options = new Set<string>()
-  const sourceIds = groupIds.length > 0 ? groupIds : platform ? [0] : []
+  const sourceIds = platform ? [...groupIds, 0] : groupIds
   for (const groupId of sourceIds) {
     const key = getGroupModelOptionsKey(groupId, platform)
     const models = groupModelOptionsMap.value[key] || []
@@ -846,7 +846,12 @@ function extractStrictModelOptionsFromAccountMappings(groupId: number, platform:
 async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatform) {
   if (groupIds.length === 0 && platform) {
     const key = getGroupModelOptionsKey(0, platform)
-    groupModelOptionsMap.value[key] = []
+    if (platform === 'leonardo') {
+      const result = await adminAPI.channels.syncPricingModels(platform)
+      groupModelOptionsMap.value[key] = result.models || []
+    } else {
+      groupModelOptionsMap.value[key] = []
+    }
     return
   }
 
@@ -855,8 +860,10 @@ async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatf
     const key = getGroupModelOptionsKey(group.id)
     if (groupModelOptionsMap.value[key]) return
     try {
-      const models = await extractStrictModelOptionsFromAccountMappings(group.id, group.platform)
-      groupModelOptionsMap.value[key] = models || []
+      const models = group.platform === 'leonardo'
+        ? (await adminAPI.channels.syncPricingModels(group.platform)).models
+        : await extractStrictModelOptionsFromAccountMappings(group.id, group.platform)
+      groupModelOptionsMap.value[key] = [...new Set(models || [])].sort((a, b) => a.localeCompare(b))
     } catch {
       groupModelOptionsMap.value[key] = []
     }
@@ -942,18 +949,14 @@ async function syncLatestModels(sectionIdx: number) {
       return
     }
     // Add new models as a single new pricing entry (user fills in prices)
-    form.platforms[sectionIdx].model_pricing.push({
-      models: newModels,
-      summary: '',
-      billing_mode: 'token',
-      input_price: null,
-      output_price: null,
-      cache_write_price: null,
-      cache_read_price: null,
-      image_output_price: null,
-      per_request_price: null,
-      intervals: []
-    })
+		if (platform === 'leonardo') {
+			for (const model of newModels) {
+				const pricing = await adminAPI.channels.getModelDefaultPricing(model, platform)
+				form.platforms[sectionIdx].model_pricing.push({ models: [model], summary: '本地上游成本 × 7.1', billing_mode: 'image', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, image_output_price: null, per_request_price: pricing.found ? pricing.per_request_price ?? null : null, intervals: [] })
+			}
+		} else {
+			form.platforms[sectionIdx].model_pricing.push({ models: newModels, summary: '', billing_mode: 'token', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, image_output_price: null, per_request_price: null, intervals: [] })
+		}
     appStore.showSuccess(t('admin.channels.form.syncModelsSuccess', { count: newModels.length }))
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('admin.channels.form.syncModelsError')))

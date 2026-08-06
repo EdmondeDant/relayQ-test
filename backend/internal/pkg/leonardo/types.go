@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+type InitImageUpload struct {
+	ID     string
+	URL    string
+	Key    string
+	Fields map[string]string
+}
+
+type initImageUploadResponse struct {
+	Upload struct {
+		ID     string          `json:"id"`
+		URL    string          `json:"url"`
+		Key    string          `json:"key"`
+		Fields json.RawMessage `json:"fields"`
+	} `json:"uploadInitImage"`
+}
+
 var ErrGenerationRequestNotWritten = errors.New("leonardo generation request not written")
 
 const (
@@ -26,6 +42,13 @@ type Model struct {
 	Parameters json.RawMessage `json:"parameters"`
 }
 
+type ParameterSchema struct {
+	Type                 string                     `json:"type"`
+	Properties           map[string]json.RawMessage `json:"properties"`
+	Required             []string                   `json:"required"`
+	AdditionalProperties *bool                      `json:"additionalProperties"`
+}
+
 type modelsResponse struct {
 	Models []Model `json:"productionApiAvailableModels"`
 }
@@ -34,6 +57,16 @@ type CreateGenerationRequest struct {
 	Model      string         `json:"model"`
 	Public     bool           `json:"public"`
 	Parameters map[string]any `json:"parameters"`
+}
+
+type ImageReference struct {
+	Image    ImageReferenceImage `json:"image"`
+	Strength string              `json:"strength,omitempty"`
+}
+
+type ImageReferenceImage struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 type GenerationCost struct {
@@ -50,7 +83,7 @@ type CreateGenerationResponse struct {
 type GeneratedImage struct {
 	ID   string `json:"id"`
 	URL  string `json:"url"`
-	NSFW bool   `json:"nsfw"`
+	NSFW *bool  `json:"nsfw"`
 }
 
 type Generation struct {

@@ -1,8 +1,21 @@
 # RelayQ × Leonardo.Ai Production API 完整接入开发计划
 
+## 2026-08-06 协议架构修订
+
+- Leonardo 链路采用双模式，不再要求中转站逐字段复刻全部上游参数：
+  - 标准 OpenAI 客户端（包括 ComfyUI、Infinite Canvas 的 OpenAI 节点）发送顶层 `model/prompt/size/n/quality/response_format`，RelayQ 转换为 Leonardo v2、等待异步任务完成并返回 OpenAI Images 响应。
+  - 高级客户发送 Leonardo 原生 `model/public/parameters` 时，RelayQ 透明提交 JSON Body；Header、认证和目标 URL仍由 RelayQ控制。
+- 两种协议字段混用时 fail closed，避免错误路由和错误计费。
+- OpenAI 兼容入口默认 `quality=low`、`size=1024x1024`、`response_format=b64_json`，同步等待上限 900 秒；创建后通过 `X-RelayQ-Task-ID` 提供断线找回。
+- OpenAI 客户端未发送 `Idempotency-Key` 时，按用户、API Key、路由、请求 Body 和 5 分钟时间桶生成内部幂等键。
+- FLUX Schnell Raw Body 已支持 Content/Style；`image.source` 可使用 Data URI、受控 URL 或 `multipart://字段名`，上传后只定点写入 `id/type=UPLOADED`。
+- 标准 OpenAI 协议无法表达 Content/Style 类型与 strength，不做隐式猜测；高级能力由 Leonardo Raw API 或 RelayQ 专用 ComfyUI 节点提供。
+- FLUX Schnell 本地价格快照加入 896/1024/1120 三档；其他不超过原生上限的方形尺寸按当前档位最高 `$0.0045` 结算并标记 `quality_tier_max`。2880×2880 在 Pro Upscaler Precise 协议和价格验证前继续拒绝。
+- 视频价格快照已具备 low/medium/high 档位最高价计算，但视频模型 UUID、创建参数和完成响应尚待逐次确认的真实付费探针；`video_enabled` 必须保持关闭。
+
 > 文档状态：**Implementation Specification / 开发执行规格**  
-> 版本：v1.0  
-> 日期：2026-08-01  
+> 版本：v1.1
+> 日期：2026-08-06
 > 项目：RelayQ（本地目录当前实际为 `C:\Users\Administrator\.openclaw\workspace\realyq-test`）  
 > 开发负责人：Trae AI  
 > 方案与代码审查：小腾  
@@ -33,17 +46,14 @@ Trae AI 应按本文任务编号逐项开发；每一阶段开始前和完成后
 
 ### 0.1 当前编码状态
 
-- 本轮已明确暂停由小腾直接编码；后续由 Trae AI 主编码。
-- 为隔离原项目现场，曾建立：
-  - Worktree：`C:\Users\Administrator\.openclaw\workspace\realyq-leonardo`
-  - 分支：`feat/leonardo-provider`
-- 该 Worktree 中曾产生少量未完成草稿，当前可见涉及：
-  - `backend/internal/domain/constants.go`
-  - `backend/internal/service/account.go`
-  - `backend/internal/service/domain_constants.go`
-  - `backend/internal/pkg/leonardo/`
-- **这些内容不是正式实现，不得未经审查直接合并。** Trae AI 可以阅读比较，但必须以本文、官方文档和当前主分支真实代码为准，逐段确认后决定重写、保留或删除。
-- 原项目 `realyq-test` 当前 `main` 自身已有其他未提交修改；开发前必须先检查 `git status`，避免覆盖其他工作。
+- 当前执行目录：`C:\Users\Administrator\.openclaw\workspace\realyq-leonardo-prod`。
+- 当前开发分支：`feat/leonardo-production-api`。
+- 当前工作区包含大量尚未提交的 Leonardo 正式实现和测试，任何后续任务开始前必须执行 `git status --short`，不得执行会覆盖现场的 `reset`、`clean` 或覆盖式同步。
+- 已有实现主体包括：独立 Leonardo Provider、Production API Client、`generation_jobs` 持久化任务、OpenAI Images 兼容入口、原生 Media API、图片编辑上传、价格预留、Poll/Webhook、unknown/manual review 和成本偏差告警。
+- 当前实现仍是图片灰度 MVP，不代表完整 Production API 接入：已验证模型仍仅覆盖 FLUX Schnell；OpenAI/Leonardo Raw 双协议、1024/2048 产品尺寸识别和质量档位最高价基础已接入，但 2880 Upscale、视频、音频和 3D 尚未形成可用闭环。
+- Windows 本地验证已确认前端 `3000`、后端 `8080`、PostgreSQL `5432`、Redis `6379` 可启动；后端构建、前端 typecheck 和 Leonardo Client 包测试通过。
+- 尚未取得 Leonardo 真实成功付费 E2E 证据；历史创建探针包含 HTTP 500 和 `submission_unknown / side_effect_unknown`，禁止重放历史 unknown 请求。
+- 本文第 21 节保留原始阶段任务，第 21.1 节作为当前唯一执行台账；任务状态必须以代码、测试和真实 API 证据更新，不以“已有文件”推定完成。
 
 ### 0.2 硬性开发约束
 
@@ -85,7 +95,7 @@ Trae AI 应按本文任务编号逐项开发；每一阶段开始前和完成后
 
 ### A. OpenAI 兼容门面
 
-用于已有客户端低成本迁移：
+用于 Infinite Canvas、ComfyUI 标准 OpenAI 节点及其他已有客户端低成本迁移。客户端不需要理解 Leonardo 的异步协议，RelayQ 负责协议转换、任务创建、轮询和 OpenAI 响应转换：
 
 ```http
 POST /v1/images/generations
@@ -105,6 +115,18 @@ GET  /v1/media/generations/:id
 GET  /v1/media/generations/:id/content
 GET  /v1/media/generations
 ```
+
+### C. Leonardo 原生 Raw 模式
+
+高级客户可以向 Leonardo 分组的 `/v1/images/generations` 或 `/v1/media/generations` 发送含 `model/public/parameters` 的 Leonardo v2 JSON。RelayQ 原样转发 JSON Body，仅控制目标 URL、Authorization 和安全 Header，并继续负责计费、幂等和任务中心。
+
+同一路径按请求结构自动识别协议：
+
+- 顶层存在 `parameters`：Leonardo Raw；
+- 无 `parameters` 且存在顶层 `prompt`：OpenAI 兼容；
+- 两种协议字段混用：返回 400，不猜测优先级。
+
+透明转发不能替代 OpenAI 兼容层。OpenAI 请求中的顶层 `prompt/size/n/quality` 不能直接提交 Leonardo `/v2/generations`。
 
 ## 1.2 非目标
 
@@ -889,6 +911,15 @@ RelayQ 应支持客户 `Idempotency-Key`：
 - 同一 key 但请求内容不同返回 409；
 - 不将 RelayQ 幂等键假设为 Leonardo 官方幂等键，除非文档明确支持。
 
+OpenAI 客户端兼容规则：
+
+- 客户显式提供 `Idempotency-Key` 时严格使用该值和标准 TTL；
+- 客户未提供时，按 `user ID + API key ID + 规范化路由 + 完整请求 Body SHA-256 + 5 分钟时间桶` 生成内部键；
+- 自动键使用独立 scope，不能与显式键碰撞；
+- 同一主体、同一请求在同一 5 分钟窗口内复用任务，跨窗口视为新任务；
+- 自动键 TTL 必须覆盖 5 分钟窗口和 900 秒同步等待；
+- Body、quality、response format 或参考图内容变化必须形成不同请求指纹。
+
 可复用现有 `idempotency_record` 模型或将 key 记录在任务表，选择前先审查现有实现。
 
 ---
@@ -910,6 +941,7 @@ backend/internal/pkg/leonardo/
 ```go
 ListModels(ctx, auth) ([]Model, error)
 CreateGeneration(ctx, auth, req) (*CreateGenerationResponse, error)
+CreateGenerationRaw(ctx, auth, body []byte) (*CreateGenerationResponse, error)
 GetGeneration(ctx, auth, id) (*Generation, error)
 CreateInitImageUpload(ctx, auth, extension) (*InitImageUpload, error)
 UploadInitImage(ctx, presigned, file) error
@@ -928,6 +960,8 @@ UploadInitImage(ctx, presigned, file) error
 - 错误中输出脱敏后的上游 reason；
 - `POST /v2/generations` 请求体已开始发送或是否发送无法确认后，任何层均不得自动重试或切换账号，包括 Leonardo Client、HTTP Transport、通用 retry middleware、反向代理、任务队列、Worker、超时恢复和故障转移逻辑；HTTP 429、500、502、503、504、超时、连接中断及 2xx 响应解析失败均适用；
 - GET 模型/状态允许受控重试。
+- `CreateGenerationRaw` 必须按原始字节发送合法 JSON；不得先反序列化为 map 再 Marshal，除非请求包含 RelayQ `image.source` 且必须做定点上传替换；
+- Raw Body 只用于即时提交和哈希，任务审计只保存递归脱敏后的 JSON，不得持久化 Data URI、预签名 URL、Cookie 或认证字段。
 
 ## 9.3 上游错误类型
 
@@ -1023,6 +1057,19 @@ Leonardo 响应 `error` → `Message`、`code` → `Code`、`path` → `Path`；
 }
 ```
 
+典型 ComfyUI/Infinite Canvas OpenAI 节点请求：
+
+```json
+{
+  "model": "flux-schnell",
+  "prompt": "一只穿西装的龙虾",
+  "n": 1,
+  "size": "1024x1024",
+  "quality": "low",
+  "response_format": "b64_json"
+}
+```
+
 ## 11.2 基础映射
 
 ```text
@@ -1035,6 +1082,8 @@ provider_options.leonardo -> 模型特有参数白名单透传
 ```
 
 禁止把未知 OpenAI 字段全部透传给 Leonardo。
+
+OpenAI 分支必须构造 Leonardo typed request；只有检测为 Leonardo Raw 的请求才允许透明 Body 提交。
 
 ## 11.3 模型识别
 
@@ -1051,19 +1100,16 @@ provider_options.leonardo -> 模型特有参数白名单透传
 
 ## 11.4 同步响应策略
 
-图片接口可以等待有限时间，例如配置值 60–120 秒。
+OpenAI 图片接口默认同步，最长等待 **900 秒**。
 
 - 在窗口内完成：返回标准 OpenAI Images 结果；
-- 超时：不能伪造失败后重试；
-- 是否对 `/v1/images/generations` 返回 202，需要明确文档，因为这不是纯 OpenAI 标准。
+- 达到 900 秒：返回 OpenAI 风格 504 和 `generation_timeout`，不能伪造失败后重试；
+- 客户端断线或超时后，上游任务继续运行并正常计费，不自动取消、不重复提交；
+- 创建任务后立即设置 `X-RelayQ-Task-ID` 和 `X-Request-ID`，客户可通过 `/v1/media/generations/:id` 找回结果；
+- 请求 Context 取消只停止当前 HTTP 等待，后台 Poller 继续推进任务；
+- 显式 `async:true` 返回 202 `{created,task_id,status}`，仅作为 RelayQ 扩展。
 
-推荐第一版：
-
-- 对后台明确标记为“短任务”的图片模型允许同步等待；
-- 超时返回带 RelayQ task id 的 504/明确错误，并保证任务仍可从原生 Media API 查询；
-- 或提供显式请求参数 `async: true`，异步时返回 RelayQ 扩展格式。
-
-最终行为必须在 API 文档中固定并测试。
+同步成功响应不得混入 RelayQ task 字段，task ID 只放响应头。错误保持 `{error:{message,type,param,code}}`，submission unknown 必须明确提示不得立即重试。
 
 ## 11.5 输出转换
 
@@ -1087,6 +1133,8 @@ Leonardo 成功结果转换为：
 - 下载失败不能算生成失败并再次提交；
 - 任务仍保持 succeeded，但客户端响应可以报告结果下载失败。
 
+未传 `response_format` 时默认 `b64_json`，避免通用客户端受 Leonardo 临时 URL、跨域和 URL 过期影响。显式 `url` 时返回经过安全校验的 Leonardo HTTPS URL。
+
 ## 11.6 图片编辑
 
 `/v1/images/edits`：
@@ -1097,6 +1145,55 @@ Leonardo 成功结果转换为：
 4. 区分 `UPLOADED` 和 `GENERATED`；
 5. mask/inpainting 只有模型明确支持时开放；
 6. 不支持 mask 时返回明确 400，而非忽略 mask。
+
+标准 OpenAI `/v1/images/edits` 不能表达 Leonardo Content、Style、Character 类型和各自 strength，不得把单张 `image` 擅自解释为 Content 或 Style。高级参考图能力只通过 Leonardo Raw API 或 RelayQ 专用 ComfyUI 节点提供。
+
+## 11.7 OpenAI 客户端默认值
+
+| 字段 | 默认值 | 规则 |
+|---|---|---|
+| `n` | `1` | 首批只开放单图 |
+| `size` | `1024x1024` | 允许 `1024x1024`、`2048x2048`、`2880x2880` 产品档位 |
+| `quality` | `low` | 只接受 `low/medium/high`，按模型官方能力映射 |
+| `response_format` | `b64_json` | 可显式选择 `url` |
+| `async` | `false` | `true` 为 RelayQ 扩展任务模式 |
+
+- 模型没有官方 `quality/mode` 时不得伪造上游字段；不支持的档位返回 `quality_not_supported`；
+- 需要 Upscaler 才能交付的尺寸，在 Upscaler 协议和价格验证前必须提交前拒绝；
+- 最终交付尺寸必须与请求严格一致，不得静默降级。
+
+## 11.8 双模式协议探测
+
+```text
+POST /v1/images/generations
+  ├─ parameters object 存在 → Leonardo Raw → HTTP 202 RelayQ task
+  ├─ 顶层 prompt 存在      → OpenAI Adapter → 默认同步 OpenAI response
+  └─ 两套字段混用          → HTTP 400 protocol_conflict
+```
+
+- 不通过 User-Agent、ComfyUI 名称或模型名称猜客户端；
+- Raw 请求至少要求 `model` 和对象类型 `parameters`；
+- Raw 请求未知字段进入完整 Body 指纹并原样提交；
+- OpenAI 未知字段继续严格拒绝或按明确白名单转换；
+- 两种模式共用账号路由、价格、预留、任务状态、Poll/Webhook 和 unknown 保护。
+
+## 11.9 ComfyUI 与 Infinite Canvas 能力边界
+
+- 标准 OpenAI 节点保证文生图和能够无损映射的标准 edits；
+- 标准节点不保证 Content/Style/Character 等 Leonardo 专用 Guidance；
+- RelayQ 专用 ComfyUI 节点分为文生图节点和 Leonardo Advanced 节点；
+- Advanced 节点提供 reference type、strength、source、quality、size 和 async/sync 控件；
+- API Key 只保存在 ComfyUI 本地凭据配置，不进入 workflow 明文字段或日志；
+- 专用节点在后端 OpenAI/Raw 双模式稳定后交付，不阻塞基础 API 灰度。
+
+## 11.10 客户端兼容验收
+
+- 模拟无 `Idempotency-Key`、无 `async`、无 `response_format` 的 ComfyUI 请求，最终返回 HTTP 200 和 `data[].b64_json`；
+- 模拟 Infinite Canvas 请求，分别验证 URL 和 base64 输出；
+- 验证同一请求 5 分钟内只调用一次 Leonardo；
+- 模拟客户端断线，后台任务完成后可通过 `X-RelayQ-Task-ID` 查询；
+- 回归 Leonardo Raw、Media、Images Edits 以及非 Leonardo OpenAI/xAI 路由；
+- 实际客户端付费验收每个 POST 单独审批，禁止自动执行。
 
 ---
 
@@ -2398,6 +2495,374 @@ Phase 6 验收：
 
 ---
 
+## Phase 9：现状核对与生产收口
+
+### 21.1 执行台账规则
+
+本节是后续逐项开发的唯一执行清单。状态只允许使用：
+
+- `已完成`：代码、自动化测试和要求的真实行为证据全部满足；
+- `部分完成`：已有代码主体，但仍缺测试、真实协议或产品闭环；
+- `阻塞`：继续开放会造成错误计费、重复生成、安全问题或明确不可用；
+- `未开始`：尚无可验收实现。
+
+每项任务完成时必须同步：状态、修改文件、测试命令、原始结果、真实 API 证据、剩余风险和最后更新日期。真实付费请求必须使用新任务和独立幂等键；任何 `submission_unknown` 历史请求都不得重放。
+
+### 21.2 当前能力基线
+
+| 能力 | 状态 | 当前事实 | 剩余工作 |
+|---|---|---|---|
+| 独立 Provider 与账号 | 部分完成 | Leonardo 已独立于 OpenAI 和 LeoStudio，支持 API Key/Base URL | 补生产密钥轮换和多账号容量策略验收 |
+| Production API Client | 部分完成 | 已封装 `/v2/models`、`/v2/generations`、`/v1/generations/{id}`、`/v1/init-image` | 补真实成功响应、上传、错误和限流证据 |
+| 异步任务中心 | 部分完成 | 已有 generation jobs、状态机、Poll、Webhook、unknown/manual review | 补重启恢复、并发竞争和故障注入验收 |
+| OpenAI Images 门面 | 部分完成 | 已实现 OpenAI/Leonardo Raw 自动识别；OpenAI 默认同步、900 秒上限、默认 low/b64_json，并支持缺失幂等键时自动生成 | 补实际 ComfyUI/Infinite Canvas E2E、Upscale 和稳定错误码验收 |
+| 原生 Media API | 部分完成 | 已有创建、按 ID 查询和 content | 缺列表、分页、管理查询和多模态创建 |
+| 图片价格计算器 | 阻塞 | FLUX Schnell 已有 896/1024/1120 精确价与当前档位最高价基础，完整模型和 Upscale 价格仍缺失 | 导入完整服务端价格快照和版本化 Resolver |
+| 视频价格计算器 | 阻塞 | 已固化 low/medium/high 档位最高价池，但未验证模型、时长、分辨率和音频精确价 | 完成首个视频模型真实价格与任务闭环 |
+| 图片生成 | 部分完成 | 单账号单模型代码闭环存在 | 缺真实成功付费 E2E |
+| 图片编辑/参考图 | 部分完成 | 已有安全上传、缓存和 multipart Handler | 缺真实 init-image 与生成验收 |
+| 多账号调度 | 阻塞 | 两个以上可用账号时创建返回 503 | 实现容量感知选择、并发槽位和 RPM 门禁 |
+| 视频 | 阻塞 | 路由可挂载，但 Handler、模型和定价不具备可用闭环 | 保持 Flag 关闭，完成一个模型 E2E 后再开放 |
+| 音频、3D、Upscale | 未开始 | 仅有 fail-closed 定价桩或规格占位 | 按模态逐个完成模型、价格、任务和内容闭环 |
+| 管理与可观测性 | 部分完成 | 有 manual review API、worker heartbeat 和成本偏差基础 | 补任务 UI、完整指标、报表和告警 |
+| 生产发布 | 阻塞 | 本地构建可启动 | 缺完整 CI、迁移演练、回滚和真实 E2E 证据 |
+
+### LEO-900 计划与代码基线对账
+
+**状态：已完成**
+
+- 以当前 `realyq-leonardo-prod` 工作区为事实源更新本文；
+- 明确 OpenAI 兼容入口与 Leonardo 上游异步协议的边界；
+- 明确当前已实现主体、阻断项和安全开放边界；
+- 后续不得把“代码存在”直接标记为“生产完成”。
+
+验收：本文 0.1、21.1、21.2 与当前分支、路由、Client、价格 Resolver 和任务状态一致。
+
+### LEO-901 Production API 真实协议补探针
+
+**状态：阻塞；第一优先任务**
+
+当前进展（2026-08-05）：已使用隔离数据库中的唯一 Leonardo 账号执行一次只读 `GET /v2/models`，上游返回 `Invalid response from authorization hook`（`path=$`、`code=unexpected`）。本次创建 POST 为 0，未产生付费副作用。当前账号未通过只读鉴权前置门禁，在人工确认 Key、Production API 权限、PAYG/余额和上游服务状态前禁止执行付费创建。
+
+- 使用新幂等任务完成一次最小图片创建，确认 `generationId`；
+- 使用真实任务 ID 验证 `/v1/generations/{id}` 的状态、输出、NSFW 和成本字段；
+- 验证 `/v1/init-image`、预签名字段、S3 204 和参考图参数；
+- 配置测试 Webhook，保存脱敏 payload，验证鉴权、重复投递和 Poll 竞争；
+- 记录 400、401、402/余额不足、429、500、超时和断连的脱敏响应；
+- 对账 Leonardo 响应成本、控制台账单和 RelayQ 任务成本，Credits 与 USD 不得混算；
+- 历史 LEO-002/002C unknown 任务只允许人工核对，不得重放。
+
+验收：生成、查询、输出、成本、计费和退款形成一条可审计证据链，所有原始材料脱敏保存。
+
+### LEO-902 Verified Model Registry 扩充
+
+**状态：部分完成**
+
+当前进展（2026-08-06）：Registry 已登记 FLUX Schnell、GPT Image 2、Nano Banana 2、Nano Banana 2 Lite。三个新增模型的 UUID 来自同日只读 `GET /api/rest/v2/models`：GPT Image 2=`135b2740-a20b-48c8-8f86-6f68199e06c5`、Nano Banana 2=`7418e71f-4133-4e1b-9895-bee19f48f2ce`、Nano Banana 2 Lite=`21278dfe-ac26-4292-82e0-8e588373a30c`。Registry 已记录数量上限、质量能力、`image_reference` 最大 6 张、允许来源类型和 strength 差异；返回值使用深拷贝。
+
+- 当前创建白名单包含 `flux-schnell`、`gpt-image-2`、`nano-banana-2`、`nano-banana-2-lite`；新增三模型已完成目录验证，真实付费创建仍需逐模型确认后执行；
+- 为每个开放模型分别记录 display name、provider model UUID、request model slug、modality；
+- 首批图片目标：GPT Image 2、Nano Banana 2、Nano Banana 2 Lite 和当前 FLUX Schnell；
+- 首批视频目标：只选择一个价格和创建协议均已验证的模型；
+- 未通过真实创建验证的模型不得加入可创建白名单；
+- 模型展示名、目录 UUID 和创建 slug 不得互相代替。
+- Registry 必须逐模型记录官方尺寸约束、输出数量、`quality` 或 `mode`、Guidance 类型、参考图数量、strength 枚举和允许的图片来源类型；
+- 不得把一种通用参考图结构强行用于全部模型：FLUX Dev/Schnell 使用 `content/style`，Phoenix 使用 `image_to_image/content/character/style`，Kontext、FLUX.2、GPT、Nano Banana、Seedream 使用 `image_reference`；
+- GPT Image 2 的图片参考不得发送 `strength`；Ideogram、P-Image-Ideogram、Krea 当前官方指南未声明图片参考能力，保持关闭。
+
+验收：每个 registry 项都有模型目录证据、真实创建证据和单元测试。
+
+### LEO-903 Provider Model Catalog 持久化
+
+**状态：未开始**
+
+- 新增 Provider Model Catalog Schema、Repository 和规范迁移；
+- 保存 provider、provider model ID、request slug、display name、modality、parameter schema、schema hash、last seen、missing 和 deprecated；
+- `/v2/models` 同步使用 upsert，单次同步失败保留上次可用目录；
+- 发现 Schema 变化、模型消失或重新出现时记录可审计事件；
+- 动态目录只表示“上游存在”，是否可创建仍由 Verified Model Registry 和价格证据共同决定。
+
+验收：同步幂等、失败保留旧值、missing/deprecated 转换和 Schema diff 测试通过。
+
+### LEO-904 图片与视频价格快照导入
+
+**状态：部分完成**
+
+当前进展（2026-08-06）：已将 GPT Image 2 的 3×3 价格矩阵、Nano Banana 2 的 Small/Medium 价格和 Nano Banana 2 Lite 的单价导入服务端 decimal Resolver；数量按单价相乘，客户报价继续固定为本地成本 ×7.1。Nano Banana 2 的 2880 产品尺寸及 Lite 的 2048/2880 因非原生规格且尚未接入 Upscale，保持 fail closed。
+
+- 将本地 Leonardo 定价计算器数据转换为服务端只读、版本化价格快照；
+- 图片覆盖计划要求的 32 个模型，视频覆盖 31 个模型；
+- 保存 snapshot version、source、currency、captured at、model slug 和精确匹配维度；
+- 图片 Resolver 支持模型、质量、尺寸、数量、公开属性及模型特有参数；
+- 所有客户图片价格统一为“本地精确成本快照 × 7.1”，参考图、Upscale、质量档位等多阶段请求必须先将各阶段成本求和，再乘 7.1；
+- 对外尺寸档位固定为 `small=1024×1024`、`medium=2048×2048`、`large=2880×2880`，价格快照必须区分原生生成与生成后 Upscale；
+- 对外质量名称统一使用 `low/medium/high`，但只允许映射到模型官方真实存在的 `quality` 或 `mode`；无官方质量参数的模型只开放 `default`，不得制造三个无差别的虚假档位；
+- 视频 Resolver 支持模型、时长、分辨率、数量、音频及离散/滑块规则；
+- 所有金额使用 decimal，禁止 float；
+- 缺模型、缺组合、缺币种或歧义映射时 fail closed，禁止静默免费和猜价。
+
+验收：32 图片、31 视频、总计 63 个模型结构校验和代表性价格回归全部通过。
+
+### LEO-905 价格快照 Diff 与漂移门禁
+
+**状态：未开始**
+
+- 实现新旧快照模型、组合、币种和价格差异报告；
+- 异常涨跌、模型数骤变、slug 变化必须人工确认后才能替换当前版本；
+- 历史快照不可覆盖，generation job 必须固定引用创建时版本；
+- 实际上游成本与估价偏差超过阈值时产生指标和告警；
+- 新价格只影响新任务，历史任务、退款和毛利不得重算。
+
+验收：新增、删除、改价、币种变化、异常门禁和历史版本回放测试通过。
+
+### LEO-906 多账号容量调度
+
+**状态：阻塞**
+
+- 删除“多个有效账号直接 503”的临时限制；
+- 按模型白名单、账号健康、RPM、active jobs、pending jobs 和并发容量选择账号；
+- 槽位占用和释放必须原子化，提交 unknown 不能错误释放并转投另一账号；
+- 429、余额不足、无效 Key、队列满和熔断状态必须影响调度；
+- 不允许因故障转移重复创建或重复计费。
+
+验收：多账号选择、并发争抢、容量耗尽、恢复和 unknown 不重投测试通过。
+
+### LEO-907 原生 Media 列表与管理查询
+
+**状态：部分完成**
+
+- 补 `GET /v1/media/generations`；
+- 支持分页、状态、模态、模型和时间过滤；
+- 客户查询必须限制任务归属，管理员查询可按用户和账号过滤；
+- 响应不得包含 API Key、Webhook Secret、预签名字段和原始敏感错误；
+- content 接口继续使用安全代理或受控跳转，并支持适用的 Range 请求。
+
+验收：归属隔离、分页稳定性、过滤、敏感字段和 content 测试通过。
+
+### LEO-908 图片生成真实 E2E 与收费闭环
+
+**状态：进行中**
+
+当前进展（2026-08-06）：`/v1/images/generations` 已按请求结构区分 OpenAI 兼容和 Leonardo Raw；OpenAI 客户端默认同步等待，最长 900 秒，缺省 `quality=low`、`size=1024x1024`、`response_format=b64_json`，未提供幂等键时使用 5 分钟自动幂等窗口。创建后通过 `X-RelayQ-Task-ID` 提供断线找回。尚缺真实 ComfyUI/Infinite Canvas 付费 E2E、Large Upscale 和全价格快照，因此仍不可标记完成。
+
+- 先限定单账号、`flux-schnell`、896×896、单图、private；
+- 当前固定上游成本按本地价格快照 `$0.003`，客户扣费固定为 `$0.003 × 7.1 = $0.0213`；
+- OpenAI Images 与原生 Media API 必须由服务端统一计算 `$0.0213`，不得接受客户端自定义最终扣费；
+- 验证 OpenAI Images 门面和原生 Media API 都进入同一任务中心；
+- 使用真实 ComfyUI OpenAI 节点和 Infinite Canvas 或等价客户端验证标准同步响应；
+- 验证 900 秒超时、客户端断线、自动幂等和 task ID 找回，不得因客户端重试重复生成；
+- 验证预估、资金预留、上游创建、Poll/Webhook、终态结算、Usage 和毛利；
+- 验证失败退款、NSFW、unknown/manual review 和重复请求；
+- 验证 queued、running、unknown、terminal billing-pending 状态重启恢复；
+- 通过后才允许内部测试组小流量 Flag 灰度。
+
+验收：数据库、API 响应、上游账单和客户余额四方一致，不重复生成、不重复扣费。
+
+### LEO-909 图片编辑与多参考图真实 E2E
+
+**状态：部分完成**
+
+当前进展（2026-08-06）：Leonardo Raw JSON 已支持 FLUX Schnell 的 `parameters.guidances.content/style`；无代上传时 Body 原样提交，`image.source` 支持 Data URI、受控 URL 和 `multipart://字段名`，上传后只定点写入 `id/type=UPLOADED`。Content/Style 语义进入幂等指纹并禁止和 legacy generic guidance 混用。OpenAI Images Edits 不猜测 Content/Style；高级能力由 Raw API 或专用 ComfyUI 节点提供。历史图片归属校验、参考图精确价格和真实付费 E2E 尚未完成，因此暂不对生产客户开放。
+
+- 实测 init-image 和预签名上传；
+- 验证本地 multipart、受控远程 URL、文件类型、20 MB 上限和 SSRF 防护；
+- 验证上传 hash cache 不跨账号泄漏、不缓存失败结果；
+- 验证单参考图和多参考图参数映射；
+- 图生图、内容参考、风格参考、角色参考和通用图片参考必须按官方逐模型协议一比一实现，不提供会丢失语义的跨模型通用降级；
+- FLUX Dev/Schnell：`content` 最多 1 张，strength 为 LOW/MID/HIGH；`style` 最多 1 张，strength 为 LOW/MID/HIGH/ULTRA/MAX；
+- Phoenix：分别支持 `image_to_image`、`content`、`character` 和最多 4 张 `style`；
+- Kontext Pro/Max、FLUX.2、GPT、Nano Banana、Seedream：按各自官方 `image_reference` 数量、strength 和图片来源类型实现；
+- 原生 Media API 暴露有类型的 Guidance 契约；OpenAI Images Edits 仅映射能够无损表达的图生图能力，无法无损表达的官方功能只能通过原生接口使用；
+- RelayQ 专用 ComfyUI Advanced 节点提供 reference type、strength 和 source，标准 OpenAI 节点不隐式获得高级 Guidance；
+- 参考图片统一先走 init-image 预签名上传；支持引用历史 Leonardo 生成图时，严格校验任务归属，禁止跨用户引用；
+- 临时文件、预签名字段和下载内容不得进入日志。
+
+验收：真实编辑成功，恶意 URL、大文件、伪造 MIME、重复上传和超时测试通过。
+
+### LEO-910 Leonardo 视频端到端闭环
+
+**状态：阻塞**
+
+- `video_enabled` 在本任务完成前必须保持关闭；
+- 选择一个 Registry、价格和真实创建均已验证的视频模型；
+- 完成创建、状态、内容、Range、超时、失败、NSFW 和计费；
+- OpenAI Videos 门面与原生 Media API 复用任务中心；
+- 视频编辑和续写若官方协议尚未验证，继续列为非目标，不复用 xAI Handler 假装支持。
+
+验收：至少一个视频模型真实 E2E 通过，Handler 不再固定拒绝 Leonardo 请求。
+
+### LEO-911 音频端到端闭环
+
+**状态：未开始**
+
+- 在 Verified Model Registry 和价格证据齐备后实现 Music、SFX、Dialogue；
+- 支持对应参数、状态、播放/下载、内容类型、时长和数量计费；
+- `audio_enabled` 在验收完成前保持关闭。
+
+验收：每个对外开放音频类型至少一个真实模型 E2E 通过。
+
+### LEO-912 3D 与 Upscale 闭环
+
+**状态：未开始**
+
+- 3D 完成 Rodin v2、参考图、mesh 参数、GLB 内容和计费；
+- Upscale 完成 Aurora Precise/Creative、输入图、输出规格和计费；
+- `large=2880×2880` 在模型不能原生生成时，使用官方 Pro Upscaler Precise 组成两阶段任务；优先采用 `1440×1440 × 2`，不得向上游伪报模型原生支持 2880；
+- 两阶段任务必须共享一个客户任务视图，分别保存生成和 Upscale 的上游任务 ID、成本、状态与失败原因；
+- 任一阶段失败都必须按统一账务状态机结算或退款，不允许只完成第一阶段却按 Large 全额结算；
+- 大文件下载、Content-Type、Range 和超时策略必须单独验收。
+
+验收：3D 与 Upscale 各至少一个真实模型 E2E 通过。
+
+### 21.4 图片产品统一规格与官方能力映射
+
+本节是所有 Leonardo 图片模型的强制产品契约。统一产品档位只负责客户体验，实际请求必须服从每个模型的官方协议和能力边界。
+
+#### 21.4.1 尺寸档位
+
+| 客户档位 | 最终交付尺寸 | 实现规则 |
+|---|---:|---|
+| Small | 1024×1024 | 模型原生支持时直接生成；否则使用官方合法近邻尺寸并通过已验证的官方 Upscale 链路交付严格尺寸 |
+| Medium | 2048×2048 | 模型原生支持时直接生成；否则追加官方 Pro Upscaler Precise |
+| Large | 2880×2880 | 模型不能原生支持时必须追加官方 Pro Upscaler Precise，默认 `1440×1440 × 2` |
+
+- API 响应必须说明 `requested_size_tier`、`delivered_width/height`、`native_generation` 和是否执行 Upscale；
+- 不得把模型最大尺寸当作 2880 返回，不得静默返回非目标尺寸；
+- 固定正方形输出需要裁切或补边时必须由明确策略控制，默认禁止破坏输入图主体的隐式裁切；
+- 生成与 Upscale 的本地成本相加后乘 7.1，才是客户最终扣费。
+
+#### 21.4.2 质量档位
+
+对外标准名称为 `low`、`medium`、`high`，内部按官方字段映射：
+
+| 官方模型族 | Low | Medium | High |
+|---|---|---|---|
+| GPT Image-1.5 / GPT Image 2 | `quality=LOW` | `quality=MEDIUM` | `quality=HIGH` |
+| Ideogram 3.0 | `quality=TURBO` | `quality=BALANCED` | `quality=QUALITY` |
+| P-Image-Ideogram | `quality=LOW` | `quality=MEDIUM` | `quality=HIGH` |
+| Phoenix | `mode=FAST` | `mode=QUALITY` | `mode=ULTRA` |
+| Lucid Origin / Lucid Realism | `mode=FAST` | 不支持 | `mode=ULTRA` |
+| 无官方 `quality/mode` 的模型 | 不支持 | `default` | 不支持 |
+
+- 对不支持的档位返回明确的 `quality_not_supported`，不得把三个档位映射成相同请求；
+- API 模型目录必须返回每个模型实际支持的质量档位，前端据此禁用不可选项；
+- 官方字段有变化时必须先通过 Registry、价格快照和真实探针再开放。
+
+#### 21.4.3 Guidance 一比一复刻原则
+
+- 对外保留官方语义：`image_to_image`、`content`、`style`、`character`、`image_reference` 不得混为同一字段；
+- 每个模型严格执行官方最大参考图数量、strength 枚举、默认值、顺序字段和 `image.type` 白名单；
+- `style_ids` 表示 Leonardo 预设风格，不等同于上传风格参考图；两者必须使用不同请求字段；
+- OpenAI 兼容接口只承载可无损映射的能力，完整官方能力由 `/v1/media/generations` 原生契约提供；
+- 未在官方模型指南声明的能力保持 fail closed；不得因为底层 DTO 能拼装任意 JSON 就对外开放；
+- 每种已开放 Guidance 至少保留一个脱敏真实 Production API 成功证据和一个精确 payload 合同测试。
+
+官方能力依据：
+
+- FLUX Schnell：<https://docs.leonardo.ai/docs/flux-schnell>
+- Phoenix：<https://docs.leonardo.ai/docs/phoenix>
+- GPT Image 2：<https://docs.leonardo.ai/docs/gpt-image-2>
+- FLUX.2 Pro：<https://docs.leonardo.ai/docs/flux-2-pro>
+- Pro Upscaler Precise：<https://docs.leonardo.ai/docs/pro-upscaler-precise>
+- 图片预签名上传：<https://docs.leonardo.ai/docs/how-to-upload-an-image-using-a-presigned-url>
+
+### LEO-913 管理后台任务与人工复核 UI
+
+**状态：部分完成**
+
+- 展示任务状态、模态、模型、账号、用户、上游任务 ID、安全错误、估价、实际成本、收入和毛利；
+- 提供 unknown/manual review 查询、绑定上游 ID、确认失败和退款操作；
+- 高风险操作要求二次确认并写审计日志；
+- UI 和管理 API 不得暴露任何密钥、Secret 或预签名字段。
+
+验收：管理员可以不直接操作数据库完成 unknown 任务处置，并有完整审计记录。
+
+### LEO-914 业务指标、告警与成本毛利报表
+
+**状态：部分完成**
+
+- 增加 submitted、queued、running、completed、failed、unknown、duration、queue age、poll、webhook、active 和 pending 指标；
+- 按模型、账号、用户和模态统计上游成本、客户收入和毛利；
+- 告警覆盖 invalid key、余额不足、队列满、unknown 增长、worker heartbeat、价格偏差和任务积压；
+- 指标标签不得包含 prompt、用户输入或高基数字段。
+
+验收：仪表盘和告警演练能定位提交、队列、回调、结算和价格异常。
+
+### LEO-915 模型弃用与同步告警
+
+**状态：未开始**
+
+- 对 Schema diff、missing、deprecated 和 slug 映射失效产生管理告警；
+- missing/deprecated 模型禁止新任务，但保留历史任务查询和内容访问；
+- 已有任务不能因模型目录变化丢失解析能力；
+- 管理 UI 明确区分“上游存在”“已验证可创建”“有价格可销售”。
+
+验收：模型消失、恢复、Schema 变化和禁用新任务测试通过。
+
+### LEO-916 完整自动化回归与慢测治理
+
+**状态：阻塞**
+
+- 拆分并定位当前 service/handler/routes 联合测试中的慢测或阻塞；
+- 完成 Leonardo Client、状态机、计费、上传、Webhook、路由和迁移测试；
+- 执行前端 typecheck、lint、Vitest 和 build；
+- 执行 OpenAI、xAI、Gemini 现有链路回归；
+- 增加模拟 ComfyUI/Infinite Canvas 的无幂等键同步请求、默认 base64、900 秒超时和断线找回回归；
+- 测试不得依赖真实付费 API，真实探针单独审批和记录。
+
+验收：候选提交 CI 全绿，无无限等待测试，失败能定位到具体包和用例。
+
+### LEO-917 生产迁移、发布与回滚门禁
+
+**状态：阻塞；最终任务**
+
+- 在生产备份副本执行 153–156 及后续迁移，记录耗时、锁表和索引；
+- 验证备份、回滚、配置模板和密钥注入；
+- 所有 Leonardo Feature Flag 默认关闭，按图片、视频、音频分开灰度；
+- 发布前核对历史 unknown 任务、worker、告警、价格版本和账号容量；
+- 先内部组、再小流量、再逐级放量，任何重复生成、重复扣费或 unknown 激增立即回滚；
+- 只有第 26 节 DoD 全部有证据后才能宣称完整接入完成。
+
+验收：迁移演练、回滚演练、监控演练和真实 E2E 签字记录齐全。
+
+### 21.3 强制执行顺序
+
+```text
+LEO-900 已完成基线对账
+  ↓
+LEO-901 真实协议补探针
+  ↓
+LEO-902 Verified Model Registry
+  ↓
+LEO-903 Provider Model Catalog
+  ↓
+LEO-904 完整图片/视频价格快照
+  ↓
+LEO-905 价格 Diff 与漂移门禁
+  ↓
+LEO-906 多账号容量调度
+  ↓
+LEO-907 Media 列表与管理查询
+  ↓
+LEO-908 图片真实 E2E
+  ↓
+LEO-909 图片编辑真实 E2E
+  ↓
+LEO-910 视频 E2E
+  ↓
+LEO-911 音频 → LEO-912 3D/Upscale
+  ↓
+LEO-913 管理 UI → LEO-914 指标报表 → LEO-915 模型弃用
+  ↓
+LEO-916 完整回归
+  ↓
+LEO-917 生产发布门禁
+```
+
+除非前置任务的验收证据已经写回本文，不得提前打开对应模态 Feature Flag，也不得并行铺开后续产品页面。
+
+---
+
 # 22. 测试矩阵
 
 ## 22.1 Client 单元测试
@@ -2708,40 +3173,17 @@ media_pending_jobs{account}
 
 ---
 
-# 27. 第一轮建议开工顺序
+# 27. 当前开工顺序
 
-Trae AI 应严格按以下顺序开始，不要并行铺开大量代码：
+原始阶段任务继续作为需求来源，实际执行严格以第 21.3 节的 Phase 9 收口顺序为准。当前起点为 `LEO-901`，不要并行铺开大量代码：
 
 ```text
-LEO-000 基线隔离
-  ↓
-LEO-001~005 真实 API 探针
-  ↓
-用探针结果修订本文件中的查询/响应细节
-  ↓
-LEO-100 平台和账号
-  ↓
-LEO-101 Client + Mock tests
-  ↓
-LEO-102 模型同步
-  ↓
-LEO-104 定价快照导入与 Price Resolver
-  ↓
-LEO-105 价格快照 diff/漂移检测
-  ↓
-LEO-200~203 持久化任务中心
-  ↓
-LEO-300 原生图片任务
-  ↓
-LEO-301 OpenAI 图片桥
-  ↓
-LEO-302 计费
-  ↓
-LEO-400 图片编辑/参考图
-  ↓
-LEO-500 Webhook 生产化
-  ↓
-LEO-600 视频
+LEO-901 真实协议补探针
+→ LEO-902~905 模型和价格事实源
+→ LEO-906~909 图片生产闭环
+→ LEO-910~912 其他模态
+→ LEO-913~915 运营治理
+→ LEO-916~917 回归与发布
 ```
 
 不要先改前端大页面；先把官方真实协议、任务一致性和计费安全钉死。

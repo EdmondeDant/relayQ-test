@@ -32,6 +32,7 @@ type OpsRepository interface {
 
 	InsertSystemMetrics(ctx context.Context, input *OpsInsertSystemMetricsInput) error
 	GetLatestSystemMetrics(ctx context.Context, windowMinutes int) (*OpsSystemMetricsSnapshot, error)
+	GetLeonardoCostVarianceRatio(ctx context.Context, start, end time.Time, groupID *int64) (float64, bool, error)
 
 	UpsertJobHeartbeat(ctx context.Context, input *OpsUpsertJobHeartbeatInput) error
 	ListJobHeartbeats(ctx context.Context) ([]*OpsJobHeartbeat, error)

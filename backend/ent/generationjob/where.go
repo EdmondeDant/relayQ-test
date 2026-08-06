@@ -140,6 +140,31 @@ func OutputCount(v int) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldOutputCount, v))
 }
 
+// EstimatedUpstreamCostAmount applies equality check predicate on the "estimated_upstream_cost_amount" field. It's identical to EstimatedUpstreamCostAmountEQ.
+func EstimatedUpstreamCostAmount(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostUnit applies equality check predicate on the "estimated_upstream_cost_unit" field. It's identical to EstimatedUpstreamCostUnitEQ.
+func EstimatedUpstreamCostUnit(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// PricingSnapshotVersion applies equality check predicate on the "pricing_snapshot_version" field. It's identical to PricingSnapshotVersionEQ.
+func PricingSnapshotVersion(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSource applies equality check predicate on the "pricing_source" field. It's identical to PricingSourceEQ.
+func PricingSource(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingSource, v))
+}
+
+// PricingMatchType applies equality check predicate on the "pricing_match_type" field. It's identical to PricingMatchTypeEQ.
+func PricingMatchType(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingMatchType, v))
+}
+
 // ActualUpstreamCostAmount applies equality check predicate on the "actual_upstream_cost_amount" field. It's identical to ActualUpstreamCostAmountEQ.
 func ActualUpstreamCostAmount(v *decimal.Decimal) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldActualUpstreamCostAmount, v))
@@ -153,6 +178,16 @@ func ActualUpstreamCostUnit(v string) predicate.GenerationJob {
 // CustomerCost applies equality check predicate on the "customer_cost" field. It's identical to CustomerCostEQ.
 func CustomerCost(v *decimal.Decimal) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldCustomerCost, v))
+}
+
+// GrossMargin applies equality check predicate on the "gross_margin" field. It's identical to GrossMarginEQ.
+func GrossMargin(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldGrossMargin, v))
+}
+
+// CostVariance applies equality check predicate on the "cost_variance" field. It's identical to CostVarianceEQ.
+func CostVariance(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldCostVariance, v))
 }
 
 // BillingReference applies equality check predicate on the "billing_reference" field. It's identical to BillingReferenceEQ.
@@ -1195,6 +1230,356 @@ func OutputCountLTE(v int) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldLTE(FieldOutputCount, v))
 }
 
+// EstimatedUpstreamCostAmountEQ applies the EQ predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountNEQ applies the NEQ predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountNEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountIn applies the In predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldEstimatedUpstreamCostAmount, vs...))
+}
+
+// EstimatedUpstreamCostAmountNotIn applies the NotIn predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountNotIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldEstimatedUpstreamCostAmount, vs...))
+}
+
+// EstimatedUpstreamCostAmountGT applies the GT predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountGT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountGTE applies the GTE predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountGTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountLT applies the LT predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountLT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountLTE applies the LTE predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountLTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldEstimatedUpstreamCostAmount, v))
+}
+
+// EstimatedUpstreamCostAmountIsNil applies the IsNil predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldEstimatedUpstreamCostAmount))
+}
+
+// EstimatedUpstreamCostAmountNotNil applies the NotNil predicate on the "estimated_upstream_cost_amount" field.
+func EstimatedUpstreamCostAmountNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldEstimatedUpstreamCostAmount))
+}
+
+// EstimatedUpstreamCostUnitEQ applies the EQ predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitNEQ applies the NEQ predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitIn applies the In predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldEstimatedUpstreamCostUnit, vs...))
+}
+
+// EstimatedUpstreamCostUnitNotIn applies the NotIn predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldEstimatedUpstreamCostUnit, vs...))
+}
+
+// EstimatedUpstreamCostUnitGT applies the GT predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitGTE applies the GTE predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitLT applies the LT predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitLTE applies the LTE predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitContains applies the Contains predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitHasPrefix applies the HasPrefix predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitHasSuffix applies the HasSuffix predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitIsNil applies the IsNil predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldEstimatedUpstreamCostUnit))
+}
+
+// EstimatedUpstreamCostUnitNotNil applies the NotNil predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldEstimatedUpstreamCostUnit))
+}
+
+// EstimatedUpstreamCostUnitEqualFold applies the EqualFold predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// EstimatedUpstreamCostUnitContainsFold applies the ContainsFold predicate on the "estimated_upstream_cost_unit" field.
+func EstimatedUpstreamCostUnitContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldEstimatedUpstreamCostUnit, v))
+}
+
+// PricingSnapshotVersionEQ applies the EQ predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionNEQ applies the NEQ predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionIn applies the In predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldPricingSnapshotVersion, vs...))
+}
+
+// PricingSnapshotVersionNotIn applies the NotIn predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldPricingSnapshotVersion, vs...))
+}
+
+// PricingSnapshotVersionGT applies the GT predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionGTE applies the GTE predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionLT applies the LT predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionLTE applies the LTE predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionContains applies the Contains predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionHasPrefix applies the HasPrefix predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionHasSuffix applies the HasSuffix predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionIsNil applies the IsNil predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldPricingSnapshotVersion))
+}
+
+// PricingSnapshotVersionNotNil applies the NotNil predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldPricingSnapshotVersion))
+}
+
+// PricingSnapshotVersionEqualFold applies the EqualFold predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSnapshotVersionContainsFold applies the ContainsFold predicate on the "pricing_snapshot_version" field.
+func PricingSnapshotVersionContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldPricingSnapshotVersion, v))
+}
+
+// PricingSourceEQ applies the EQ predicate on the "pricing_source" field.
+func PricingSourceEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingSource, v))
+}
+
+// PricingSourceNEQ applies the NEQ predicate on the "pricing_source" field.
+func PricingSourceNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldPricingSource, v))
+}
+
+// PricingSourceIn applies the In predicate on the "pricing_source" field.
+func PricingSourceIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldPricingSource, vs...))
+}
+
+// PricingSourceNotIn applies the NotIn predicate on the "pricing_source" field.
+func PricingSourceNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldPricingSource, vs...))
+}
+
+// PricingSourceGT applies the GT predicate on the "pricing_source" field.
+func PricingSourceGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldPricingSource, v))
+}
+
+// PricingSourceGTE applies the GTE predicate on the "pricing_source" field.
+func PricingSourceGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldPricingSource, v))
+}
+
+// PricingSourceLT applies the LT predicate on the "pricing_source" field.
+func PricingSourceLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldPricingSource, v))
+}
+
+// PricingSourceLTE applies the LTE predicate on the "pricing_source" field.
+func PricingSourceLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldPricingSource, v))
+}
+
+// PricingSourceContains applies the Contains predicate on the "pricing_source" field.
+func PricingSourceContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldPricingSource, v))
+}
+
+// PricingSourceHasPrefix applies the HasPrefix predicate on the "pricing_source" field.
+func PricingSourceHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldPricingSource, v))
+}
+
+// PricingSourceHasSuffix applies the HasSuffix predicate on the "pricing_source" field.
+func PricingSourceHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldPricingSource, v))
+}
+
+// PricingSourceIsNil applies the IsNil predicate on the "pricing_source" field.
+func PricingSourceIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldPricingSource))
+}
+
+// PricingSourceNotNil applies the NotNil predicate on the "pricing_source" field.
+func PricingSourceNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldPricingSource))
+}
+
+// PricingSourceEqualFold applies the EqualFold predicate on the "pricing_source" field.
+func PricingSourceEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldPricingSource, v))
+}
+
+// PricingSourceContainsFold applies the ContainsFold predicate on the "pricing_source" field.
+func PricingSourceContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldPricingSource, v))
+}
+
+// PricingMatchTypeEQ applies the EQ predicate on the "pricing_match_type" field.
+func PricingMatchTypeEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeNEQ applies the NEQ predicate on the "pricing_match_type" field.
+func PricingMatchTypeNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeIn applies the In predicate on the "pricing_match_type" field.
+func PricingMatchTypeIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldPricingMatchType, vs...))
+}
+
+// PricingMatchTypeNotIn applies the NotIn predicate on the "pricing_match_type" field.
+func PricingMatchTypeNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldPricingMatchType, vs...))
+}
+
+// PricingMatchTypeGT applies the GT predicate on the "pricing_match_type" field.
+func PricingMatchTypeGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeGTE applies the GTE predicate on the "pricing_match_type" field.
+func PricingMatchTypeGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeLT applies the LT predicate on the "pricing_match_type" field.
+func PricingMatchTypeLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeLTE applies the LTE predicate on the "pricing_match_type" field.
+func PricingMatchTypeLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeContains applies the Contains predicate on the "pricing_match_type" field.
+func PricingMatchTypeContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeHasPrefix applies the HasPrefix predicate on the "pricing_match_type" field.
+func PricingMatchTypeHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeHasSuffix applies the HasSuffix predicate on the "pricing_match_type" field.
+func PricingMatchTypeHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeIsNil applies the IsNil predicate on the "pricing_match_type" field.
+func PricingMatchTypeIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldPricingMatchType))
+}
+
+// PricingMatchTypeNotNil applies the NotNil predicate on the "pricing_match_type" field.
+func PricingMatchTypeNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldPricingMatchType))
+}
+
+// PricingMatchTypeEqualFold applies the EqualFold predicate on the "pricing_match_type" field.
+func PricingMatchTypeEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldPricingMatchType, v))
+}
+
+// PricingMatchTypeContainsFold applies the ContainsFold predicate on the "pricing_match_type" field.
+func PricingMatchTypeContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldPricingMatchType, v))
+}
+
 // ActualUpstreamCostAmountEQ applies the EQ predicate on the "actual_upstream_cost_amount" field.
 func ActualUpstreamCostAmountEQ(v *decimal.Decimal) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldActualUpstreamCostAmount, v))
@@ -1368,6 +1753,106 @@ func CustomerCostIsNil() predicate.GenerationJob {
 // CustomerCostNotNil applies the NotNil predicate on the "customer_cost" field.
 func CustomerCostNotNil() predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldNotNull(FieldCustomerCost))
+}
+
+// GrossMarginEQ applies the EQ predicate on the "gross_margin" field.
+func GrossMarginEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldGrossMargin, v))
+}
+
+// GrossMarginNEQ applies the NEQ predicate on the "gross_margin" field.
+func GrossMarginNEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldGrossMargin, v))
+}
+
+// GrossMarginIn applies the In predicate on the "gross_margin" field.
+func GrossMarginIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldGrossMargin, vs...))
+}
+
+// GrossMarginNotIn applies the NotIn predicate on the "gross_margin" field.
+func GrossMarginNotIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldGrossMargin, vs...))
+}
+
+// GrossMarginGT applies the GT predicate on the "gross_margin" field.
+func GrossMarginGT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldGrossMargin, v))
+}
+
+// GrossMarginGTE applies the GTE predicate on the "gross_margin" field.
+func GrossMarginGTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldGrossMargin, v))
+}
+
+// GrossMarginLT applies the LT predicate on the "gross_margin" field.
+func GrossMarginLT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldGrossMargin, v))
+}
+
+// GrossMarginLTE applies the LTE predicate on the "gross_margin" field.
+func GrossMarginLTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldGrossMargin, v))
+}
+
+// GrossMarginIsNil applies the IsNil predicate on the "gross_margin" field.
+func GrossMarginIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldGrossMargin))
+}
+
+// GrossMarginNotNil applies the NotNil predicate on the "gross_margin" field.
+func GrossMarginNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldGrossMargin))
+}
+
+// CostVarianceEQ applies the EQ predicate on the "cost_variance" field.
+func CostVarianceEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldCostVariance, v))
+}
+
+// CostVarianceNEQ applies the NEQ predicate on the "cost_variance" field.
+func CostVarianceNEQ(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldCostVariance, v))
+}
+
+// CostVarianceIn applies the In predicate on the "cost_variance" field.
+func CostVarianceIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldCostVariance, vs...))
+}
+
+// CostVarianceNotIn applies the NotIn predicate on the "cost_variance" field.
+func CostVarianceNotIn(vs ...*decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldCostVariance, vs...))
+}
+
+// CostVarianceGT applies the GT predicate on the "cost_variance" field.
+func CostVarianceGT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldCostVariance, v))
+}
+
+// CostVarianceGTE applies the GTE predicate on the "cost_variance" field.
+func CostVarianceGTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldCostVariance, v))
+}
+
+// CostVarianceLT applies the LT predicate on the "cost_variance" field.
+func CostVarianceLT(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldCostVariance, v))
+}
+
+// CostVarianceLTE applies the LTE predicate on the "cost_variance" field.
+func CostVarianceLTE(v *decimal.Decimal) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldCostVariance, v))
+}
+
+// CostVarianceIsNil applies the IsNil predicate on the "cost_variance" field.
+func CostVarianceIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldCostVariance))
+}
+
+// CostVarianceNotNil applies the NotNil predicate on the "cost_variance" field.
+func CostVarianceNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldCostVariance))
 }
 
 // BillingStatusEQ applies the EQ predicate on the "billing_status" field.

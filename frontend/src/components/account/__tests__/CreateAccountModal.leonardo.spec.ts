@@ -106,7 +106,7 @@ describe('CreateAccountModal Leonardo', () => {
     expect(baseUrlInput?.element.value).toBe('https://cloud.leonardo.ai/api/rest')
     expect(apiKeyInput).toBeDefined()
     expect(wrapper.text()).toContain('Production API')
-    expect(wrapper.text()).not.toContain('admin.accounts.modelRestriction')
+    expect(wrapper.text()).toContain('admin.accounts.modelRestriction')
     expect(wrapper.text()).not.toContain('admin.accounts.poolMode')
     expect(wrapper.text()).not.toContain('admin.accounts.customErrorCodes')
     expect(wrapper.text()).not.toContain('admin.accounts.tempUnschedulable.title')
@@ -123,7 +123,7 @@ describe('CreateAccountModal Leonardo', () => {
         base_url: 'https://cloud.leonardo.ai/api/rest'
       }
     })
-    expect(Object.keys(createAccountMock.mock.calls[0]?.[0]?.credentials)).toEqual(['base_url', 'api_key'])
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials.model_mapping).toBeUndefined()
     expect(wrapper.find('[data-tour="account-form-groups"]').exists()).toBe(false)
   })
 

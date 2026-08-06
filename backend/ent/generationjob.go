@@ -59,12 +59,26 @@ type GenerationJob struct {
 	ErrorMessage *string `json:"error_message,omitempty"`
 	// OutputCount holds the value of the "output_count" field.
 	OutputCount int `json:"output_count,omitempty"`
+	// EstimatedUpstreamCostAmount holds the value of the "estimated_upstream_cost_amount" field.
+	EstimatedUpstreamCostAmount *decimal.Decimal `json:"estimated_upstream_cost_amount,omitempty"`
+	// EstimatedUpstreamCostUnit holds the value of the "estimated_upstream_cost_unit" field.
+	EstimatedUpstreamCostUnit *string `json:"estimated_upstream_cost_unit,omitempty"`
+	// PricingSnapshotVersion holds the value of the "pricing_snapshot_version" field.
+	PricingSnapshotVersion *string `json:"pricing_snapshot_version,omitempty"`
+	// PricingSource holds the value of the "pricing_source" field.
+	PricingSource *string `json:"pricing_source,omitempty"`
+	// PricingMatchType holds the value of the "pricing_match_type" field.
+	PricingMatchType *string `json:"pricing_match_type,omitempty"`
 	// ActualUpstreamCostAmount holds the value of the "actual_upstream_cost_amount" field.
 	ActualUpstreamCostAmount *decimal.Decimal `json:"actual_upstream_cost_amount,omitempty"`
 	// ActualUpstreamCostUnit holds the value of the "actual_upstream_cost_unit" field.
 	ActualUpstreamCostUnit *string `json:"actual_upstream_cost_unit,omitempty"`
 	// CustomerCost holds the value of the "customer_cost" field.
 	CustomerCost *decimal.Decimal `json:"customer_cost,omitempty"`
+	// GrossMargin holds the value of the "gross_margin" field.
+	GrossMargin *decimal.Decimal `json:"gross_margin,omitempty"`
+	// CostVariance holds the value of the "cost_variance" field.
+	CostVariance *decimal.Decimal `json:"cost_variance,omitempty"`
 	// BillingStatus holds the value of the "billing_status" field.
 	BillingStatus generationjob.BillingStatus `json:"billing_status,omitempty"`
 	// BillingReference holds the value of the "billing_reference" field.
@@ -91,13 +105,13 @@ func (*GenerationJob) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case generationjob.FieldActualUpstreamCostAmount, generationjob.FieldCustomerCost:
+		case generationjob.FieldEstimatedUpstreamCostAmount, generationjob.FieldActualUpstreamCostAmount, generationjob.FieldCustomerCost, generationjob.FieldGrossMargin, generationjob.FieldCostVariance:
 			values[i] = &sql.NullScanner{S: new(decimal.Decimal)}
 		case generationjob.FieldRequestPayload, generationjob.FieldResultPayload:
 			values[i] = new([]byte)
 		case generationjob.FieldID, generationjob.FieldUserID, generationjob.FieldAPIKeyID, generationjob.FieldGroupID, generationjob.FieldAccountID, generationjob.FieldOutputCount, generationjob.FieldPollAttempts:
 			values[i] = new(sql.NullInt64)
-		case generationjob.FieldPublicID, generationjob.FieldProvider, generationjob.FieldModality, generationjob.FieldModel, generationjob.FieldUpstreamModel, generationjob.FieldUpstreamGenerationID, generationjob.FieldStatus, generationjob.FieldUpstreamStatus, generationjob.FieldRequestHash, generationjob.FieldErrorCode, generationjob.FieldErrorMessage, generationjob.FieldActualUpstreamCostUnit, generationjob.FieldBillingStatus, generationjob.FieldBillingReference:
+		case generationjob.FieldPublicID, generationjob.FieldProvider, generationjob.FieldModality, generationjob.FieldModel, generationjob.FieldUpstreamModel, generationjob.FieldUpstreamGenerationID, generationjob.FieldStatus, generationjob.FieldUpstreamStatus, generationjob.FieldRequestHash, generationjob.FieldErrorCode, generationjob.FieldErrorMessage, generationjob.FieldEstimatedUpstreamCostUnit, generationjob.FieldPricingSnapshotVersion, generationjob.FieldPricingSource, generationjob.FieldPricingMatchType, generationjob.FieldActualUpstreamCostUnit, generationjob.FieldBillingStatus, generationjob.FieldBillingReference:
 			values[i] = new(sql.NullString)
 		case generationjob.FieldCreatedAt, generationjob.FieldUpdatedAt, generationjob.FieldNextPollAt, generationjob.FieldLastPolledAt, generationjob.FieldSubmittedAt, generationjob.FieldStartedAt, generationjob.FieldCompletedAt, generationjob.FieldFailedAt:
 			values[i] = new(sql.NullTime)
@@ -251,6 +265,40 @@ func (_m *GenerationJob) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.OutputCount = int(value.Int64)
 			}
+		case generationjob.FieldEstimatedUpstreamCostAmount:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field estimated_upstream_cost_amount", values[i])
+			} else if value.Valid {
+				_m.EstimatedUpstreamCostAmount = value.S.(*decimal.Decimal)
+			}
+		case generationjob.FieldEstimatedUpstreamCostUnit:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field estimated_upstream_cost_unit", values[i])
+			} else if value.Valid {
+				_m.EstimatedUpstreamCostUnit = new(string)
+				*_m.EstimatedUpstreamCostUnit = value.String
+			}
+		case generationjob.FieldPricingSnapshotVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field pricing_snapshot_version", values[i])
+			} else if value.Valid {
+				_m.PricingSnapshotVersion = new(string)
+				*_m.PricingSnapshotVersion = value.String
+			}
+		case generationjob.FieldPricingSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field pricing_source", values[i])
+			} else if value.Valid {
+				_m.PricingSource = new(string)
+				*_m.PricingSource = value.String
+			}
+		case generationjob.FieldPricingMatchType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field pricing_match_type", values[i])
+			} else if value.Valid {
+				_m.PricingMatchType = new(string)
+				*_m.PricingMatchType = value.String
+			}
 		case generationjob.FieldActualUpstreamCostAmount:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field actual_upstream_cost_amount", values[i])
@@ -269,6 +317,18 @@ func (_m *GenerationJob) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field customer_cost", values[i])
 			} else if value.Valid {
 				_m.CustomerCost = value.S.(*decimal.Decimal)
+			}
+		case generationjob.FieldGrossMargin:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field gross_margin", values[i])
+			} else if value.Valid {
+				_m.GrossMargin = value.S.(*decimal.Decimal)
+			}
+		case generationjob.FieldCostVariance:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field cost_variance", values[i])
+			} else if value.Valid {
+				_m.CostVariance = value.S.(*decimal.Decimal)
 			}
 		case generationjob.FieldBillingStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -437,6 +497,31 @@ func (_m *GenerationJob) String() string {
 	builder.WriteString("output_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.OutputCount))
 	builder.WriteString(", ")
+	if v := _m.EstimatedUpstreamCostAmount; v != nil {
+		builder.WriteString("estimated_upstream_cost_amount=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.EstimatedUpstreamCostUnit; v != nil {
+		builder.WriteString("estimated_upstream_cost_unit=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.PricingSnapshotVersion; v != nil {
+		builder.WriteString("pricing_snapshot_version=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.PricingSource; v != nil {
+		builder.WriteString("pricing_source=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.PricingMatchType; v != nil {
+		builder.WriteString("pricing_match_type=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
 	if v := _m.ActualUpstreamCostAmount; v != nil {
 		builder.WriteString("actual_upstream_cost_amount=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
@@ -449,6 +534,16 @@ func (_m *GenerationJob) String() string {
 	builder.WriteString(", ")
 	if v := _m.CustomerCost; v != nil {
 		builder.WriteString("customer_cost=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.GrossMargin; v != nil {
+		builder.WriteString("gross_margin=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.CostVariance; v != nil {
+		builder.WriteString("cost_variance=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

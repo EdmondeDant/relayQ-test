@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"io"
 	"net/http"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"sort"
 	"strings"
 	"time"
@@ -452,21 +452,21 @@ func (s *PlaygroundService) recordPlaygroundVideoUsage(ctx context.Context, user
 		return err
 	}
 	params := &postUsageBillingParams{
-		User:                user,
-		APIKey:              apiKeyEntity,
-		Account:             account,
-		Cost:                cost,
-		Platform:            PlatformFromAPIKey(apiKeyEntity),
-		APIKeyService:       s.apiKeyService,
+		User:                  user,
+		APIKey:                apiKeyEntity,
+		Account:               account,
+		Cost:                  cost,
+		Platform:              PlatformFromAPIKey(apiKeyEntity),
+		APIKeyService:         s.apiKeyService,
 		AccountRateMultiplier: 1,
 	}
 	deps := &billingDeps{
-		cfg:                    s.cfg,
-		userRepo:               s.userRepo,
-		userSubRepo:            s.userSubRepo,
-		accountRepo:            s.accountRepo,
-		billingCacheService:    s.billingCacheService,
-		deferredService:        s.deferredService,
+		cfg:                 s.cfg,
+		userRepo:            s.userRepo,
+		userSubRepo:         s.userSubRepo,
+		accountRepo:         s.accountRepo,
+		billingCacheService: s.billingCacheService,
+		deferredService:     s.deferredService,
 	}
 	_, err = applyUsageBilling(ctx, usageRequestID, usageLog, params, deps, s.usageBillingRepo)
 	return err

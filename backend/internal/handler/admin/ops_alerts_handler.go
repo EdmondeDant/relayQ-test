@@ -30,6 +30,7 @@ var validOpsAlertMetricTypes = []string{
 	"account_error_count",
 	"account_error_ratio",
 	"overload_account_count",
+	"leonardo_cost_variance_ratio",
 }
 
 var validOpsAlertMetricTypeSet = func() map[string]struct{} {

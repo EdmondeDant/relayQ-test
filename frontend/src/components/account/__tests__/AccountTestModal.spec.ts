@@ -78,6 +78,13 @@ const TextAreaStub = defineComponent({
   `
 })
 
+const ConfirmDialogStub = defineComponent({
+  name: 'ConfirmDialog',
+  props: { show: { type: Boolean, default: false } },
+  emits: ['confirm', 'cancel'],
+  template: '<button v-if="show" data-test="confirm-paid" @click="$emit(\'confirm\')">confirm</button>'
+})
+
 function buildAccount() {
   return {
     id: 1,
@@ -106,6 +113,22 @@ function buildXAIAccount() {
         'grok-4.5': 'grok-4.5'
       }
     },
+    extra: {},
+    concurrency: 1,
+    priority: 1,
+    proxy_id: null,
+    auto_pause_on_expired: false
+  } as any
+}
+
+function buildLeonardoAccount() {
+  return {
+    id: 3,
+    name: 'Leonardo APIKey',
+    platform: 'leonardo',
+    type: 'apikey',
+    status: 'active',
+		credentials: { model_mapping: { 'nano-banana-2': 'nano-banana-2' } },
     extra: {},
     concurrency: 1,
     priority: 1,
@@ -208,6 +231,42 @@ describe('AccountTestModal', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('已通过 /v1/chat/completions 验证')
+  })
+
+  it('requires confirmation before posting a paid Leonardo image test', async () => {
+	getAvailableModelsMock.mockResolvedValue([{ id: 'nano-banana-2', type: 'model', display_name: 'Nano Banana 2', created_at: '', modality: 'image' }])
+    const wrapper = mount(AccountTestModal, {
+      props: { show: true, account: buildLeonardoAccount() },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+          ConfirmDialog: ConfirmDialogStub,
+          Select: SelectStub,
+          TextArea: TextAreaStub,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+	;(wrapper.vm as any).selectedModelId = 'nano-banana-2'
+	;(wrapper.vm as any).testPrompt = 'cat'
+	await flushPromises()
+    expect(wrapper.text()).toContain('admin.accounts.paidImageTest')
+    expect(global.fetch).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find(button => button.text().includes('admin.accounts.paidImageTest'))?.trigger('click')
+    expect(global.fetch).not.toHaveBeenCalled()
+    await wrapper.get('[data-test="confirm-paid"]').trigger('click')
+    await flushPromises()
+
+    expect(global.fetch).toHaveBeenCalledOnce()
+    const [, options] = (global.fetch as any).mock.calls[0]
+    expect(JSON.parse(options.body)).toMatchObject({
+		model_id: 'nano-banana-2',
+		prompt: 'cat',
+      paid: true,
+      confirm_paid: true
+    })
   })
 
   it('for xai accounts only shows locally synced whitelist models', async () => {

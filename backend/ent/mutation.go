@@ -14857,51 +14857,58 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GenerationJobMutation represents an operation that mutates the GenerationJob nodes in the graph.
 type GenerationJobMutation struct {
 	config
-	op                          Op
-	typ                         string
-	id                          *int64
-	created_at                  *time.Time
-	updated_at                  *time.Time
-	public_id                   *string
-	provider                    *string
-	modality                    *string
-	model                       *string
-	upstream_model              *string
-	user_id                     *int64
-	adduser_id                  *int64
-	api_key_id                  *int64
-	addapi_key_id               *int64
-	group_id                    *int64
-	addgroup_id                 *int64
-	account_id                  *int64
-	addaccount_id               *int64
-	upstream_generation_id      *string
-	status                      *generationjob.Status
-	upstream_status             *string
-	request_hash                *string
-	request_payload             *map[string]interface{}
-	result_payload              *map[string]interface{}
-	error_code                  *string
-	error_message               *string
-	output_count                *int
-	addoutput_count             *int
-	actual_upstream_cost_amount **decimal.Decimal
-	actual_upstream_cost_unit   *string
-	customer_cost               **decimal.Decimal
-	billing_status              *generationjob.BillingStatus
-	billing_reference           *string
-	poll_attempts               *int
-	addpoll_attempts            *int
-	next_poll_at                *time.Time
-	last_polled_at              *time.Time
-	submitted_at                *time.Time
-	started_at                  *time.Time
-	completed_at                *time.Time
-	failed_at                   *time.Time
-	clearedFields               map[string]struct{}
-	done                        bool
-	oldValue                    func(context.Context) (*GenerationJob, error)
-	predicates                  []predicate.GenerationJob
+	op                             Op
+	typ                            string
+	id                             *int64
+	created_at                     *time.Time
+	updated_at                     *time.Time
+	public_id                      *string
+	provider                       *string
+	modality                       *string
+	model                          *string
+	upstream_model                 *string
+	user_id                        *int64
+	adduser_id                     *int64
+	api_key_id                     *int64
+	addapi_key_id                  *int64
+	group_id                       *int64
+	addgroup_id                    *int64
+	account_id                     *int64
+	addaccount_id                  *int64
+	upstream_generation_id         *string
+	status                         *generationjob.Status
+	upstream_status                *string
+	request_hash                   *string
+	request_payload                *map[string]interface{}
+	result_payload                 *map[string]interface{}
+	error_code                     *string
+	error_message                  *string
+	output_count                   *int
+	addoutput_count                *int
+	estimated_upstream_cost_amount **decimal.Decimal
+	estimated_upstream_cost_unit   *string
+	pricing_snapshot_version       *string
+	pricing_source                 *string
+	pricing_match_type             *string
+	actual_upstream_cost_amount    **decimal.Decimal
+	actual_upstream_cost_unit      *string
+	customer_cost                  **decimal.Decimal
+	gross_margin                   **decimal.Decimal
+	cost_variance                  **decimal.Decimal
+	billing_status                 *generationjob.BillingStatus
+	billing_reference              *string
+	poll_attempts                  *int
+	addpoll_attempts               *int
+	next_poll_at                   *time.Time
+	last_polled_at                 *time.Time
+	submitted_at                   *time.Time
+	started_at                     *time.Time
+	completed_at                   *time.Time
+	failed_at                      *time.Time
+	clearedFields                  map[string]struct{}
+	done                           bool
+	oldValue                       func(context.Context) (*GenerationJob, error)
+	predicates                     []predicate.GenerationJob
 }
 
 var _ ent.Mutation = (*GenerationJobMutation)(nil)
@@ -15888,6 +15895,251 @@ func (m *GenerationJobMutation) ResetOutputCount() {
 	m.addoutput_count = nil
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (m *GenerationJobMutation) SetEstimatedUpstreamCostAmount(d *decimal.Decimal) {
+	m.estimated_upstream_cost_amount = &d
+}
+
+// EstimatedUpstreamCostAmount returns the value of the "estimated_upstream_cost_amount" field in the mutation.
+func (m *GenerationJobMutation) EstimatedUpstreamCostAmount() (r *decimal.Decimal, exists bool) {
+	v := m.estimated_upstream_cost_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEstimatedUpstreamCostAmount returns the old "estimated_upstream_cost_amount" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldEstimatedUpstreamCostAmount(ctx context.Context) (v *decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEstimatedUpstreamCostAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEstimatedUpstreamCostAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEstimatedUpstreamCostAmount: %w", err)
+	}
+	return oldValue.EstimatedUpstreamCostAmount, nil
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (m *GenerationJobMutation) ClearEstimatedUpstreamCostAmount() {
+	m.estimated_upstream_cost_amount = nil
+	m.clearedFields[generationjob.FieldEstimatedUpstreamCostAmount] = struct{}{}
+}
+
+// EstimatedUpstreamCostAmountCleared returns if the "estimated_upstream_cost_amount" field was cleared in this mutation.
+func (m *GenerationJobMutation) EstimatedUpstreamCostAmountCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldEstimatedUpstreamCostAmount]
+	return ok
+}
+
+// ResetEstimatedUpstreamCostAmount resets all changes to the "estimated_upstream_cost_amount" field.
+func (m *GenerationJobMutation) ResetEstimatedUpstreamCostAmount() {
+	m.estimated_upstream_cost_amount = nil
+	delete(m.clearedFields, generationjob.FieldEstimatedUpstreamCostAmount)
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (m *GenerationJobMutation) SetEstimatedUpstreamCostUnit(s string) {
+	m.estimated_upstream_cost_unit = &s
+}
+
+// EstimatedUpstreamCostUnit returns the value of the "estimated_upstream_cost_unit" field in the mutation.
+func (m *GenerationJobMutation) EstimatedUpstreamCostUnit() (r string, exists bool) {
+	v := m.estimated_upstream_cost_unit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEstimatedUpstreamCostUnit returns the old "estimated_upstream_cost_unit" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldEstimatedUpstreamCostUnit(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEstimatedUpstreamCostUnit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEstimatedUpstreamCostUnit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEstimatedUpstreamCostUnit: %w", err)
+	}
+	return oldValue.EstimatedUpstreamCostUnit, nil
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (m *GenerationJobMutation) ClearEstimatedUpstreamCostUnit() {
+	m.estimated_upstream_cost_unit = nil
+	m.clearedFields[generationjob.FieldEstimatedUpstreamCostUnit] = struct{}{}
+}
+
+// EstimatedUpstreamCostUnitCleared returns if the "estimated_upstream_cost_unit" field was cleared in this mutation.
+func (m *GenerationJobMutation) EstimatedUpstreamCostUnitCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldEstimatedUpstreamCostUnit]
+	return ok
+}
+
+// ResetEstimatedUpstreamCostUnit resets all changes to the "estimated_upstream_cost_unit" field.
+func (m *GenerationJobMutation) ResetEstimatedUpstreamCostUnit() {
+	m.estimated_upstream_cost_unit = nil
+	delete(m.clearedFields, generationjob.FieldEstimatedUpstreamCostUnit)
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (m *GenerationJobMutation) SetPricingSnapshotVersion(s string) {
+	m.pricing_snapshot_version = &s
+}
+
+// PricingSnapshotVersion returns the value of the "pricing_snapshot_version" field in the mutation.
+func (m *GenerationJobMutation) PricingSnapshotVersion() (r string, exists bool) {
+	v := m.pricing_snapshot_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingSnapshotVersion returns the old "pricing_snapshot_version" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldPricingSnapshotVersion(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingSnapshotVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingSnapshotVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingSnapshotVersion: %w", err)
+	}
+	return oldValue.PricingSnapshotVersion, nil
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (m *GenerationJobMutation) ClearPricingSnapshotVersion() {
+	m.pricing_snapshot_version = nil
+	m.clearedFields[generationjob.FieldPricingSnapshotVersion] = struct{}{}
+}
+
+// PricingSnapshotVersionCleared returns if the "pricing_snapshot_version" field was cleared in this mutation.
+func (m *GenerationJobMutation) PricingSnapshotVersionCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldPricingSnapshotVersion]
+	return ok
+}
+
+// ResetPricingSnapshotVersion resets all changes to the "pricing_snapshot_version" field.
+func (m *GenerationJobMutation) ResetPricingSnapshotVersion() {
+	m.pricing_snapshot_version = nil
+	delete(m.clearedFields, generationjob.FieldPricingSnapshotVersion)
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (m *GenerationJobMutation) SetPricingSource(s string) {
+	m.pricing_source = &s
+}
+
+// PricingSource returns the value of the "pricing_source" field in the mutation.
+func (m *GenerationJobMutation) PricingSource() (r string, exists bool) {
+	v := m.pricing_source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingSource returns the old "pricing_source" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldPricingSource(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingSource: %w", err)
+	}
+	return oldValue.PricingSource, nil
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (m *GenerationJobMutation) ClearPricingSource() {
+	m.pricing_source = nil
+	m.clearedFields[generationjob.FieldPricingSource] = struct{}{}
+}
+
+// PricingSourceCleared returns if the "pricing_source" field was cleared in this mutation.
+func (m *GenerationJobMutation) PricingSourceCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldPricingSource]
+	return ok
+}
+
+// ResetPricingSource resets all changes to the "pricing_source" field.
+func (m *GenerationJobMutation) ResetPricingSource() {
+	m.pricing_source = nil
+	delete(m.clearedFields, generationjob.FieldPricingSource)
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (m *GenerationJobMutation) SetPricingMatchType(s string) {
+	m.pricing_match_type = &s
+}
+
+// PricingMatchType returns the value of the "pricing_match_type" field in the mutation.
+func (m *GenerationJobMutation) PricingMatchType() (r string, exists bool) {
+	v := m.pricing_match_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingMatchType returns the old "pricing_match_type" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldPricingMatchType(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingMatchType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingMatchType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingMatchType: %w", err)
+	}
+	return oldValue.PricingMatchType, nil
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (m *GenerationJobMutation) ClearPricingMatchType() {
+	m.pricing_match_type = nil
+	m.clearedFields[generationjob.FieldPricingMatchType] = struct{}{}
+}
+
+// PricingMatchTypeCleared returns if the "pricing_match_type" field was cleared in this mutation.
+func (m *GenerationJobMutation) PricingMatchTypeCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldPricingMatchType]
+	return ok
+}
+
+// ResetPricingMatchType resets all changes to the "pricing_match_type" field.
+func (m *GenerationJobMutation) ResetPricingMatchType() {
+	m.pricing_match_type = nil
+	delete(m.clearedFields, generationjob.FieldPricingMatchType)
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (m *GenerationJobMutation) SetActualUpstreamCostAmount(d *decimal.Decimal) {
 	m.actual_upstream_cost_amount = &d
@@ -16033,6 +16285,104 @@ func (m *GenerationJobMutation) CustomerCostCleared() bool {
 func (m *GenerationJobMutation) ResetCustomerCost() {
 	m.customer_cost = nil
 	delete(m.clearedFields, generationjob.FieldCustomerCost)
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (m *GenerationJobMutation) SetGrossMargin(d *decimal.Decimal) {
+	m.gross_margin = &d
+}
+
+// GrossMargin returns the value of the "gross_margin" field in the mutation.
+func (m *GenerationJobMutation) GrossMargin() (r *decimal.Decimal, exists bool) {
+	v := m.gross_margin
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGrossMargin returns the old "gross_margin" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldGrossMargin(ctx context.Context) (v *decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGrossMargin is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGrossMargin requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGrossMargin: %w", err)
+	}
+	return oldValue.GrossMargin, nil
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (m *GenerationJobMutation) ClearGrossMargin() {
+	m.gross_margin = nil
+	m.clearedFields[generationjob.FieldGrossMargin] = struct{}{}
+}
+
+// GrossMarginCleared returns if the "gross_margin" field was cleared in this mutation.
+func (m *GenerationJobMutation) GrossMarginCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldGrossMargin]
+	return ok
+}
+
+// ResetGrossMargin resets all changes to the "gross_margin" field.
+func (m *GenerationJobMutation) ResetGrossMargin() {
+	m.gross_margin = nil
+	delete(m.clearedFields, generationjob.FieldGrossMargin)
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (m *GenerationJobMutation) SetCostVariance(d *decimal.Decimal) {
+	m.cost_variance = &d
+}
+
+// CostVariance returns the value of the "cost_variance" field in the mutation.
+func (m *GenerationJobMutation) CostVariance() (r *decimal.Decimal, exists bool) {
+	v := m.cost_variance
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCostVariance returns the old "cost_variance" field's value of the GenerationJob entity.
+// If the GenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GenerationJobMutation) OldCostVariance(ctx context.Context) (v *decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCostVariance is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCostVariance requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCostVariance: %w", err)
+	}
+	return oldValue.CostVariance, nil
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (m *GenerationJobMutation) ClearCostVariance() {
+	m.cost_variance = nil
+	m.clearedFields[generationjob.FieldCostVariance] = struct{}{}
+}
+
+// CostVarianceCleared returns if the "cost_variance" field was cleared in this mutation.
+func (m *GenerationJobMutation) CostVarianceCleared() bool {
+	_, ok := m.clearedFields[generationjob.FieldCostVariance]
+	return ok
+}
+
+// ResetCostVariance resets all changes to the "cost_variance" field.
+func (m *GenerationJobMutation) ResetCostVariance() {
+	m.cost_variance = nil
+	delete(m.clearedFields, generationjob.FieldCostVariance)
 }
 
 // SetBillingStatus sets the "billing_status" field.
@@ -16504,7 +16854,7 @@ func (m *GenerationJobMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GenerationJobMutation) Fields() []string {
-	fields := make([]string, 0, 32)
+	fields := make([]string, 0, 39)
 	if m.created_at != nil {
 		fields = append(fields, generationjob.FieldCreatedAt)
 	}
@@ -16565,6 +16915,21 @@ func (m *GenerationJobMutation) Fields() []string {
 	if m.output_count != nil {
 		fields = append(fields, generationjob.FieldOutputCount)
 	}
+	if m.estimated_upstream_cost_amount != nil {
+		fields = append(fields, generationjob.FieldEstimatedUpstreamCostAmount)
+	}
+	if m.estimated_upstream_cost_unit != nil {
+		fields = append(fields, generationjob.FieldEstimatedUpstreamCostUnit)
+	}
+	if m.pricing_snapshot_version != nil {
+		fields = append(fields, generationjob.FieldPricingSnapshotVersion)
+	}
+	if m.pricing_source != nil {
+		fields = append(fields, generationjob.FieldPricingSource)
+	}
+	if m.pricing_match_type != nil {
+		fields = append(fields, generationjob.FieldPricingMatchType)
+	}
 	if m.actual_upstream_cost_amount != nil {
 		fields = append(fields, generationjob.FieldActualUpstreamCostAmount)
 	}
@@ -16573,6 +16938,12 @@ func (m *GenerationJobMutation) Fields() []string {
 	}
 	if m.customer_cost != nil {
 		fields = append(fields, generationjob.FieldCustomerCost)
+	}
+	if m.gross_margin != nil {
+		fields = append(fields, generationjob.FieldGrossMargin)
+	}
+	if m.cost_variance != nil {
+		fields = append(fields, generationjob.FieldCostVariance)
 	}
 	if m.billing_status != nil {
 		fields = append(fields, generationjob.FieldBillingStatus)
@@ -16649,12 +17020,26 @@ func (m *GenerationJobMutation) Field(name string) (ent.Value, bool) {
 		return m.ErrorMessage()
 	case generationjob.FieldOutputCount:
 		return m.OutputCount()
+	case generationjob.FieldEstimatedUpstreamCostAmount:
+		return m.EstimatedUpstreamCostAmount()
+	case generationjob.FieldEstimatedUpstreamCostUnit:
+		return m.EstimatedUpstreamCostUnit()
+	case generationjob.FieldPricingSnapshotVersion:
+		return m.PricingSnapshotVersion()
+	case generationjob.FieldPricingSource:
+		return m.PricingSource()
+	case generationjob.FieldPricingMatchType:
+		return m.PricingMatchType()
 	case generationjob.FieldActualUpstreamCostAmount:
 		return m.ActualUpstreamCostAmount()
 	case generationjob.FieldActualUpstreamCostUnit:
 		return m.ActualUpstreamCostUnit()
 	case generationjob.FieldCustomerCost:
 		return m.CustomerCost()
+	case generationjob.FieldGrossMargin:
+		return m.GrossMargin()
+	case generationjob.FieldCostVariance:
+		return m.CostVariance()
 	case generationjob.FieldBillingStatus:
 		return m.BillingStatus()
 	case generationjob.FieldBillingReference:
@@ -16722,12 +17107,26 @@ func (m *GenerationJobMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldErrorMessage(ctx)
 	case generationjob.FieldOutputCount:
 		return m.OldOutputCount(ctx)
+	case generationjob.FieldEstimatedUpstreamCostAmount:
+		return m.OldEstimatedUpstreamCostAmount(ctx)
+	case generationjob.FieldEstimatedUpstreamCostUnit:
+		return m.OldEstimatedUpstreamCostUnit(ctx)
+	case generationjob.FieldPricingSnapshotVersion:
+		return m.OldPricingSnapshotVersion(ctx)
+	case generationjob.FieldPricingSource:
+		return m.OldPricingSource(ctx)
+	case generationjob.FieldPricingMatchType:
+		return m.OldPricingMatchType(ctx)
 	case generationjob.FieldActualUpstreamCostAmount:
 		return m.OldActualUpstreamCostAmount(ctx)
 	case generationjob.FieldActualUpstreamCostUnit:
 		return m.OldActualUpstreamCostUnit(ctx)
 	case generationjob.FieldCustomerCost:
 		return m.OldCustomerCost(ctx)
+	case generationjob.FieldGrossMargin:
+		return m.OldGrossMargin(ctx)
+	case generationjob.FieldCostVariance:
+		return m.OldCostVariance(ctx)
 	case generationjob.FieldBillingStatus:
 		return m.OldBillingStatus(ctx)
 	case generationjob.FieldBillingReference:
@@ -16895,6 +17294,41 @@ func (m *GenerationJobMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetOutputCount(v)
 		return nil
+	case generationjob.FieldEstimatedUpstreamCostAmount:
+		v, ok := value.(*decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEstimatedUpstreamCostAmount(v)
+		return nil
+	case generationjob.FieldEstimatedUpstreamCostUnit:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEstimatedUpstreamCostUnit(v)
+		return nil
+	case generationjob.FieldPricingSnapshotVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingSnapshotVersion(v)
+		return nil
+	case generationjob.FieldPricingSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingSource(v)
+		return nil
+	case generationjob.FieldPricingMatchType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingMatchType(v)
+		return nil
 	case generationjob.FieldActualUpstreamCostAmount:
 		v, ok := value.(*decimal.Decimal)
 		if !ok {
@@ -16915,6 +17349,20 @@ func (m *GenerationJobMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCustomerCost(v)
+		return nil
+	case generationjob.FieldGrossMargin:
+		v, ok := value.(*decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGrossMargin(v)
+		return nil
+	case generationjob.FieldCostVariance:
+		v, ok := value.(*decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCostVariance(v)
 		return nil
 	case generationjob.FieldBillingStatus:
 		v, ok := value.(generationjob.BillingStatus)
@@ -17099,6 +17547,21 @@ func (m *GenerationJobMutation) ClearedFields() []string {
 	if m.FieldCleared(generationjob.FieldErrorMessage) {
 		fields = append(fields, generationjob.FieldErrorMessage)
 	}
+	if m.FieldCleared(generationjob.FieldEstimatedUpstreamCostAmount) {
+		fields = append(fields, generationjob.FieldEstimatedUpstreamCostAmount)
+	}
+	if m.FieldCleared(generationjob.FieldEstimatedUpstreamCostUnit) {
+		fields = append(fields, generationjob.FieldEstimatedUpstreamCostUnit)
+	}
+	if m.FieldCleared(generationjob.FieldPricingSnapshotVersion) {
+		fields = append(fields, generationjob.FieldPricingSnapshotVersion)
+	}
+	if m.FieldCleared(generationjob.FieldPricingSource) {
+		fields = append(fields, generationjob.FieldPricingSource)
+	}
+	if m.FieldCleared(generationjob.FieldPricingMatchType) {
+		fields = append(fields, generationjob.FieldPricingMatchType)
+	}
 	if m.FieldCleared(generationjob.FieldActualUpstreamCostAmount) {
 		fields = append(fields, generationjob.FieldActualUpstreamCostAmount)
 	}
@@ -17107,6 +17570,12 @@ func (m *GenerationJobMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(generationjob.FieldCustomerCost) {
 		fields = append(fields, generationjob.FieldCustomerCost)
+	}
+	if m.FieldCleared(generationjob.FieldGrossMargin) {
+		fields = append(fields, generationjob.FieldGrossMargin)
+	}
+	if m.FieldCleared(generationjob.FieldCostVariance) {
+		fields = append(fields, generationjob.FieldCostVariance)
 	}
 	if m.FieldCleared(generationjob.FieldBillingReference) {
 		fields = append(fields, generationjob.FieldBillingReference)
@@ -17158,6 +17627,21 @@ func (m *GenerationJobMutation) ClearField(name string) error {
 	case generationjob.FieldErrorMessage:
 		m.ClearErrorMessage()
 		return nil
+	case generationjob.FieldEstimatedUpstreamCostAmount:
+		m.ClearEstimatedUpstreamCostAmount()
+		return nil
+	case generationjob.FieldEstimatedUpstreamCostUnit:
+		m.ClearEstimatedUpstreamCostUnit()
+		return nil
+	case generationjob.FieldPricingSnapshotVersion:
+		m.ClearPricingSnapshotVersion()
+		return nil
+	case generationjob.FieldPricingSource:
+		m.ClearPricingSource()
+		return nil
+	case generationjob.FieldPricingMatchType:
+		m.ClearPricingMatchType()
+		return nil
 	case generationjob.FieldActualUpstreamCostAmount:
 		m.ClearActualUpstreamCostAmount()
 		return nil
@@ -17166,6 +17650,12 @@ func (m *GenerationJobMutation) ClearField(name string) error {
 		return nil
 	case generationjob.FieldCustomerCost:
 		m.ClearCustomerCost()
+		return nil
+	case generationjob.FieldGrossMargin:
+		m.ClearGrossMargin()
+		return nil
+	case generationjob.FieldCostVariance:
+		m.ClearCostVariance()
 		return nil
 	case generationjob.FieldBillingReference:
 		m.ClearBillingReference()
@@ -17256,6 +17746,21 @@ func (m *GenerationJobMutation) ResetField(name string) error {
 	case generationjob.FieldOutputCount:
 		m.ResetOutputCount()
 		return nil
+	case generationjob.FieldEstimatedUpstreamCostAmount:
+		m.ResetEstimatedUpstreamCostAmount()
+		return nil
+	case generationjob.FieldEstimatedUpstreamCostUnit:
+		m.ResetEstimatedUpstreamCostUnit()
+		return nil
+	case generationjob.FieldPricingSnapshotVersion:
+		m.ResetPricingSnapshotVersion()
+		return nil
+	case generationjob.FieldPricingSource:
+		m.ResetPricingSource()
+		return nil
+	case generationjob.FieldPricingMatchType:
+		m.ResetPricingMatchType()
+		return nil
 	case generationjob.FieldActualUpstreamCostAmount:
 		m.ResetActualUpstreamCostAmount()
 		return nil
@@ -17264,6 +17769,12 @@ func (m *GenerationJobMutation) ResetField(name string) error {
 		return nil
 	case generationjob.FieldCustomerCost:
 		m.ResetCustomerCost()
+		return nil
+	case generationjob.FieldGrossMargin:
+		m.ResetGrossMargin()
+		return nil
+	case generationjob.FieldCostVariance:
+		m.ResetCostVariance()
 		return nil
 	case generationjob.FieldBillingStatus:
 		m.ResetBillingStatus()

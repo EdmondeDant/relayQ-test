@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -97,10 +98,104 @@ func (c *Client) ListModels(ctx context.Context) ([]Model, error) {
 	return decoded.Models, nil
 }
 
+func (c *Client) CreateInitImageUpload(ctx context.Context, extension string) (*InitImageUpload, error) {
+	extension = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(extension), "."))
+	if extension != "jpg" && extension != "jpeg" && extension != "png" && extension != "webp" {
+		return nil, errors.New("leonardo: unsupported init image extension")
+	}
+	body, _ := json.Marshal(map[string]string{"extension": extension})
+	req, err := c.newRequest(ctx, http.MethodPost, "/v1/init-image", bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.New("leonardo: build init image request")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.New(c.sanitize("leonardo: create init image upload: " + err.Error()))
+	}
+	defer func() { _ = resp.Body.Close() }()
+	responseBody, err := readBody(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, c.responseError(resp, responseBody)
+	}
+	var decoded initImageUploadResponse
+	if err := json.Unmarshal(responseBody, &decoded); err != nil {
+		return nil, errors.New("leonardo: decode init image response")
+	}
+	fields, err := decodeInitImageFields(decoded.Upload.Fields)
+	if err != nil || strings.TrimSpace(decoded.Upload.ID) == "" || strings.TrimSpace(decoded.Upload.URL) == "" || len(fields) == 0 {
+		return nil, errors.New("leonardo: invalid init image response")
+	}
+	return &InitImageUpload{ID: decoded.Upload.ID, URL: decoded.Upload.URL, Key: decoded.Upload.Key, Fields: fields}, nil
+}
+
+func (c *Client) UploadInitImage(ctx context.Context, upload *InitImageUpload, filename string, file io.Reader) error {
+	if upload == nil || strings.TrimSpace(upload.URL) == "" || len(upload.Fields) == 0 || file == nil {
+		return errors.New("leonardo: invalid init image upload")
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range upload.Fields {
+		if err := writer.WriteField(key, value); err != nil {
+			return errors.New("leonardo: build init image upload")
+		}
+	}
+	part, err := writer.CreateFormFile("file", strings.TrimSpace(filename))
+	if err != nil {
+		return errors.New("leonardo: build init image upload")
+	}
+	if written, err := io.Copy(part, file); err != nil || written == 0 {
+		return errors.New("leonardo: read init image file")
+	}
+	if err := writer.Close(); err != nil {
+		return errors.New("leonardo: build init image upload")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upload.URL, &body)
+	if err != nil {
+		return errors.New("leonardo: build init image upload request")
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return errors.New(c.sanitize("leonardo: upload init image: " + err.Error()))
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNoContent {
+		_, _ = readBody(resp.Body)
+		return fmt.Errorf("leonardo: init image upload returned HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func decodeInitImageFields(raw json.RawMessage) (map[string]string, error) {
+	var fields map[string]string
+	if err := json.Unmarshal(raw, &fields); err == nil {
+		return fields, nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(encoded), &fields); err != nil {
+		return nil, err
+	}
+	return fields, nil
+}
+
 func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationRequest) (*CreateGenerationResponse, error) {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("leonardo: encode generation request: %w", err)
+	}
+	return c.CreateGenerationRaw(ctx, body)
+}
+
+func (c *Client) CreateGenerationRaw(ctx context.Context, body []byte) (*CreateGenerationResponse, error) {
+	if len(body) == 0 || !json.Valid(body) {
+		return nil, &LeonardoError{Class: GenerationErrorClassRequestNotWritten, Message: "leonardo: invalid generation request", SafeToRetry: true, cause: ErrGenerationRequestNotWritten}
 	}
 	req, err := c.newRequest(ctx, http.MethodPost, "/v2/generations", bytes.NewReader(body))
 	if err != nil {
@@ -138,17 +233,56 @@ func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationR
 		apiErr.SideEffectStatus = SideEffectUnknown
 		return nil, apiErr
 	}
-	var decoded CreateGenerationResponse
+	var decoded struct {
+		GenerationID    string          `json:"generationId"`
+		Cost            json.RawMessage `json:"cost"`
+		APICreditCost   json.RawMessage `json:"apiCreditCost"`
+		Generate        json.RawMessage `json:"generate"`
+		SDGenerationJob json.RawMessage `json:"sdGenerationJob"`
+	}
 	if err := json.Unmarshal(responseBody, &decoded); err != nil {
 		return nil, submissionUnknownError(GenerationErrorClassResponseDecodeFailed, resp.StatusCode, c.sanitize("leonardo: decode generation response: "+err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
 	}
-	if decoded.GenerationID == "" {
+	result := &CreateGenerationResponse{GenerationID: decoded.GenerationID}
+	cost := decoded.Cost
+	apiCreditCost := decoded.APICreditCost
+	if result.GenerationID == "" && len(decoded.Generate) > 0 {
+		result.GenerationID, cost, apiCreditCost = decodeGenerationEnvelope(decoded.Generate)
+	}
+	if result.GenerationID == "" && len(decoded.SDGenerationJob) > 0 {
+		result.GenerationID, cost, apiCreditCost = decodeGenerationEnvelope(decoded.SDGenerationJob)
+	}
+	if result.GenerationID == "" {
 		return nil, submissionUnknownError(GenerationErrorClassGenerationIDMissing, resp.StatusCode, "leonardo: generation response has missing generationId", "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
 	}
-	if !validUUID(decoded.GenerationID) {
+	if !validUUID(result.GenerationID) {
 		return nil, submissionUnknownError(GenerationErrorClassGenerationIDInvalid, resp.StatusCode, "leonardo: generation response has invalid generationId", "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
 	}
-	return &decoded, nil
+	var generationCost GenerationCost
+	if json.Unmarshal(cost, &generationCost) == nil {
+		result.Cost = &generationCost
+	}
+	var credits float64
+	if json.Unmarshal(apiCreditCost, &credits) == nil {
+		result.APICreditCost = &credits
+	}
+	return result, nil
+}
+
+func decodeGenerationEnvelope(raw json.RawMessage) (string, json.RawMessage, json.RawMessage) {
+	var envelope struct {
+		GenerationID  string          `json:"generationId"`
+		ID            string          `json:"id"`
+		Cost          json.RawMessage `json:"cost"`
+		APICreditCost json.RawMessage `json:"apiCreditCost"`
+	}
+	if json.Unmarshal(raw, &envelope) != nil {
+		return "", nil, nil
+	}
+	if envelope.GenerationID != "" {
+		return envelope.GenerationID, envelope.Cost, envelope.APICreditCost
+	}
+	return envelope.ID, envelope.Cost, envelope.APICreditCost
 }
 
 func (c *Client) GetGeneration(ctx context.Context, id string) (*Generation, error) {

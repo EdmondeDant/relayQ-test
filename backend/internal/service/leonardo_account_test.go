@@ -41,6 +41,7 @@ type leonardoHTTPSpy struct {
 	request     *http.Request
 	response    *http.Response
 	err         error
+	responses   []*http.Response
 }
 
 func (s *leonardoHTTPSpy) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
@@ -55,6 +56,11 @@ func (s *leonardoHTTPSpy) Do(req *http.Request, proxyURL string, accountID int64
 	s.proxyURL = proxyURL
 	s.accountID = accountID
 	s.concurrency = accountConcurrency
+	if len(s.responses) > 0 {
+		response := s.responses[0]
+		s.responses = s.responses[1:]
+		return response, s.err
+	}
 	return s.response, s.err
 }
 
@@ -160,6 +166,38 @@ func TestAccountTestServiceLeonardoListsModelsOnce(t *testing.T) {
 	require.Equal(t, "http://proxy.example:8080", spy.proxyURL)
 	require.Equal(t, account.ID, spy.accountID)
 	require.Equal(t, account.Concurrency, spy.concurrency)
+}
+
+func TestAccountTestServiceLeonardoPaidGenerationRequiresConfirmation(t *testing.T) {
+	account := &Account{ID: 304, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "secret-key"}}
+	spy := &leonardoHTTPSpy{}
+	svc := &AccountTestService{accountRepo: &leonardoAccountRepoStub{account: account}, httpUpstream: spy, cfg: leonardoTestConfig()}
+	c, recorder := newLeonardoTestContext()
+
+	err := svc.TestAccountConnectionWithPaidConfirmation(c, account.ID, "flux-schnell", "cat", "", true, false)
+
+	require.ErrorContains(t, err, "requires explicit confirmation")
+	require.Contains(t, recorder.Body.String(), "requires explicit confirmation")
+	require.Zero(t, spy.calls)
+}
+
+func TestAccountTestServiceLeonardoPaidGenerationPreviewsSafeImage(t *testing.T) {
+	account := &Account{ID: 305, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "secret-key"}}
+	spy := &leonardoHTTPSpy{responses: []*http.Response{
+		leonardoHTTPResponse(http.StatusOK, `{"generationId":"1dd50843-d653-4516-a8e3-f0238ee453ff"}`),
+		leonardoHTTPResponse(http.StatusOK, `{"generations_by_pk":{"id":"1dd50843-d653-4516-a8e3-f0238ee453ff","status":"COMPLETE","generated_images":[{"id":"image-1","url":"https://cdn.example/image.png","nsfw":false}]}}`),
+	}}
+	svc := &AccountTestService{accountRepo: &leonardoAccountRepoStub{account: account}, httpUpstream: spy, cfg: leonardoTestConfig()}
+	c, recorder := newLeonardoTestContext()
+
+	err := svc.TestAccountConnectionWithPaidConfirmation(c, account.ID, "flux-schnell", "cat", "", true, true)
+
+	require.NoError(t, err)
+	require.Contains(t, recorder.Body.String(), `"type":"image"`)
+	require.Contains(t, recorder.Body.String(), "https://cdn.example/image.png")
+	require.Contains(t, recorder.Body.String(), `"success":true`)
+	require.Equal(t, 1, spy.postCalls)
+	require.Equal(t, 1, spy.getCalls)
 }
 
 func leonardoHTTPResponse(status int, body string) *http.Response {

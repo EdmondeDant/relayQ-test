@@ -479,3 +479,42 @@ func TestSyncPricingModels_ValidPlatform_EmptyService(t *testing.T) {
 		require.NotNil(t, body.Data.Models, "models must not be null for platform=%s", platform)
 	}
 }
+
+func TestSyncPricingModels_LeonardoVerifiedModels(t *testing.T) {
+	router := setupSyncPricingModelsRouter(service.NewPricingService(nil, nil))
+	req := httptest.NewRequest(http.MethodGet, "/channels/pricing/sync-models?platform=leonardo", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var body struct {
+		Data struct {
+			Models []string `json:"models"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, []string{"flux-schnell", "gpt-image-2", "nano-banana-2", "nano-banana-2-lite"}, body.Data.Models)
+}
+
+func TestGetModelDefaultPricing_LeonardoLocalCost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	handler := NewChannelHandler(nil, nil, nil)
+	router.GET("/channels/model-pricing", handler.GetModelDefaultPricing)
+	req := httptest.NewRequest(http.MethodGet, "/channels/model-pricing?platform=leonardo&model=flux-schnell", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var body struct {
+		Data struct {
+			Found           bool    `json:"found"`
+			BillingMode     string  `json:"billing_mode"`
+			PerRequestPrice float64 `json:"per_request_price"`
+			UpstreamCost    float64 `json:"upstream_cost"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.True(t, body.Data.Found)
+	require.Equal(t, "image", body.Data.BillingMode)
+	require.InDelta(t, 0.003, body.Data.UpstreamCost, 0.00000001)
+	require.InDelta(t, 0.0213, body.Data.PerRequestPrice, 0.00000001)
+}

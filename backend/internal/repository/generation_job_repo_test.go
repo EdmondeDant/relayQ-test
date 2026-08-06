@@ -48,9 +48,16 @@ func newGenerationJobRepoSQLite(t *testing.T) (*generationJobRepository, *dbent.
 			error_code TEXT NULL,
 			error_message TEXT NULL,
 			output_count INTEGER NOT NULL,
+			estimated_upstream_cost_amount NUMERIC NULL,
+			estimated_upstream_cost_unit TEXT NULL,
+			pricing_snapshot_version TEXT NULL,
+			pricing_source TEXT NULL,
+			pricing_match_type TEXT NULL,
 			actual_upstream_cost_amount NUMERIC NULL,
 			actual_upstream_cost_unit TEXT NULL,
 			customer_cost NUMERIC NULL,
+			gross_margin NUMERIC NULL,
+			cost_variance NUMERIC NULL,
 			billing_status TEXT NOT NULL,
 			billing_reference TEXT NULL,
 			poll_attempts INTEGER NOT NULL,
@@ -77,41 +84,54 @@ func TestGenerationJobRepositoryCreateAndLookupFullMapping(t *testing.T) {
 	errorCode := "waiting"
 	errorMessage := "not ready"
 	unit := "USD"
+	pricingVersion := "2026-08-01"
+	pricingSource := "leonardo_authenticated_pricing_calculator"
+	pricingMatchType := "exact"
 	billingReference := "bill-123"
+	estimatedCost := decimal.RequireFromString("0.1000000000")
 	actualCost := decimal.RequireFromString("0.1234567890")
 	customerCost := decimal.RequireFromString("0.2345678901")
+	grossMargin := decimal.RequireFromString("0.1111111011")
+	costVariance := decimal.RequireFromString("0.0234567890")
 	now := time.Now().UTC().Truncate(time.Second)
 	job := &service.GenerationJob{
-		PublicID:                 "job-full-mapping",
-		Provider:                 "leonardo",
-		Modality:                 "image",
-		Model:                    "flux-schnell",
-		UpstreamModel:            "flux-schnell",
-		UserID:                   1,
-		APIKeyID:                 2,
-		GroupID:                  &groupID,
-		AccountID:                4,
-		UpstreamGenerationID:     &upstreamID,
-		Status:                   service.GenerationJobStatusQueued,
-		UpstreamStatus:           &upstreamStatus,
-		RequestHash:              "request-hash",
-		RequestPayload:           map[string]any{"prompt": "cat", "private": true},
-		ResultPayload:            map[string]any{"url": "https://example.invalid/image.png"},
-		ErrorCode:                &errorCode,
-		ErrorMessage:             &errorMessage,
-		OutputCount:              1,
-		ActualUpstreamCostAmount: &actualCost,
-		ActualUpstreamCostUnit:   &unit,
-		CustomerCost:             &customerCost,
-		BillingStatus:            service.GenerationJobBillingStatusSubmitted,
-		BillingReference:         &billingReference,
-		PollAttempts:             2,
-		NextPollAt:               timePointer(now.Add(time.Minute)),
-		LastPolledAt:             timePointer(now.Add(-time.Minute)),
-		SubmittedAt:              timePointer(now.Add(-2 * time.Minute)),
-		StartedAt:                timePointer(now.Add(-time.Minute)),
-		CompletedAt:              timePointer(now.Add(time.Minute)),
-		FailedAt:                 timePointer(now.Add(2 * time.Minute)),
+		PublicID:                    "job-full-mapping",
+		Provider:                    "leonardo",
+		Modality:                    "image",
+		Model:                       "flux-schnell",
+		UpstreamModel:               "flux-schnell",
+		UserID:                      1,
+		APIKeyID:                    2,
+		GroupID:                     &groupID,
+		AccountID:                   4,
+		UpstreamGenerationID:        &upstreamID,
+		Status:                      service.GenerationJobStatusQueued,
+		UpstreamStatus:              &upstreamStatus,
+		RequestHash:                 "request-hash",
+		RequestPayload:              map[string]any{"prompt": "cat", "private": true},
+		ResultPayload:               map[string]any{"url": "https://example.invalid/image.png"},
+		ErrorCode:                   &errorCode,
+		ErrorMessage:                &errorMessage,
+		OutputCount:                 1,
+		EstimatedUpstreamCostAmount: &estimatedCost,
+		EstimatedUpstreamCostUnit:   &unit,
+		PricingSnapshotVersion:      &pricingVersion,
+		PricingSource:               &pricingSource,
+		PricingMatchType:            &pricingMatchType,
+		ActualUpstreamCostAmount:    &actualCost,
+		ActualUpstreamCostUnit:      &unit,
+		CustomerCost:                &customerCost,
+		GrossMargin:                 &grossMargin,
+		CostVariance:                &costVariance,
+		BillingStatus:               service.GenerationJobBillingStatusSubmitted,
+		BillingReference:            &billingReference,
+		PollAttempts:                2,
+		NextPollAt:                  timePointer(now.Add(time.Minute)),
+		LastPolledAt:                timePointer(now.Add(-time.Minute)),
+		SubmittedAt:                 timePointer(now.Add(-2 * time.Minute)),
+		StartedAt:                   timePointer(now.Add(-time.Minute)),
+		CompletedAt:                 timePointer(now.Add(time.Minute)),
+		FailedAt:                    timePointer(now.Add(2 * time.Minute)),
 	}
 
 	require.NoError(t, repo.Create(ctx, job))
@@ -142,9 +162,16 @@ func TestGenerationJobRepositoryCreateAndLookupFullMapping(t *testing.T) {
 	require.Equal(t, job.ErrorCode, byPublicID.ErrorCode)
 	require.Equal(t, job.ErrorMessage, byPublicID.ErrorMessage)
 	require.Equal(t, job.OutputCount, byPublicID.OutputCount)
+	require.Equal(t, estimatedCost.String(), byPublicID.EstimatedUpstreamCostAmount.String())
+	require.Equal(t, job.EstimatedUpstreamCostUnit, byPublicID.EstimatedUpstreamCostUnit)
+	require.Equal(t, job.PricingSnapshotVersion, byPublicID.PricingSnapshotVersion)
+	require.Equal(t, job.PricingSource, byPublicID.PricingSource)
+	require.Equal(t, job.PricingMatchType, byPublicID.PricingMatchType)
 	require.Equal(t, actualCost.String(), byPublicID.ActualUpstreamCostAmount.String())
 	require.Equal(t, job.ActualUpstreamCostUnit, byPublicID.ActualUpstreamCostUnit)
 	require.Equal(t, customerCost.String(), byPublicID.CustomerCost.String())
+	require.Equal(t, grossMargin.String(), byPublicID.GrossMargin.String())
+	require.Equal(t, costVariance.String(), byPublicID.CostVariance.String())
 	require.Equal(t, job.BillingStatus, byPublicID.BillingStatus)
 	require.Equal(t, job.BillingReference, byPublicID.BillingReference)
 	require.Equal(t, job.PollAttempts, byPublicID.PollAttempts)
@@ -218,23 +245,41 @@ func TestGenerationJobRepositoryUnknownForcesManualReviewAndNilCosts(t *testing.
 	ctx := context.Background()
 	job := minimalGenerationJob("job-unknown")
 	job.Status = service.GenerationJobStatusSubmitting
+	estimatedCost := decimal.RequireFromString("0.10")
+	unit := "USD"
+	pricingVersion := "2026-08-01"
+	pricingSource := "leonardo_authenticated_pricing_calculator"
+	pricingMatchType := "exact"
+	job.EstimatedUpstreamCostAmount = &estimatedCost
+	job.EstimatedUpstreamCostUnit = &unit
+	job.PricingSnapshotVersion = &pricingVersion
+	job.PricingSource = &pricingSource
+	job.PricingMatchType = &pricingMatchType
 	require.NoError(t, repo.Create(ctx, job))
 
 	cost := decimal.RequireFromString("9.99")
-	unit := "USD"
 	update := *job
 	update.Status = service.GenerationJobStatusUnknown
 	update.ActualUpstreamCostAmount = &cost
 	update.ActualUpstreamCostUnit = &unit
 	update.CustomerCost = &cost
+	update.GrossMargin = &cost
+	update.CostVariance = &cost
 	update.BillingStatus = service.GenerationJobBillingStatusSettled
 	require.NoError(t, repo.CompareAndSwapStatus(ctx, job.PublicID, service.GenerationJobStatusSubmitting, &update))
 
 	require.Equal(t, "submission_unknown", *update.ErrorCode)
 	require.Equal(t, service.GenerationJobBillingStatusManualReview, update.BillingStatus)
+	require.Equal(t, "0.1", update.EstimatedUpstreamCostAmount.String())
+	require.Equal(t, unit, *update.EstimatedUpstreamCostUnit)
+	require.Equal(t, pricingVersion, *update.PricingSnapshotVersion)
+	require.Equal(t, pricingSource, *update.PricingSource)
+	require.Equal(t, pricingMatchType, *update.PricingMatchType)
 	require.Nil(t, update.ActualUpstreamCostAmount)
 	require.Nil(t, update.ActualUpstreamCostUnit)
 	require.Nil(t, update.CustomerCost)
+	require.Nil(t, update.GrossMargin)
+	require.Nil(t, update.CostVariance)
 }
 
 func TestGenerationJobRepositoryPollPending(t *testing.T) {
@@ -414,6 +459,12 @@ func TestGenerationJobRepositoryListDueLeonardoPollJobsFiltersAndOrders(t *testi
 	third := create("dated-early", "leonardo", service.GenerationJobStatusRunning, stringPointerRepo("generation-3"), timePointer(dueAt.Add(-time.Minute)))
 	fourth := create("dated-tie-1", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-4"), timePointer(dueAt))
 	fifth := create("dated-tie-2", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-5"), timePointer(dueAt))
+	terminal := create("terminal-submitted", "leonardo", service.GenerationJobStatusSucceeded, nil, nil)
+	terminal.BillingStatus = service.GenerationJobBillingStatusSubmitted
+	storedTerminal, err := repo.GetByPublicID(ctx, terminal.PublicID)
+	require.NoError(t, err)
+	storedTerminal.BillingStatus = service.GenerationJobBillingStatusSubmitted
+	require.NoError(t, repo.CompareAndSwapStatus(ctx, terminal.PublicID, service.GenerationJobStatusSucceeded, storedTerminal))
 	create("future", "leonardo", service.GenerationJobStatusQueued, stringPointerRepo("generation-6"), timePointer(dueAt.Add(time.Nanosecond)))
 	create("other-provider", "openai", service.GenerationJobStatusQueued, stringPointerRepo("generation-7"), nil)
 	for _, status := range []service.GenerationJobStatus{service.GenerationJobStatusCreated, service.GenerationJobStatusSubmitting, service.GenerationJobStatusSucceeded, service.GenerationJobStatusFailed, service.GenerationJobStatusCancelled, service.GenerationJobStatusUnknown} {
@@ -424,7 +475,7 @@ func TestGenerationJobRepositoryListDueLeonardoPollJobsFiltersAndOrders(t *testi
 
 	jobs, err := repo.ListDueLeonardoPollJobs(ctx, dueAt, 100)
 	require.NoError(t, err)
-	require.Equal(t, []string{first.PublicID, second.PublicID, third.PublicID, fourth.PublicID, fifth.PublicID}, generationJobPublicIDs(jobs))
+	require.Equal(t, []string{first.PublicID, second.PublicID, terminal.PublicID, "excluded-unknown", third.PublicID, fourth.PublicID, fifth.PublicID}, generationJobPublicIDs(jobs))
 	again, err := repo.ListDueLeonardoPollJobs(ctx, dueAt.In(time.FixedZone("CST", 8*60*60)), 100)
 	require.NoError(t, err)
 	require.Equal(t, generationJobPublicIDs(jobs), generationJobPublicIDs(again))

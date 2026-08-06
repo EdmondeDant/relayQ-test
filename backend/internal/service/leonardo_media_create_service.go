@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/shopspring/decimal"
 )
 
@@ -20,20 +21,41 @@ var (
 	ErrLeonardoMediaCreateResultInvalid       = infraerrors.InternalServer("LEONARDO_MEDIA_CREATE_RESULT_INVALID", "Leonardo media create result is invalid")
 )
 
-var leonardoMediaMaxQuote = decimal.RequireFromString("999999999999.99999999")
+var leonardoMediaCustomerPriceRate = decimal.RequireFromString("7.1")
+
+func EstimateLeonardoCustomerPrice(ctx context.Context, request LeonardoImagePriceRequest) (*LeonardoImagePriceEstimate, decimal.Decimal, error) {
+	estimate, err := NewLeonardoImagePriceResolver().Estimate(ctx, request)
+	if err != nil {
+		return nil, decimal.Zero, err
+	}
+	if estimate == nil || estimate.EstimatedCostUSD.Sign() <= 0 {
+		return nil, decimal.Zero, ErrLeonardoImagePricingNotFound
+	}
+	return estimate, estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate), nil
+}
+
+func LeonardoDefaultImagePriceRequest(model string) LeonardoImagePriceRequest {
+	return LeonardoImagePriceRequest{Model: strings.TrimSpace(model), Width: 1024, Height: 1024, Quantity: 1, QualityTier: "low"}
+}
 
 type LeonardoMediaCreateInput struct {
-	IdempotencyKey   string
-	UserID           int64
-	APIKeyID         int64
-	GroupID          int64
-	Model            string
-	Prompt           string
-	Public           bool
-	Width            int
-	Height           int
-	Quantity         int
-	CustomerQuoteUSD decimal.Decimal
+	IdempotencyKey  string
+	UserID          int64
+	APIKeyID        int64
+	GroupID         int64
+	Model           string
+	Prompt          string
+	Public          bool
+	Width           int
+	Height          int
+	Quantity        int
+	InputImage      *LeonardoImageInput
+	ImageReferences []leonardo.ImageReference
+	ImageCapability *LeonardoImageReferenceCapability
+	FluxGuidances   LeonardoFluxGuidances
+	RawBody         []byte
+	MultipartImages map[string]*LeonardoImageInput
+	QualityTier     string
 }
 
 type LeonardoMediaCreateResult struct {
@@ -55,6 +77,24 @@ func NewLeonardoMediaCreateService(accounts AccountRepository, orchestrator *Leo
 	return &LeonardoMediaCreateService{accounts: accounts, orchestrator: orchestrator}
 }
 
+func (s *LeonardoMediaCreateService) EstimateQuote(ctx context.Context, model string, width, height, quantity int) (decimal.Decimal, error) {
+	return s.EstimateQualityQuote(ctx, model, width, height, quantity, "low")
+}
+
+func (s *LeonardoMediaCreateService) EstimateQualityQuote(ctx context.Context, model string, width, height, quantity int, qualityTier string) (decimal.Decimal, error) {
+	if s == nil || s.orchestrator == nil || s.orchestrator.quotes == nil || s.orchestrator.quotes.priceResolver == nil {
+		return decimal.Zero, ErrLeonardoMediaCreateNotConfigured
+	}
+	estimate, err := s.orchestrator.quotes.priceResolver.Estimate(ctx, LeonardoImagePriceRequest{Model: strings.TrimSpace(model), Width: width, Height: height, Quantity: quantity, QualityTier: qualityTier})
+	if err != nil {
+		return decimal.Zero, err
+	}
+	if estimate == nil || estimate.EstimatedCostUSD.Sign() <= 0 {
+		return decimal.Zero, ErrLeonardoImagePricingNotFound
+	}
+	return estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate), nil
+}
+
 func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoMediaCreateInput) (*LeonardoMediaCreateResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -63,8 +103,24 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 		return nil, ErrLeonardoMediaCreateNotConfigured
 	}
 	model, prompt := strings.TrimSpace(input.Model), strings.TrimSpace(input.Prompt)
-	if input.UserID <= 0 || input.APIKeyID <= 0 || input.GroupID <= 0 || model == "" || prompt == "" || len(prompt) > 4000 || input.Width <= 0 || input.Height <= 0 || input.Quantity <= 0 || !validLeonardoMediaQuote(input.CustomerQuoteUSD) {
+	matchReferenceSize := len(input.RawBody) > 0 && (model == "nano-banana-2" || model == "nano-banana-2-lite") && input.Width == 0 && input.Height == 0
+	if input.UserID <= 0 || input.APIKeyID <= 0 || input.GroupID <= 0 || model == "" || prompt == "" || len(prompt) > 4000 || (!matchReferenceSize && (input.Width <= 0 || input.Height <= 0)) || input.Quantity <= 0 {
 		return nil, ErrLeonardoMediaCreateInputInvalid
+	}
+	verified, ok := leonardo.ResolveByRequestModelSlug(model)
+	if !ok || verified.Modality != leonardo.ModelModalityImage {
+		return nil, ErrLeonardoMediaCreateInputInvalid
+	}
+	if len(input.RawBody) == 0 {
+		if _, err := BuildLeonardoFluxGuidances(model, input.FluxGuidances); err != nil {
+			return nil, ErrLeonardoMediaCreateInputInvalid
+		}
+	} else if !json.Valid(input.RawBody) {
+		return nil, ErrLeonardoMediaCreateInputInvalid
+	}
+	quote, err := s.EstimateQualityQuote(ctx, model, input.Width, input.Height, input.Quantity, input.QualityTier)
+	if err != nil {
+		return nil, err
 	}
 	key, err := NormalizeIdempotencyKey(input.IdempotencyKey)
 	if err != nil {
@@ -73,15 +129,19 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	publicSum := sha256.Sum256([]byte("leonardo_media_create\n" + strconv.FormatInt(input.UserID, 10) + "\n" + key))
 	publicID := "gen_rq_" + hex.EncodeToString(publicSum[:16])
 	fingerprint, err := json.Marshal(struct {
-		Model            string `json:"model"`
-		Modality         string `json:"modality"`
-		Prompt           string `json:"prompt"`
-		Public           bool   `json:"public"`
-		Width            int    `json:"width"`
-		Height           int    `json:"height"`
-		Quantity         int    `json:"quantity"`
-		CustomerQuoteUSD string `json:"customer_quote_usd"`
-	}{model, "image", prompt, input.Public, input.Width, input.Height, input.Quantity, input.CustomerQuoteUSD.String()})
+		Model            string                    `json:"model"`
+		Modality         string                    `json:"modality"`
+		Prompt           string                    `json:"prompt"`
+		Public           bool                      `json:"public"`
+		Width            int                       `json:"width"`
+		Height           int                       `json:"height"`
+		Quantity         int                       `json:"quantity"`
+		CustomerQuoteUSD string                    `json:"customer_quote_usd"`
+		InputImageSHA256 string                    `json:"input_image_sha256,omitempty"`
+		ImageReferences  []leonardo.ImageReference `json:"image_references,omitempty"`
+		FluxGuidances    LeonardoFluxGuidances     `json:"flux_guidances,omitempty"`
+		RawBodySHA256    string                    `json:"raw_body_sha256,omitempty"`
+	}{model, "image", prompt, input.Public, input.Width, input.Height, input.Quantity, quote.String(), leonardoMediaInputImageSHA256(input.InputImage), input.ImageReferences, input.FluxGuidances, leonardoMediaRawBodySHA256(input.RawBody)})
 	if err != nil {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
@@ -92,7 +152,7 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	}
 	valid := make([]Account, 0, len(accounts))
 	for _, account := range accounts {
-		if validLeonardoMediaAccount(&account, input.GroupID) {
+		if validLeonardoMediaAccount(&account, input.GroupID, model) {
 			valid = append(valid, account)
 		}
 	}
@@ -102,7 +162,7 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	if len(valid) > 1 {
 		return nil, ErrLeonardoMediaAccountSelectionAmbiguous
 	}
-	job, err := s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, CustomerQuoteUSD: input.CustomerQuoteUSD})
+	job, err := s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, QualityTier: input.QualityTier, CustomerQuoteUSD: quote, InputImage: input.InputImage, ImageReferences: input.ImageReferences, ImageCapability: input.ImageCapability, FluxGuidances: input.FluxGuidances, RawBody: input.RawBody, MultipartImages: input.MultipartImages})
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +176,23 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	return &LeonardoMediaCreateResult{ID: job.PublicID, Object: "media.generation", Provider: PlatformLeonardo, Model: job.Model, Modality: "image", Status: string(job.Status), CreatedAt: createdAt}, nil
 }
 
-func validLeonardoMediaQuote(value decimal.Decimal) bool {
-	return value.Sign() > 0 && value.Exponent() >= -8 && value.Cmp(leonardoMediaMaxQuote) <= 0
+func leonardoMediaRawBodySHA256(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	hash := sha256.Sum256(body)
+	return hex.EncodeToString(hash[:])
 }
 
-func validLeonardoMediaAccount(account *Account, groupID int64) bool {
-	if account == nil || account.ID <= 0 || account.Platform != PlatformLeonardo || account.Type != AccountTypeAPIKey || !account.IsSchedulable() {
+func leonardoMediaInputImageSHA256(input *LeonardoImageInput) string {
+	if input == nil || len(input.Data) == 0 {
+		return ""
+	}
+	return LeonardoImageSHA256(input.Data)
+}
+
+func validLeonardoMediaAccount(account *Account, groupID int64, model string) bool {
+	if account == nil || account.ID <= 0 || account.Platform != PlatformLeonardo || account.Type != AccountTypeAPIKey || !account.IsSchedulable() || !account.IsModelSupported(model) {
 		return false
 	}
 	for _, id := range account.GroupIDs {

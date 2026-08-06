@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -57,7 +58,7 @@ type updateChannelRequest struct {
 }
 
 type channelModelPricingRequest struct {
-	Platform         string                   `json:"platform" binding:"omitempty,max=50"`
+	Platform         string                   `json:"platform" binding:"omitempty,oneof=anthropic openai gemini antigravity xai leonardo"`
 	Models           []string                 `json:"models" binding:"required,min=1,max=100"`
 	Summary          string                   `json:"summary" binding:"omitempty,max=500"`
 	BillingMode      string                   `json:"billing_mode" binding:"omitempty,oneof=token per_request image"`
@@ -483,9 +484,27 @@ func (h *ChannelHandler) Delete(c *gin.Context) {
 // GET /api/v1/admin/channels/model-pricing?model=claude-sonnet-4
 func (h *ChannelHandler) GetModelDefaultPricing(c *gin.Context) {
 	model := strings.TrimSpace(c.Query("model"))
+	platform := strings.ToLower(strings.TrimSpace(c.Query("platform")))
 	if model == "" {
 		response.ErrorFrom(c, infraerrors.BadRequest("MISSING_PARAMETER", "model parameter is required").
 			WithMetadata(map[string]string{"param": "model"}))
+		return
+	}
+	if platform == service.PlatformLeonardo {
+		estimate, customerPrice, err := service.EstimateLeonardoCustomerPrice(c.Request.Context(), service.LeonardoDefaultImagePriceRequest(model))
+		if err != nil {
+			response.Success(c, gin.H{"found": false})
+			return
+		}
+		response.Success(c, gin.H{
+			"found":             true,
+			"billing_mode":      "image",
+			"per_request_price": customerPrice.InexactFloat64(),
+			"upstream_cost":     estimate.EstimatedCostUSD.InexactFloat64(),
+			"pricing_version":   estimate.PricingVersion,
+			"pricing_source":    estimate.PricingSource,
+			"match_type":        estimate.MatchType,
+		})
 		return
 	}
 
@@ -522,6 +541,15 @@ func (h *ChannelHandler) SyncPricingModels(c *gin.Context) {
 	if platform == "" {
 		response.ErrorFrom(c, infraerrors.BadRequest("MISSING_PARAMETER", "platform parameter is required").
 			WithMetadata(map[string]string{"param": "platform"}))
+		return
+	}
+	if platform == service.PlatformLeonardo {
+		verified := leonardo.ListVerifiedModels()
+		models := make([]string, 0, len(verified))
+		for _, model := range verified {
+			models = append(models, model.RequestModelSlug)
+		}
+		response.Success(c, gin.H{"models": models})
 		return
 	}
 

@@ -902,16 +902,32 @@ func init() {
 	generationjob.DefaultOutputCount = generationjobDescOutputCount.Default.(int)
 	// generationjob.OutputCountValidator is a validator for the "output_count" field. It is called by the builders before save.
 	generationjob.OutputCountValidator = generationjobDescOutputCount.Validators[0].(func(int) error)
+	// generationjobDescEstimatedUpstreamCostUnit is the schema descriptor for estimated_upstream_cost_unit field.
+	generationjobDescEstimatedUpstreamCostUnit := generationjobFields[19].Descriptor()
+	// generationjob.EstimatedUpstreamCostUnitValidator is a validator for the "estimated_upstream_cost_unit" field. It is called by the builders before save.
+	generationjob.EstimatedUpstreamCostUnitValidator = generationjobDescEstimatedUpstreamCostUnit.Validators[0].(func(string) error)
+	// generationjobDescPricingSnapshotVersion is the schema descriptor for pricing_snapshot_version field.
+	generationjobDescPricingSnapshotVersion := generationjobFields[20].Descriptor()
+	// generationjob.PricingSnapshotVersionValidator is a validator for the "pricing_snapshot_version" field. It is called by the builders before save.
+	generationjob.PricingSnapshotVersionValidator = generationjobDescPricingSnapshotVersion.Validators[0].(func(string) error)
+	// generationjobDescPricingSource is the schema descriptor for pricing_source field.
+	generationjobDescPricingSource := generationjobFields[21].Descriptor()
+	// generationjob.PricingSourceValidator is a validator for the "pricing_source" field. It is called by the builders before save.
+	generationjob.PricingSourceValidator = generationjobDescPricingSource.Validators[0].(func(string) error)
+	// generationjobDescPricingMatchType is the schema descriptor for pricing_match_type field.
+	generationjobDescPricingMatchType := generationjobFields[22].Descriptor()
+	// generationjob.PricingMatchTypeValidator is a validator for the "pricing_match_type" field. It is called by the builders before save.
+	generationjob.PricingMatchTypeValidator = generationjobDescPricingMatchType.Validators[0].(func(string) error)
 	// generationjobDescActualUpstreamCostUnit is the schema descriptor for actual_upstream_cost_unit field.
-	generationjobDescActualUpstreamCostUnit := generationjobFields[19].Descriptor()
+	generationjobDescActualUpstreamCostUnit := generationjobFields[24].Descriptor()
 	// generationjob.ActualUpstreamCostUnitValidator is a validator for the "actual_upstream_cost_unit" field. It is called by the builders before save.
 	generationjob.ActualUpstreamCostUnitValidator = generationjobDescActualUpstreamCostUnit.Validators[0].(func(string) error)
 	// generationjobDescBillingReference is the schema descriptor for billing_reference field.
-	generationjobDescBillingReference := generationjobFields[22].Descriptor()
+	generationjobDescBillingReference := generationjobFields[29].Descriptor()
 	// generationjob.BillingReferenceValidator is a validator for the "billing_reference" field. It is called by the builders before save.
 	generationjob.BillingReferenceValidator = generationjobDescBillingReference.Validators[0].(func(string) error)
 	// generationjobDescPollAttempts is the schema descriptor for poll_attempts field.
-	generationjobDescPollAttempts := generationjobFields[23].Descriptor()
+	generationjobDescPollAttempts := generationjobFields[30].Descriptor()
 	// generationjob.DefaultPollAttempts holds the default value on creation for the poll_attempts field.
 	generationjob.DefaultPollAttempts = generationjobDescPollAttempts.Default.(int)
 	// generationjob.PollAttemptsValidator is a validator for the "poll_attempts" field. It is called by the builders before save.

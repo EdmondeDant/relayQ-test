@@ -336,6 +336,98 @@ func (_u *GenerationJobUpdate) AddOutputCount(v int) *GenerationJobUpdate {
 	return _u
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (_u *GenerationJobUpdate) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpdate {
+	_u.mutation.SetEstimatedUpstreamCostAmount(v)
+	return _u
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (_u *GenerationJobUpdate) ClearEstimatedUpstreamCostAmount() *GenerationJobUpdate {
+	_u.mutation.ClearEstimatedUpstreamCostAmount()
+	return _u
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (_u *GenerationJobUpdate) SetEstimatedUpstreamCostUnit(v string) *GenerationJobUpdate {
+	_u.mutation.SetEstimatedUpstreamCostUnit(v)
+	return _u
+}
+
+// SetNillableEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableEstimatedUpstreamCostUnit(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetEstimatedUpstreamCostUnit(*v)
+	}
+	return _u
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (_u *GenerationJobUpdate) ClearEstimatedUpstreamCostUnit() *GenerationJobUpdate {
+	_u.mutation.ClearEstimatedUpstreamCostUnit()
+	return _u
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (_u *GenerationJobUpdate) SetPricingSnapshotVersion(v string) *GenerationJobUpdate {
+	_u.mutation.SetPricingSnapshotVersion(v)
+	return _u
+}
+
+// SetNillablePricingSnapshotVersion sets the "pricing_snapshot_version" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillablePricingSnapshotVersion(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetPricingSnapshotVersion(*v)
+	}
+	return _u
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (_u *GenerationJobUpdate) ClearPricingSnapshotVersion() *GenerationJobUpdate {
+	_u.mutation.ClearPricingSnapshotVersion()
+	return _u
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (_u *GenerationJobUpdate) SetPricingSource(v string) *GenerationJobUpdate {
+	_u.mutation.SetPricingSource(v)
+	return _u
+}
+
+// SetNillablePricingSource sets the "pricing_source" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillablePricingSource(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetPricingSource(*v)
+	}
+	return _u
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (_u *GenerationJobUpdate) ClearPricingSource() *GenerationJobUpdate {
+	_u.mutation.ClearPricingSource()
+	return _u
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (_u *GenerationJobUpdate) SetPricingMatchType(v string) *GenerationJobUpdate {
+	_u.mutation.SetPricingMatchType(v)
+	return _u
+}
+
+// SetNillablePricingMatchType sets the "pricing_match_type" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillablePricingMatchType(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetPricingMatchType(*v)
+	}
+	return _u
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (_u *GenerationJobUpdate) ClearPricingMatchType() *GenerationJobUpdate {
+	_u.mutation.ClearPricingMatchType()
+	return _u
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (_u *GenerationJobUpdate) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpdate {
 	_u.mutation.SetActualUpstreamCostAmount(v)
@@ -377,6 +469,30 @@ func (_u *GenerationJobUpdate) SetCustomerCost(v *decimal.Decimal) *GenerationJo
 // ClearCustomerCost clears the value of the "customer_cost" field.
 func (_u *GenerationJobUpdate) ClearCustomerCost() *GenerationJobUpdate {
 	_u.mutation.ClearCustomerCost()
+	return _u
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (_u *GenerationJobUpdate) SetGrossMargin(v *decimal.Decimal) *GenerationJobUpdate {
+	_u.mutation.SetGrossMargin(v)
+	return _u
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (_u *GenerationJobUpdate) ClearGrossMargin() *GenerationJobUpdate {
+	_u.mutation.ClearGrossMargin()
+	return _u
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (_u *GenerationJobUpdate) SetCostVariance(v *decimal.Decimal) *GenerationJobUpdate {
+	_u.mutation.SetCostVariance(v)
+	return _u
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (_u *GenerationJobUpdate) ClearCostVariance() *GenerationJobUpdate {
+	_u.mutation.ClearCostVariance()
 	return _u
 }
 
@@ -653,6 +769,26 @@ func (_u *GenerationJobUpdate) check() error {
 			return &ValidationError{Name: "output_count", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.output_count": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EstimatedUpstreamCostUnit(); ok {
+		if err := generationjob.EstimatedUpstreamCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "estimated_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.estimated_upstream_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingSnapshotVersion(); ok {
+		if err := generationjob.PricingSnapshotVersionValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_snapshot_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_snapshot_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingSource(); ok {
+		if err := generationjob.PricingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_source", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingMatchType(); ok {
+		if err := generationjob.PricingMatchTypeValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_match_type", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_match_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ActualUpstreamCostUnit(); ok {
 		if err := generationjob.ActualUpstreamCostUnitValidator(v); err != nil {
 			return &ValidationError{Name: "actual_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.actual_upstream_cost_unit": %w`, err)}
@@ -775,6 +911,36 @@ func (_u *GenerationJobUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if value, ok := _u.mutation.AddedOutputCount(); ok {
 		_spec.AddField(generationjob.FieldOutputCount, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.EstimatedUpstreamCostAmount(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostAmount, field.TypeOther, value)
+	}
+	if _u.mutation.EstimatedUpstreamCostAmountCleared() {
+		_spec.ClearField(generationjob.FieldEstimatedUpstreamCostAmount, field.TypeOther)
+	}
+	if value, ok := _u.mutation.EstimatedUpstreamCostUnit(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostUnit, field.TypeString, value)
+	}
+	if _u.mutation.EstimatedUpstreamCostUnitCleared() {
+		_spec.ClearField(generationjob.FieldEstimatedUpstreamCostUnit, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingSnapshotVersion(); ok {
+		_spec.SetField(generationjob.FieldPricingSnapshotVersion, field.TypeString, value)
+	}
+	if _u.mutation.PricingSnapshotVersionCleared() {
+		_spec.ClearField(generationjob.FieldPricingSnapshotVersion, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingSource(); ok {
+		_spec.SetField(generationjob.FieldPricingSource, field.TypeString, value)
+	}
+	if _u.mutation.PricingSourceCleared() {
+		_spec.ClearField(generationjob.FieldPricingSource, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingMatchType(); ok {
+		_spec.SetField(generationjob.FieldPricingMatchType, field.TypeString, value)
+	}
+	if _u.mutation.PricingMatchTypeCleared() {
+		_spec.ClearField(generationjob.FieldPricingMatchType, field.TypeString)
+	}
 	if value, ok := _u.mutation.ActualUpstreamCostAmount(); ok {
 		_spec.SetField(generationjob.FieldActualUpstreamCostAmount, field.TypeOther, value)
 	}
@@ -792,6 +958,18 @@ func (_u *GenerationJobUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.CustomerCostCleared() {
 		_spec.ClearField(generationjob.FieldCustomerCost, field.TypeOther)
+	}
+	if value, ok := _u.mutation.GrossMargin(); ok {
+		_spec.SetField(generationjob.FieldGrossMargin, field.TypeOther, value)
+	}
+	if _u.mutation.GrossMarginCleared() {
+		_spec.ClearField(generationjob.FieldGrossMargin, field.TypeOther)
+	}
+	if value, ok := _u.mutation.CostVariance(); ok {
+		_spec.SetField(generationjob.FieldCostVariance, field.TypeOther, value)
+	}
+	if _u.mutation.CostVarianceCleared() {
+		_spec.ClearField(generationjob.FieldCostVariance, field.TypeOther)
 	}
 	if value, ok := _u.mutation.BillingStatus(); ok {
 		_spec.SetField(generationjob.FieldBillingStatus, field.TypeEnum, value)
@@ -1171,6 +1349,98 @@ func (_u *GenerationJobUpdateOne) AddOutputCount(v int) *GenerationJobUpdateOne 
 	return _u
 }
 
+// SetEstimatedUpstreamCostAmount sets the "estimated_upstream_cost_amount" field.
+func (_u *GenerationJobUpdateOne) SetEstimatedUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpdateOne {
+	_u.mutation.SetEstimatedUpstreamCostAmount(v)
+	return _u
+}
+
+// ClearEstimatedUpstreamCostAmount clears the value of the "estimated_upstream_cost_amount" field.
+func (_u *GenerationJobUpdateOne) ClearEstimatedUpstreamCostAmount() *GenerationJobUpdateOne {
+	_u.mutation.ClearEstimatedUpstreamCostAmount()
+	return _u
+}
+
+// SetEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field.
+func (_u *GenerationJobUpdateOne) SetEstimatedUpstreamCostUnit(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetEstimatedUpstreamCostUnit(v)
+	return _u
+}
+
+// SetNillableEstimatedUpstreamCostUnit sets the "estimated_upstream_cost_unit" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableEstimatedUpstreamCostUnit(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetEstimatedUpstreamCostUnit(*v)
+	}
+	return _u
+}
+
+// ClearEstimatedUpstreamCostUnit clears the value of the "estimated_upstream_cost_unit" field.
+func (_u *GenerationJobUpdateOne) ClearEstimatedUpstreamCostUnit() *GenerationJobUpdateOne {
+	_u.mutation.ClearEstimatedUpstreamCostUnit()
+	return _u
+}
+
+// SetPricingSnapshotVersion sets the "pricing_snapshot_version" field.
+func (_u *GenerationJobUpdateOne) SetPricingSnapshotVersion(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetPricingSnapshotVersion(v)
+	return _u
+}
+
+// SetNillablePricingSnapshotVersion sets the "pricing_snapshot_version" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillablePricingSnapshotVersion(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetPricingSnapshotVersion(*v)
+	}
+	return _u
+}
+
+// ClearPricingSnapshotVersion clears the value of the "pricing_snapshot_version" field.
+func (_u *GenerationJobUpdateOne) ClearPricingSnapshotVersion() *GenerationJobUpdateOne {
+	_u.mutation.ClearPricingSnapshotVersion()
+	return _u
+}
+
+// SetPricingSource sets the "pricing_source" field.
+func (_u *GenerationJobUpdateOne) SetPricingSource(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetPricingSource(v)
+	return _u
+}
+
+// SetNillablePricingSource sets the "pricing_source" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillablePricingSource(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetPricingSource(*v)
+	}
+	return _u
+}
+
+// ClearPricingSource clears the value of the "pricing_source" field.
+func (_u *GenerationJobUpdateOne) ClearPricingSource() *GenerationJobUpdateOne {
+	_u.mutation.ClearPricingSource()
+	return _u
+}
+
+// SetPricingMatchType sets the "pricing_match_type" field.
+func (_u *GenerationJobUpdateOne) SetPricingMatchType(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetPricingMatchType(v)
+	return _u
+}
+
+// SetNillablePricingMatchType sets the "pricing_match_type" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillablePricingMatchType(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetPricingMatchType(*v)
+	}
+	return _u
+}
+
+// ClearPricingMatchType clears the value of the "pricing_match_type" field.
+func (_u *GenerationJobUpdateOne) ClearPricingMatchType() *GenerationJobUpdateOne {
+	_u.mutation.ClearPricingMatchType()
+	return _u
+}
+
 // SetActualUpstreamCostAmount sets the "actual_upstream_cost_amount" field.
 func (_u *GenerationJobUpdateOne) SetActualUpstreamCostAmount(v *decimal.Decimal) *GenerationJobUpdateOne {
 	_u.mutation.SetActualUpstreamCostAmount(v)
@@ -1212,6 +1482,30 @@ func (_u *GenerationJobUpdateOne) SetCustomerCost(v *decimal.Decimal) *Generatio
 // ClearCustomerCost clears the value of the "customer_cost" field.
 func (_u *GenerationJobUpdateOne) ClearCustomerCost() *GenerationJobUpdateOne {
 	_u.mutation.ClearCustomerCost()
+	return _u
+}
+
+// SetGrossMargin sets the "gross_margin" field.
+func (_u *GenerationJobUpdateOne) SetGrossMargin(v *decimal.Decimal) *GenerationJobUpdateOne {
+	_u.mutation.SetGrossMargin(v)
+	return _u
+}
+
+// ClearGrossMargin clears the value of the "gross_margin" field.
+func (_u *GenerationJobUpdateOne) ClearGrossMargin() *GenerationJobUpdateOne {
+	_u.mutation.ClearGrossMargin()
+	return _u
+}
+
+// SetCostVariance sets the "cost_variance" field.
+func (_u *GenerationJobUpdateOne) SetCostVariance(v *decimal.Decimal) *GenerationJobUpdateOne {
+	_u.mutation.SetCostVariance(v)
+	return _u
+}
+
+// ClearCostVariance clears the value of the "cost_variance" field.
+func (_u *GenerationJobUpdateOne) ClearCostVariance() *GenerationJobUpdateOne {
+	_u.mutation.ClearCostVariance()
 	return _u
 }
 
@@ -1501,6 +1795,26 @@ func (_u *GenerationJobUpdateOne) check() error {
 			return &ValidationError{Name: "output_count", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.output_count": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.EstimatedUpstreamCostUnit(); ok {
+		if err := generationjob.EstimatedUpstreamCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "estimated_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.estimated_upstream_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingSnapshotVersion(); ok {
+		if err := generationjob.PricingSnapshotVersionValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_snapshot_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_snapshot_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingSource(); ok {
+		if err := generationjob.PricingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_source", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PricingMatchType(); ok {
+		if err := generationjob.PricingMatchTypeValidator(v); err != nil {
+			return &ValidationError{Name: "pricing_match_type", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.pricing_match_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ActualUpstreamCostUnit(); ok {
 		if err := generationjob.ActualUpstreamCostUnitValidator(v); err != nil {
 			return &ValidationError{Name: "actual_upstream_cost_unit", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.actual_upstream_cost_unit": %w`, err)}
@@ -1640,6 +1954,36 @@ func (_u *GenerationJobUpdateOne) sqlSave(ctx context.Context) (_node *Generatio
 	if value, ok := _u.mutation.AddedOutputCount(); ok {
 		_spec.AddField(generationjob.FieldOutputCount, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.EstimatedUpstreamCostAmount(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostAmount, field.TypeOther, value)
+	}
+	if _u.mutation.EstimatedUpstreamCostAmountCleared() {
+		_spec.ClearField(generationjob.FieldEstimatedUpstreamCostAmount, field.TypeOther)
+	}
+	if value, ok := _u.mutation.EstimatedUpstreamCostUnit(); ok {
+		_spec.SetField(generationjob.FieldEstimatedUpstreamCostUnit, field.TypeString, value)
+	}
+	if _u.mutation.EstimatedUpstreamCostUnitCleared() {
+		_spec.ClearField(generationjob.FieldEstimatedUpstreamCostUnit, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingSnapshotVersion(); ok {
+		_spec.SetField(generationjob.FieldPricingSnapshotVersion, field.TypeString, value)
+	}
+	if _u.mutation.PricingSnapshotVersionCleared() {
+		_spec.ClearField(generationjob.FieldPricingSnapshotVersion, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingSource(); ok {
+		_spec.SetField(generationjob.FieldPricingSource, field.TypeString, value)
+	}
+	if _u.mutation.PricingSourceCleared() {
+		_spec.ClearField(generationjob.FieldPricingSource, field.TypeString)
+	}
+	if value, ok := _u.mutation.PricingMatchType(); ok {
+		_spec.SetField(generationjob.FieldPricingMatchType, field.TypeString, value)
+	}
+	if _u.mutation.PricingMatchTypeCleared() {
+		_spec.ClearField(generationjob.FieldPricingMatchType, field.TypeString)
+	}
 	if value, ok := _u.mutation.ActualUpstreamCostAmount(); ok {
 		_spec.SetField(generationjob.FieldActualUpstreamCostAmount, field.TypeOther, value)
 	}
@@ -1657,6 +2001,18 @@ func (_u *GenerationJobUpdateOne) sqlSave(ctx context.Context) (_node *Generatio
 	}
 	if _u.mutation.CustomerCostCleared() {
 		_spec.ClearField(generationjob.FieldCustomerCost, field.TypeOther)
+	}
+	if value, ok := _u.mutation.GrossMargin(); ok {
+		_spec.SetField(generationjob.FieldGrossMargin, field.TypeOther, value)
+	}
+	if _u.mutation.GrossMarginCleared() {
+		_spec.ClearField(generationjob.FieldGrossMargin, field.TypeOther)
+	}
+	if value, ok := _u.mutation.CostVariance(); ok {
+		_spec.SetField(generationjob.FieldCostVariance, field.TypeOther, value)
+	}
+	if _u.mutation.CostVarianceCleared() {
+		_spec.ClearField(generationjob.FieldCostVariance, field.TypeOther)
 	}
 	if value, ok := _u.mutation.BillingStatus(); ok {
 		_spec.SetField(generationjob.FieldBillingStatus, field.TypeEnum, value)

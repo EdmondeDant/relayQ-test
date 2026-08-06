@@ -287,6 +287,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/pricing-calculator',
+    name: 'PricingCalculator',
+    component: () => import('@/views/user/PricingCalculatorView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: '价格计算器',
+      description: 'Leonardo 图片与视频模型 API 价格计算器'
+    }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/user/ProfileView.vue'),

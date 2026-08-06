@@ -42,9 +42,16 @@ func (r *generationJobRepository) Create(ctx context.Context, job *service.Gener
 		SetNillableErrorCode(job.ErrorCode).
 		SetNillableErrorMessage(job.ErrorMessage).
 		SetOutputCount(job.OutputCount).
+		SetEstimatedUpstreamCostAmount(job.EstimatedUpstreamCostAmount).
+		SetNillableEstimatedUpstreamCostUnit(job.EstimatedUpstreamCostUnit).
+		SetNillablePricingSnapshotVersion(job.PricingSnapshotVersion).
+		SetNillablePricingSource(job.PricingSource).
+		SetNillablePricingMatchType(job.PricingMatchType).
 		SetActualUpstreamCostAmount(job.ActualUpstreamCostAmount).
 		SetNillableActualUpstreamCostUnit(job.ActualUpstreamCostUnit).
 		SetCustomerCost(job.CustomerCost).
+		SetGrossMargin(job.GrossMargin).
+		SetCostVariance(job.CostVariance).
 		SetBillingStatus(generationjob.BillingStatus(job.BillingStatus)).
 		SetNillableBillingReference(job.BillingReference).
 		SetPollAttempts(job.PollAttempts).
@@ -85,9 +92,26 @@ func (r *generationJobRepository) ListDueLeonardoPollJobs(ctx context.Context, d
 	dueAt = dueAt.UTC()
 	base := []predicate.GenerationJob{
 		generationjob.ProviderEQ(service.PlatformLeonardo),
-		generationjob.StatusIn(generationjob.StatusQueued, generationjob.StatusRunning),
-		generationjob.UpstreamGenerationIDNotNil(),
-		generationjob.UpstreamGenerationIDNEQ(""),
+		generationjob.Or(
+			generationjob.And(
+				generationjob.StatusIn(generationjob.StatusQueued, generationjob.StatusRunning),
+				generationjob.UpstreamGenerationIDNotNil(),
+				generationjob.UpstreamGenerationIDNEQ(""),
+			),
+			generationjob.And(
+				generationjob.StatusIn(generationjob.StatusSucceeded, generationjob.StatusFailed),
+				generationjob.BillingStatusEQ(generationjob.BillingStatusSubmitted),
+			),
+			generationjob.And(
+				generationjob.StatusEQ(generationjob.StatusSubmitting),
+				generationjob.UpdatedAtLTE(dueAt.Add(-service.LeonardoGenerationReconciliationDelay)),
+			),
+			generationjob.And(
+				generationjob.StatusEQ(generationjob.StatusUnknown),
+				generationjob.UpstreamGenerationIDNotNil(),
+				generationjob.UpstreamGenerationIDNEQ(""),
+			),
+		),
 	}
 	nilDue, err := r.client.GenerationJob.Query().Where(append(base, generationjob.NextPollAtIsNil())...).Order(dbent.Asc(generationjob.FieldID)).Limit(limit).All(ctx)
 	if err != nil {
@@ -144,6 +168,16 @@ func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publ
 		update.ClearCustomerCost()
 	} else {
 		update.SetCustomerCost(job.CustomerCost)
+	}
+	if job.GrossMargin == nil {
+		update.ClearGrossMargin()
+	} else {
+		update.SetGrossMargin(job.GrossMargin)
+	}
+	if job.CostVariance == nil {
+		update.ClearCostVariance()
+	} else {
+		update.SetCostVariance(job.CostVariance)
 	}
 	if job.UpstreamGenerationID == nil {
 		update.ClearUpstreamGenerationID()
@@ -282,38 +316,45 @@ func generationJobEntityToService(entity *dbent.GenerationJob) *service.Generati
 		return nil
 	}
 	return &service.GenerationJob{
-		ID:                       entity.ID,
-		PublicID:                 entity.PublicID,
-		Provider:                 entity.Provider,
-		Modality:                 entity.Modality,
-		Model:                    entity.Model,
-		UpstreamModel:            entity.UpstreamModel,
-		UserID:                   entity.UserID,
-		APIKeyID:                 entity.APIKeyID,
-		GroupID:                  entity.GroupID,
-		AccountID:                entity.AccountID,
-		UpstreamGenerationID:     entity.UpstreamGenerationID,
-		Status:                   service.GenerationJobStatus(entity.Status),
-		UpstreamStatus:           entity.UpstreamStatus,
-		RequestHash:              entity.RequestHash,
-		RequestPayload:           entity.RequestPayload,
-		ResultPayload:            entity.ResultPayload,
-		ErrorCode:                entity.ErrorCode,
-		ErrorMessage:             entity.ErrorMessage,
-		OutputCount:              entity.OutputCount,
-		ActualUpstreamCostAmount: entity.ActualUpstreamCostAmount,
-		ActualUpstreamCostUnit:   entity.ActualUpstreamCostUnit,
-		CustomerCost:             entity.CustomerCost,
-		BillingStatus:            service.GenerationJobBillingStatus(entity.BillingStatus),
-		BillingReference:         entity.BillingReference,
-		PollAttempts:             entity.PollAttempts,
-		NextPollAt:               entity.NextPollAt,
-		LastPolledAt:             entity.LastPolledAt,
-		SubmittedAt:              entity.SubmittedAt,
-		StartedAt:                entity.StartedAt,
-		CompletedAt:              entity.CompletedAt,
-		FailedAt:                 entity.FailedAt,
-		CreatedAt:                entity.CreatedAt,
-		UpdatedAt:                entity.UpdatedAt,
+		ID:                          entity.ID,
+		PublicID:                    entity.PublicID,
+		Provider:                    entity.Provider,
+		Modality:                    entity.Modality,
+		Model:                       entity.Model,
+		UpstreamModel:               entity.UpstreamModel,
+		UserID:                      entity.UserID,
+		APIKeyID:                    entity.APIKeyID,
+		GroupID:                     entity.GroupID,
+		AccountID:                   entity.AccountID,
+		UpstreamGenerationID:        entity.UpstreamGenerationID,
+		Status:                      service.GenerationJobStatus(entity.Status),
+		UpstreamStatus:              entity.UpstreamStatus,
+		RequestHash:                 entity.RequestHash,
+		RequestPayload:              entity.RequestPayload,
+		ResultPayload:               entity.ResultPayload,
+		ErrorCode:                   entity.ErrorCode,
+		ErrorMessage:                entity.ErrorMessage,
+		OutputCount:                 entity.OutputCount,
+		EstimatedUpstreamCostAmount: entity.EstimatedUpstreamCostAmount,
+		EstimatedUpstreamCostUnit:   entity.EstimatedUpstreamCostUnit,
+		PricingSnapshotVersion:      entity.PricingSnapshotVersion,
+		PricingSource:               entity.PricingSource,
+		PricingMatchType:            entity.PricingMatchType,
+		ActualUpstreamCostAmount:    entity.ActualUpstreamCostAmount,
+		ActualUpstreamCostUnit:      entity.ActualUpstreamCostUnit,
+		CustomerCost:                entity.CustomerCost,
+		GrossMargin:                 entity.GrossMargin,
+		CostVariance:                entity.CostVariance,
+		BillingStatus:               service.GenerationJobBillingStatus(entity.BillingStatus),
+		BillingReference:            entity.BillingReference,
+		PollAttempts:                entity.PollAttempts,
+		NextPollAt:                  entity.NextPollAt,
+		LastPolledAt:                entity.LastPolledAt,
+		SubmittedAt:                 entity.SubmittedAt,
+		StartedAt:                   entity.StartedAt,
+		CompletedAt:                 entity.CompletedAt,
+		FailedAt:                    entity.FailedAt,
+		CreatedAt:                   entity.CreatedAt,
+		UpdatedAt:                   entity.UpdatedAt,
 	}
 }

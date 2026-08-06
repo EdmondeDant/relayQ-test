@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -12,6 +13,10 @@ import (
 )
 
 const pollerTestGenerationID = "123e4567-e89b-12d3-a456-426614174000"
+
+func leonardoNSFW(value bool) *bool {
+	return &value
+}
 
 type generationPollRepositoryMock struct {
 	mu  sync.Mutex
@@ -74,6 +79,29 @@ type generationPollClockMock struct {
 	now time.Time
 }
 
+type generationOutputModeratorMock struct {
+	blocked map[string]bool
+	err     error
+	inputs  []ContentModerationCheckInput
+}
+
+func (m *generationOutputModeratorMock) Check(_ context.Context, input ContentModerationCheckInput) (*ContentModerationDecision, error) {
+	m.inputs = append(m.inputs, input)
+	if m.err != nil {
+		return nil, m.err
+	}
+	var body struct {
+		Images []struct {
+			URL string `json:"image_url"`
+		} `json:"images"`
+	}
+	if err := json.Unmarshal(input.Body, &body); err != nil {
+		return nil, err
+	}
+	blocked := len(body.Images) != 1 || m.blocked[body.Images[0].URL]
+	return &ContentModerationDecision{Allowed: !blocked, Blocked: blocked}, nil
+}
+
 func (c generationPollClockMock) Now() time.Time {
 	return c.now
 }
@@ -106,8 +134,8 @@ func TestLeonardoGenerationPollerComplete(t *testing.T) {
 	client := &generationPollClientMock{response: &leonardo.Generation{
 		Status: "COMPLETE",
 		GeneratedImages: []leonardo.GeneratedImage{
-			{ID: "image-1", URL: "https://example.com/1.png", NSFW: false},
-			{ID: "image-2", URL: "https://example.com/2.png", NSFW: true},
+			{ID: "image-1", URL: "https://example.com/1.png", NSFW: leonardoNSFW(false)},
+			{ID: "image-2", URL: "https://example.com/2.png", NSFW: leonardoNSFW(false)},
 		},
 	}}
 
@@ -119,8 +147,92 @@ func TestLeonardoGenerationPollerComplete(t *testing.T) {
 	require.Nil(t, job.NextPollAt)
 	require.Equal(t, map[string]any{"cost": "0.001", "apiCreditCost": 1, "images": []map[string]any{
 		{"id": "image-1", "url": "https://example.com/1.png", "nsfw": false},
-		{"id": "image-2", "url": "https://example.com/2.png", "nsfw": true},
+		{"id": "image-2", "url": "https://example.com/2.png", "nsfw": false},
 	}}, job.ResultPayload)
+}
+
+func TestLeonardoGenerationPollerBlocksNSFWOutput(t *testing.T) {
+	now := time.Date(2026, time.August, 3, 2, 0, 0, 0, time.UTC)
+	stored := pollerTestJob(GenerationJobStatusQueued)
+	stored.ResultPayload = map[string]any{"cost": "0.001", "apiCreditCost": 1}
+	repository := &generationPollRepositoryMock{job: stored}
+	client := &generationPollClientMock{response: &leonardo.Generation{
+		Status: "COMPLETE",
+		GeneratedImages: []leonardo.GeneratedImage{
+			{ID: "safe", URL: "https://example.com/safe.png", NSFW: leonardoNSFW(false)},
+			{ID: "blocked", URL: "https://example.com/blocked.png", NSFW: leonardoNSFW(true)},
+		},
+	}}
+
+	job, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: now}).Poll(context.Background(), "job-1")
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusFailed, job.Status)
+	require.Equal(t, "content_policy_violation", *job.ErrorCode)
+	require.Equal(t, now, *job.FailedAt)
+	require.Nil(t, job.CompletedAt)
+	require.Nil(t, job.NextPollAt)
+	require.Zero(t, job.OutputCount)
+	require.Equal(t, GenerationJobBillingStatusManualReview, job.BillingStatus)
+	require.Equal(t, map[string]any{"cost": "0.001", "apiCreditCost": 1}, job.ResultPayload)
+}
+
+func TestLeonardoGenerationPollerModeratesOutputImages(t *testing.T) {
+	now := time.Date(2026, time.August, 3, 2, 0, 0, 0, time.UTC)
+	stored := pollerTestJob(GenerationJobStatusQueued)
+	stored.UserID = 11
+	stored.APIKeyID = 12
+	groupID := int64(13)
+	stored.GroupID = &groupID
+	stored.Model = "gpt-image-2"
+	repository := &generationPollRepositoryMock{job: stored}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{
+		{ID: "safe", URL: "https://example.com/safe.png", NSFW: leonardoNSFW(false)},
+		{ID: "blocked", URL: "https://example.com/blocked.png", NSFW: leonardoNSFW(false)},
+	}}}
+	moderator := &generationOutputModeratorMock{blocked: map[string]bool{"https://example.com/blocked.png": true}}
+
+	job, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: now}, moderator).Poll(context.Background(), "job-1")
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusFailed, job.Status)
+	require.Zero(t, job.OutputCount)
+	require.Equal(t, GenerationJobBillingStatusManualReview, job.BillingStatus)
+	require.NotContains(t, job.ResultPayload, "images")
+	require.Len(t, moderator.inputs, 2)
+	require.Equal(t, ContentModerationCheckInput{
+		RequestID: "job-1", UserID: 11, APIKeyID: 12, GroupID: stored.GroupID,
+		Endpoint: "/v1/media/generations/:id", Provider: PlatformLeonardo,
+		Model: "gpt-image-2", Protocol: ContentModerationProtocolOpenAIImages,
+		Body: moderator.inputs[0].Body,
+	}, moderator.inputs[0])
+}
+
+func TestLeonardoGenerationPollerModerationErrorDoesNotCommit(t *testing.T) {
+	stored := pollerTestJob(GenerationJobStatusQueued)
+	repository := &generationPollRepositoryMock{job: stored}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{{ID: "image", URL: "https://example.com/image.png", NSFW: leonardoNSFW(false)}}}}
+	moderationErr := errors.New("moderation unavailable")
+
+	job, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()}, &generationOutputModeratorMock{err: moderationErr}).Poll(context.Background(), "job-1")
+	require.ErrorIs(t, err, moderationErr)
+	require.Equal(t, GenerationJobStatusQueued, job.Status)
+	require.Equal(t, GenerationJobStatusQueued, repository.job.Status)
+	require.Zero(t, repository.job.PollAttempts)
+}
+
+func TestLeonardoGenerationPollerFailsClosedWhenAllOutputSafetyIsUnknown(t *testing.T) {
+	now := time.Date(2026, time.August, 3, 2, 0, 0, 0, time.UTC)
+	stored := pollerTestJob(GenerationJobStatusQueued)
+	stored.ResultPayload = map[string]any{"cost": "0.001"}
+	repository := &generationPollRepositoryMock{job: stored}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{{ID: "unknown", URL: "https://example.com/unknown.png"}}}}
+
+	job, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: now}).Poll(context.Background(), "job-1")
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusFailed, job.Status)
+	require.Equal(t, "content_policy_violation", *job.ErrorCode)
+	require.Equal(t, now, *job.FailedAt)
+	require.Zero(t, job.OutputCount)
+	require.Equal(t, map[string]any{"cost": "0.001"}, job.ResultPayload)
 }
 
 func TestLeonardoGenerationPollerFailed(t *testing.T) {
@@ -244,5 +356,63 @@ func pollerTestJob(status GenerationJobStatus) *GenerationJob {
 		UpstreamGenerationID: stringPointer(pollerTestGenerationID),
 		ResultPayload:        map[string]any{},
 		BillingStatus:        GenerationJobBillingStatusSubmitted,
+		Modality:             "image",
 	}
+}
+
+func TestLeonardoGenerationPollerRejectsUnverifiedVideoWithoutNetwork(t *testing.T) {
+	job := pollerTestJob(GenerationJobStatusQueued)
+	job.Modality = "video"
+	repository := &generationPollRepositoryMock{job: job}
+	client := &generationPollClientMock{}
+
+	result, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()}).Poll(context.Background(), job.PublicID)
+
+	require.ErrorIs(t, err, ErrLeonardoVideoSchemaUnverified)
+	require.Equal(t, GenerationJobStatusQueued, result.Status)
+	require.Zero(t, result.PollAttempts)
+	require.Zero(t, client.callCount())
+}
+
+func TestLeonardoGenerationPollerRejectsUnverifiedAudioWithoutNetwork(t *testing.T) {
+	job := pollerTestJob(GenerationJobStatusQueued)
+	job.Modality = "audio"
+	repository := &generationPollRepositoryMock{job: job}
+	client := &generationPollClientMock{}
+	poller := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()})
+
+	result, err := poller.Poll(context.Background(), job.PublicID)
+
+	require.ErrorIs(t, err, ErrLeonardoAudioSchemaUnverified)
+	require.Equal(t, GenerationJobStatusQueued, result.Status)
+	require.Zero(t, result.PollAttempts)
+	require.Zero(t, client.callCount())
+}
+
+func TestLeonardoGenerationPollerRejectsUnverified3DWithoutNetwork(t *testing.T) {
+	job := pollerTestJob(GenerationJobStatusQueued)
+	job.Modality = "3d"
+	repository := &generationPollRepositoryMock{job: job}
+	client := &generationPollClientMock{}
+	poller := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()})
+
+	result, err := poller.Poll(context.Background(), job.PublicID)
+
+	require.ErrorIs(t, err, ErrLeonardo3DSchemaUnverified)
+	require.Equal(t, GenerationJobStatusQueued, result.Status)
+	require.Zero(t, result.PollAttempts)
+	require.Zero(t, client.callCount())
+}
+
+func TestLeonardoGenerationPollerDoesNotSucceedWithoutImageOutputs(t *testing.T) {
+	job := pollerTestJob(GenerationJobStatusQueued)
+	repository := &generationPollRepositoryMock{job: job}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE"}}
+
+	result, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()}).Poll(context.Background(), job.PublicID)
+
+	require.Error(t, err)
+	require.Equal(t, GenerationJobStatusQueued, result.Status)
+	require.Equal(t, "invalid_upstream_output", *result.ErrorCode)
+	require.Equal(t, GenerationJobBillingStatusSubmitted, result.BillingStatus)
 }

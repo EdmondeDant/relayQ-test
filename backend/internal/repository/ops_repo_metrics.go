@@ -286,6 +286,31 @@ LIMIT 1`
 	return &out, nil
 }
 
+func (r *opsRepository) GetLeonardoCostVarianceRatio(ctx context.Context, start, end time.Time, groupID *int64) (float64, bool, error) {
+	if r == nil || r.db == nil {
+		return 0, false, fmt.Errorf("nil ops repository")
+	}
+	query := `
+SELECT MAX(ABS(cost_variance / estimated_upstream_cost_amount) * 100)
+FROM generation_jobs
+WHERE provider = $1
+  AND created_at >= $2
+  AND created_at < $3
+  AND estimated_upstream_cost_amount > 0
+  AND cost_variance IS NOT NULL
+  AND estimated_upstream_cost_unit = actual_upstream_cost_unit`
+	args := []any{service.PlatformLeonardo, start.UTC(), end.UTC()}
+	if groupID != nil && *groupID > 0 {
+		query += " AND group_id = $4"
+		args = append(args, *groupID)
+	}
+	var value sql.NullFloat64
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&value); err != nil {
+		return 0, false, err
+	}
+	return value.Float64, value.Valid, nil
+}
+
 func (r *opsRepository) UpsertJobHeartbeat(ctx context.Context, input *service.OpsUpsertJobHeartbeatInput) error {
 	if r == nil || r.db == nil {
 		return fmt.Errorf("nil ops repository")

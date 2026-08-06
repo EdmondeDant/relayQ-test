@@ -39,6 +39,7 @@ type AdminHandlers struct {
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
 	RetailGrok             *admin.RetailGrokHandler
+	LeonardoManualReview   *admin.LeonardoManualReviewHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -63,6 +64,7 @@ type Handlers struct {
 	RetailGrok       *RetailGrokGatewayHandler
 	Playground       *PlaygroundHandler
 	LeonardoMedia    *LeonardoMediaHandler
+	LeonardoWebhook  *LeonardoWebhookHandler
 }
 
 // BuildInfo contains build-time information

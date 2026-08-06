@@ -364,6 +364,7 @@ export default {
     groups: '分组管理',
     channels: '渠道管理',
     availableChannels: '模型价格',
+    pricingCalculator: '价格计算器',
     subscriptions: '订阅管理',
     accounts: '账号管理',
     proxies: 'IP管理',
@@ -4238,6 +4239,10 @@ export default {
       imageTestMode: '模式：生图测试',
       imagePreview: '生成结果：',
       imageReceived: '已收到第 {count} 张测试图片',
+	  paidImageTest: '付费生图测试',
+	  paidImageTestTitle: '确认付费生图测试',
+	  paidImageTestMessage: '该操作会向 Leonardo 发起真实的 896×896 图片生成请求，并可能消耗 API Credits。是否继续？',
+	  confirmPaidImageTest: '确认并生成',
       // Stats Modal
       viewStats: '查看统计',
       usageStatistics: '使用统计',

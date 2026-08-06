@@ -1,5 +1,34 @@
 # Leonardo Production API Probe Results
 
+## LEO-901 只读鉴权复验（2026-08-05）
+
+### 执行边界
+
+- 使用隔离数据库 `leo300a7_r1_20260803_2024` 中唯一的 Leonardo API Key 账号；
+- 仅执行一次 `GET /api/rest/v2/models`，未发送创建、上传或其他付费请求；
+- API Key 只在进程内读取并用于 Authorization Header，未写入文档和命令输出；
+- 本次不是 LEO-002 或 LEO-002C 的重试，也没有查询或补发历史 unknown 请求。
+
+### 结果
+
+| 项目 | 值 |
+|------|-----|
+| 时间 | 2026-08-05 Asia/Shanghai |
+| 请求 | `GET /api/rest/v2/models` |
+| 结果 | 失败 |
+| 脱敏错误 | `Invalid response from authorization hook` |
+| 错误路径 | `$` |
+| 错误代码 | `unexpected` |
+| 创建 POST 次数 | 0 |
+| 付费副作用 | 无 |
+
+### 判定与处置
+
+- 当前账号不能通过只读鉴权前置门禁；历史上同一项目存在 GET 200 证据，但不能据此推定当前凭证仍有效；
+- 在账号归属、Key 状态、Production API 权限、PAYG/余额和 Leonardo 服务状态人工确认前，LEO-901 真实创建保持阻塞；
+- 不执行付费图片创建、不切换账号自动重试、不把该错误解释为安全可重试的创建失败；
+- 恢复后必须先重新取得一次 `/v2/models` 200，再建立新的探针 ID、预算和停止条件。
+
 > 探针时间：2026-08-01T17:08:50+08:00 (Asia/Shanghai)
 > 目标环境：Leonardo Production API v2
 > 请求性质：模型目录 GET 为只读；另记录一次 POST 提交（结果见下）

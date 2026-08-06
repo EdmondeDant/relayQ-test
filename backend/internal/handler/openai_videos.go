@@ -34,6 +34,10 @@ func (h *OpenAIGatewayHandler) forwardXAIVideoSubmit(c *gin.Context, mode string
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
+	if apiKey.Group != nil && apiKey.Group.Platform == service.PlatformLeonardo {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Leonardo video generation is not verified for this platform")
+		return
+	}
 	if h.gatewayService == nil {
 		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Gateway service unavailable")
 		return
@@ -106,6 +110,10 @@ func (h *OpenAIGatewayHandler) forwardXAIVideoLookup(c *gin.Context, content boo
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
+		return
+	}
+	if apiKey.Group != nil && apiKey.Group.Platform == service.PlatformLeonardo {
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Leonardo video generation is not verified for this platform")
 		return
 	}
 	if h.gatewayService == nil {

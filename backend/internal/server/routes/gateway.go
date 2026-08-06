@@ -66,6 +66,10 @@ func RegisterGatewayRoutes(
 		gateway.GET("/models", h.Gateway.Models)
 		gateway.GET("/usage", h.Gateway.Usage)
 		gateway.POST("/media/generations", func(c *gin.Context) {
+			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+				c.Status(http.StatusNotFound)
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformLeonardo {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Media API is not supported for this platform"}})
@@ -74,12 +78,28 @@ func RegisterGatewayRoutes(
 			h.LeonardoMedia.Create(c)
 		})
 		gateway.GET("/media/generations/:id", func(c *gin.Context) {
+			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+				c.Status(http.StatusNotFound)
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformLeonardo {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Media API is not supported for this platform"}})
 				return
 			}
 			h.LeonardoMedia.Get(c)
+		})
+		gateway.GET("/media/generations/:id/content", func(c *gin.Context) {
+			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if getGroupPlatform(c) != service.PlatformLeonardo {
+				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Media API is not supported for this platform"}})
+				return
+			}
+			h.LeonardoMedia.Content(c)
 		})
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
@@ -119,7 +139,11 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Embeddings(c)
 		})
 		gateway.POST("/videos", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformXAI {
+			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -132,7 +156,11 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoGenerations(c)
 		})
 		gateway.POST("/videos/generations", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformXAI {
+			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -171,7 +199,7 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoExtensions(c)
 		})
 		gateway.GET("/videos/:request_id/content", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformXAI {
+			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -184,7 +212,7 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoContent(c)
 		})
 		gateway.GET("/videos/:request_id", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformXAI {
+			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -197,6 +225,14 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoStatus(c)
 		})
 		gateway.POST("/images/generations", func(c *gin.Context) {
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+					c.Status(http.StatusNotFound)
+					return
+				}
+				h.LeonardoMedia.OpenAIImagesGenerations(c)
+				return
+			}
 			if !isOpenAICompatiblePlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -210,6 +246,14 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Images(c)
 		})
 		gateway.POST("/images/edits", func(c *gin.Context) {
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+					c.Status(http.StatusNotFound)
+					return
+				}
+				h.LeonardoMedia.OpenAIImagesEdits(c)
+				return
+			}
 			if !isOpenAICompatiblePlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -280,7 +324,13 @@ func RegisterGatewayRoutes(
 	})
 	videoHandler := func(mode string) gin.HandlerFunc {
 		return func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformXAI {
+			platform := getGroupPlatform(c)
+			xaiOnly := mode == "edit" || mode == "extension"
+			if mode == "generation" && platform == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if (xaiOnly && platform != service.PlatformXAI) || (!xaiOnly && !isVideoGenerationPlatform(platform)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -311,6 +361,14 @@ func RegisterGatewayRoutes(
 	r.GET("/videos/:request_id/content", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, videoHandler("content"))
 	r.GET("/videos/:request_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, videoHandler("status"))
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if getGroupPlatform(c) == service.PlatformLeonardo {
+			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			h.LeonardoMedia.OpenAIImagesGenerations(c)
+			return
+		}
 		if !isOpenAICompatiblePlatform(getGroupPlatform(c)) {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 			c.JSON(http.StatusNotFound, gin.H{
@@ -324,6 +382,14 @@ func RegisterGatewayRoutes(
 		h.OpenAIGateway.Images(c)
 	})
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if getGroupPlatform(c) == service.PlatformLeonardo {
+			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			h.LeonardoMedia.OpenAIImagesEdits(c)
+			return
+		}
 		if !isOpenAICompatiblePlatform(getGroupPlatform(c)) {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 			c.JSON(http.StatusNotFound, gin.H{
@@ -370,6 +436,10 @@ func RegisterGatewayRoutes(
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
+}
+
+func isVideoGenerationPlatform(platform string) bool {
+	return platform == service.PlatformXAI || platform == service.PlatformLeonardo
 }
 
 func isOpenAICompatiblePlatform(platform string) bool {

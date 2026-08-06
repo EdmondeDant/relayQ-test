@@ -98,6 +98,14 @@ func (GenerationJob) Fields() []ent.Field {
 		field.Int("output_count").
 			Default(0).
 			NonNegative(),
+		field.Other("estimated_upstream_cost_amount", &decimal.Decimal{}).
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.String("estimated_upstream_cost_unit").Optional().Nillable().MaxLen(32),
+		field.String("pricing_snapshot_version").Optional().Nillable().MaxLen(64),
+		field.String("pricing_source").Optional().Nillable().MaxLen(128),
+		field.String("pricing_match_type").Optional().Nillable().MaxLen(32),
 		field.Other("actual_upstream_cost_amount", &decimal.Decimal{}).
 			Optional().
 			Nillable().
@@ -107,6 +115,14 @@ func (GenerationJob) Fields() []ent.Field {
 			Nillable().
 			MaxLen(32),
 		field.Other("customer_cost", &decimal.Decimal{}).
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Other("gross_margin", &decimal.Decimal{}).
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Other("cost_variance", &decimal.Decimal{}).
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),

@@ -75,6 +75,90 @@ func TestListModels(t *testing.T) {
 	}
 }
 
+func TestInitImageUploadSupportsStringFieldsWithoutForwardingAuthorization(t *testing.T) {
+	var uploadAuthorization string
+	var uploadedField, uploadedFile string
+	uploadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uploadAuthorization = r.Header.Get("Authorization")
+		reader, err := r.MultipartReader()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for {
+			part, err := reader.NextPart()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, _ := io.ReadAll(part)
+			if part.FormName() == "policy" {
+				uploadedField = string(value)
+			}
+			if part.FormName() == "file" {
+				uploadedFile = string(value)
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer uploadServer.Close()
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/rest/v1/init-image" || r.Header.Get("Authorization") != "Bearer test-key" {
+			t.Fatalf("request = %s authorization=%q", r.URL.Path, r.Header.Get("Authorization"))
+		}
+		_, _ = fmt.Fprintf(w, `{"uploadInitImage":{"id":"image-id","url":%q,"key":"key","fields":"{\"policy\":\"signed-policy\"}"}}`, uploadServer.URL)
+	}))
+	defer apiServer.Close()
+	client, err := NewClient(apiServer.URL+"/api/rest", "test-key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	upload, err := client.CreateInitImageUpload(context.Background(), ".JPG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.UploadInitImage(context.Background(), upload, "image.jpg", strings.NewReader("image-bytes")); err != nil {
+		t.Fatal(err)
+	}
+	if upload.ID != "image-id" || uploadAuthorization != "" || uploadedField != "signed-policy" || uploadedFile != "image-bytes" {
+		t.Fatalf("upload=%#v authorization=%q field=%q file=%q", upload, uploadAuthorization, uploadedField, uploadedFile)
+	}
+}
+
+func TestCreateInitImageUploadSupportsObjectFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `{"uploadInitImage":{"id":"image-id","url":"https://uploads.example","key":"key","fields":{"policy":"signed-policy"}}}`)
+	}))
+	defer server.Close()
+	client, _ := NewClient(server.URL, "test-key", time.Second)
+	upload, err := client.CreateInitImageUpload(context.Background(), "png")
+	if err != nil || upload.Fields["policy"] != "signed-policy" {
+		t.Fatalf("upload=%#v error=%v", upload, err)
+	}
+}
+
+func TestUploadInitImageRejectsInvalidInputsAndStatus(t *testing.T) {
+	client, _ := NewClient("https://api.example", "test-key", time.Second)
+	if _, err := client.CreateInitImageUpload(context.Background(), "gif"); err == nil {
+		t.Fatal("expected extension error")
+	}
+	if err := client.UploadInitImage(context.Background(), &InitImageUpload{URL: "https://uploads.example", Fields: map[string]string{"key": "value"}}, "empty.png", strings.NewReader("")); err == nil {
+		t.Fatal("expected empty file error")
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "secret signed response")
+	}))
+	defer server.Close()
+	client, _ = NewClient("https://api.example", "test-key", time.Second)
+	err := client.UploadInitImage(context.Background(), &InitImageUpload{URL: server.URL, Fields: map[string]string{"key": "signed-secret"}}, "image.png", strings.NewReader("x"))
+	if err == nil || strings.Contains(err.Error(), "signed-secret") || strings.Contains(err.Error(), "secret signed response") {
+		t.Fatalf("error=%v", err)
+	}
+}
+
 func TestListModelsErrorDetailsAndRedaction(t *testing.T) {
 	key := "secret-leonardo-key"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -240,6 +324,87 @@ func TestCreateGenerationOnceAndParseCosts(t *testing.T) {
 	}
 }
 
+func TestCreateGenerationRawPreservesBody(t *testing.T) {
+	want := []byte(`{"model":"flux-schnell", "public":false,"parameters":{"prompt":"cat","unknown":1.2300}}`)
+	var got []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, _ = io.ReadAll(r.Body)
+		if r.Header.Get("Authorization") != "Bearer test-key" || r.Header.Get("Content-Type") != "application/json" {
+			t.Fatalf("headers = %#v", r.Header)
+		}
+		_, _ = fmt.Fprintf(w, `{"generationId":%q}`, testGenerationID)
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "test-key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := client.CreateGenerationRaw(context.Background(), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.GenerationID != testGenerationID || !bytes.Equal(got, want) {
+		t.Fatalf("response=%#v body=%q", response, got)
+	}
+}
+
+func TestCreateGenerationRawRejectsInvalidJSONBeforeWrite(t *testing.T) {
+	var calls atomic.Int32
+	client, err := NewClientWithHTTPClient("https://api.example", "test-key", time.Second, &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return nil, errors.New("unexpected")
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.CreateGenerationRaw(context.Background(), []byte(`{"model":`))
+	if !errors.Is(err, ErrGenerationRequestNotWritten) || calls.Load() != 0 {
+		t.Fatalf("error=%v calls=%d", err, calls.Load())
+	}
+}
+
+func TestCreateGenerationParsesNestedJob(t *testing.T) {
+	for _, envelope := range []string{"generate", "sdGenerationJob"} {
+		t.Run(envelope, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = fmt.Fprintf(w, `{"%s":{"generationId":%q,"apiCreditCost":9}}`, envelope, testGenerationID)
+			}))
+			defer server.Close()
+			client, err := NewClient(server.URL, "key", time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "verified-slug", Parameters: map[string]any{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.GenerationID != testGenerationID || response.APICreditCost == nil || *response.APICreditCost != 9 {
+				t.Fatalf("response = %#v", response)
+			}
+		})
+	}
+}
+
+func TestCreateGenerationIgnoresUnknownCostShapeAfterValidID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `{"generate":{"generationId":%q,"apiCreditCost":{"amount":9},"cost":0.003}}`, testGenerationID)
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "verified-slug", Parameters: map[string]any{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.GenerationID != testGenerationID || response.Cost != nil || response.APICreditCost != nil {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
 func TestCreateGenerationAPICreditCostMissingAndZero(t *testing.T) {
 	for _, test := range []struct {
 		name string
@@ -360,7 +525,6 @@ func TestCreateGenerationDiagnostics(t *testing.T) {
 		{name: "decode", status: http.StatusOK, body: io.NopCloser(strings.NewReader("{")), class: GenerationErrorClassResponseDecodeFailed, bodySize: 1, wantHash: true},
 		{name: "missing id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(`{}`)), class: GenerationErrorClassGenerationIDMissing, bodySize: 2, wantHash: true},
 		{name: "invalid id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(`{"generationId":"invalid-secret-id"}`)), class: GenerationErrorClassGenerationIDInvalid, bodySize: int64(len(`{"generationId":"invalid-secret-id"}`)), wantHash: true},
-		{name: "nested id", status: http.StatusOK, body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"sdGenerationJob":{"generationId":%q}}`, testGenerationID))), class: GenerationErrorClassGenerationIDMissing, bodySize: int64(len(fmt.Sprintf(`{"sdGenerationJob":{"generationId":%q}}`, testGenerationID))), wantHash: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var calls atomic.Int32
@@ -491,7 +655,7 @@ func TestGetGenerationStatusesAndImages(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if generation.ID != testGenerationID || generation.Status != status || len(generation.GeneratedImages) != 1 || generation.GeneratedImages[0].ID != "image-1" || generation.GeneratedImages[0].URL != "https://example.com/image.png" || !generation.GeneratedImages[0].NSFW {
+			if generation.ID != testGenerationID || generation.Status != status || len(generation.GeneratedImages) != 1 || generation.GeneratedImages[0].ID != "image-1" || generation.GeneratedImages[0].URL != "https://example.com/image.png" || generation.GeneratedImages[0].NSFW == nil || !*generation.GeneratedImages[0].NSFW {
 				t.Fatalf("generation = %#v", generation)
 			}
 		})

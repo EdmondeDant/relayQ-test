@@ -205,6 +205,56 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIResponse(t *testing.T) {
 	require.Equal(t, "Bearer openai-key", upstream.lastReq.Header.Get("Authorization"))
 }
 
+func TestFetchUpstreamSupportedModelsFiltersLeonardoVerifiedModels(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(`{"productionApiAvailableModels":[
+			{"id":"unknown-id","name":"Unknown"},
+			{"id":"1dd50843-d653-4516-a8e3-f0238ee453ff","name":"FLUX Schnell","parameters":{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"],"additionalProperties":false}},
+			{"id":"1dd50843-d653-4516-a8e3-f0238ee453ff","name":"FLUX Schnell","parameters":{"type":"object","properties":{"prompt":{"type":"string"}},"required":["prompt"],"additionalProperties":false}}
+		]}`)),
+	}}
+	svc := &AccountTestService{httpUpstream: upstream, cfg: upstreamModelSyncTestConfig()}
+
+	models, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		ID:       10,
+		Platform: PlatformLeonardo,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "leonardo-key",
+			"base_url": "https://cloud.leonardo.ai/api/rest",
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"flux-schnell"}, models)
+	require.Equal(t, "https://cloud.leonardo.ai/api/rest/v2/models", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer leonardo-key", upstream.lastReq.Header.Get("Authorization"))
+}
+
+func TestFetchUpstreamSupportedModelsRejectsUnknownLeonardoModels(t *testing.T) {
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"productionApiAvailableModels":[{"id":"unknown-id","name":"Unknown"}]}`)),
+	}}
+	svc := &AccountTestService{httpUpstream: upstream, cfg: upstreamModelSyncTestConfig()}
+
+	_, err := svc.FetchUpstreamSupportedModels(context.Background(), &Account{
+		ID:          11,
+		Platform:    PlatformLeonardo,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "leonardo-key"},
+	})
+
+	require.Error(t, err)
+	var syncErr *UpstreamModelSyncError
+	require.True(t, errors.As(err, &syncErr))
+	require.Equal(t, UpstreamModelSyncErrorUpstream, syncErr.Kind)
+	require.Equal(t, "Leonardo upstream returned no verified models", syncErr.SafeMessage())
+}
+
 func TestFetchUpstreamSupportedModelsDoesNotExposeUpstreamBody(t *testing.T) {
 	t.Parallel()
 
@@ -235,7 +285,6 @@ func TestFetchUpstreamSupportedModelsDoesNotExposeUpstreamBody(t *testing.T) {
 	require.NotContains(t, syncErr.SafeMessage(), "SECRET_TOKEN")
 	require.Contains(t, syncErr.SafeMessage(), "HTTP 502")
 }
-
 
 func TestFetchUpstreamSupportedModelsIncludesSanitizedUpstreamReason(t *testing.T) {
 

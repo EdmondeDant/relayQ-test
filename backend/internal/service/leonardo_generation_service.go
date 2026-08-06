@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 type LeonardoGenerationClient interface {
 	CreateGeneration(context.Context, leonardo.CreateGenerationRequest) (*leonardo.CreateGenerationResponse, error)
+	CreateGenerationRaw(context.Context, []byte) (*leonardo.CreateGenerationResponse, error)
 }
 
 var ErrLeonardoGenerationRequestNotWritten = errors.New("leonardo generation request not written")
@@ -28,10 +30,19 @@ func NewLeonardoGenerationService(repository GenerationJobRepository, client Leo
 }
 
 func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *GenerationJob, request leonardo.CreateGenerationRequest) (*GenerationJob, error) {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return s.CreateGenerationRaw(ctx, job, body)
+}
+
+func (s *LeonardoGenerationService) CreateGenerationRaw(ctx context.Context, job *GenerationJob, body []byte) (*GenerationJob, error) {
 	if s == nil || s.repository == nil || s.client == nil {
 		return nil, errors.New("leonardo generation service is not configured")
 	}
-	if job == nil {
+	var request map[string]any
+	if job == nil || json.Unmarshal(body, &request) != nil {
 		return nil, errors.New("generation job is required")
 	}
 	reserved := job.BillingStatus == GenerationJobBillingStatusReserved && job.CustomerCost != nil && job.CustomerCost.Sign() > 0 && job.BillingReference != nil && strings.TrimSpace(*job.BillingReference) != ""
@@ -44,12 +55,14 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 	created.Status = GenerationJobStatusCreated
 	created.UpstreamGenerationID = nil
 	created.UpstreamStatus = nil
-	created.RequestPayload = sanitizeLeonardoGenerationPayload(request)
+	created.RequestPayload = sanitizeLeonardoGenerationRawPayload(request)
 	created.ResultPayload = map[string]any{}
 	created.ErrorCode = nil
 	created.ErrorMessage = nil
 	created.ActualUpstreamCostAmount = nil
 	created.ActualUpstreamCostUnit = nil
+	created.GrossMargin = nil
+	created.CostVariance = nil
 	if !reserved {
 		created.CustomerCost = nil
 		created.BillingReference = nil
@@ -67,7 +80,7 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 		return &created, err
 	}
 
-	response, err := s.client.CreateGeneration(ctx, request)
+	response, err := s.client.CreateGenerationRaw(ctx, body)
 	if err != nil {
 		return s.storeSubmissionError(ctx, &submitting, err)
 	}
@@ -90,6 +103,18 @@ func (s *LeonardoGenerationService) CreateGeneration(ctx context.Context, job *G
 		amount := decimal.NewFromFloat(response.Cost.Amount)
 		queued.ActualUpstreamCostAmount = &amount
 		queued.ActualUpstreamCostUnit = stringPointer(response.Cost.Unit)
+		if queued.EstimatedUpstreamCostAmount != nil && queued.EstimatedUpstreamCostUnit != nil && strings.EqualFold(strings.TrimSpace(*queued.EstimatedUpstreamCostUnit), strings.TrimSpace(response.Cost.Unit)) {
+			variance := amount.Sub(*queued.EstimatedUpstreamCostAmount)
+			queued.CostVariance = &variance
+			if queued.CustomerCost != nil {
+				margin := queued.CustomerCost.Sub(amount)
+				queued.GrossMargin = &margin
+			}
+		}
+	} else if response.APICreditCost != nil {
+		amount := decimal.NewFromFloat(*response.APICreditCost)
+		queued.ActualUpstreamCostAmount = &amount
+		queued.ActualUpstreamCostUnit = stringPointer("API_CREDIT")
 	}
 	if err := s.repository.CompareAndSwapStatus(ctx, submitting.PublicID, GenerationJobStatusSubmitting, &queued); err != nil {
 		return &submitting, err
@@ -123,7 +148,8 @@ func (s *LeonardoGenerationService) storeSubmissionUnknown(ctx context.Context, 
 	unknown.OutputCount = 0
 	unknown.ActualUpstreamCostAmount = nil
 	unknown.ActualUpstreamCostUnit = nil
-	unknown.CustomerCost = nil
+	unknown.GrossMargin = nil
+	unknown.CostVariance = nil
 	unknown.NextPollAt = nil
 	unknown.LastPolledAt = nil
 	unknown.SubmittedAt = nil
@@ -208,6 +234,10 @@ func sanitizeLeonardoGenerationPayload(request leonardo.CreateGenerationRequest)
 		"public":     request.Public,
 		"parameters": request.Parameters,
 	}, "api_key", "apikey", "authorization", "cookie", "signature", "x-api-key", "x-amz-signature")
+}
+
+func sanitizeLeonardoGenerationRawPayload(request map[string]any) map[string]any {
+	return logredact.RedactMap(request, "api_key", "apikey", "authorization", "cookie", "signature", "x-api-key", "x-amz-signature")
 }
 
 func leonardoGenerationCostPayload(response *leonardo.CreateGenerationResponse) map[string]any {

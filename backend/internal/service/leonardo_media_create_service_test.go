@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,16 +17,17 @@ func (s *leonardoMediaCreateAccountRepoStub) ListSchedulableByGroupIDAndPlatform
 	return s.accounts, nil
 }
 
-func TestLeonardoMediaCreateServiceQuoteValidation(t *testing.T) {
-	require.True(t, validLeonardoMediaQuote(decimal.RequireFromString("0.005")))
-	require.False(t, validLeonardoMediaQuote(decimal.Zero))
-	require.False(t, validLeonardoMediaQuote(decimal.RequireFromString("0.000000001")))
-	require.False(t, validLeonardoMediaQuote(decimal.RequireFromString("1000000000000")))
+func TestLeonardoMediaCreateServiceEstimateCustomerQuote(t *testing.T) {
+	resolver := &leonardoImageQuotePriceResolverFake{estimate: quoteEstimate("0.003", "2026-08-01", "leonardo_authenticated_pricing_calculator", "exact")}
+	service := NewLeonardoMediaCreateService(nil, &LeonardoImageCreateOrchestrator{quotes: NewLeonardoImageQuoteGuard(resolver, &leonardoImageQuoteBalanceReaderFake{})})
+	quote, err := service.EstimateQuote(context.Background(), "flux-schnell", 896, 896, 1)
+	require.NoError(t, err)
+	require.Equal(t, "0.0213", quote.String())
 }
 
 func TestLeonardoMediaCreateServiceAccountValidation(t *testing.T) {
 	groupID := int64(2)
-	valid := Account{ID: 1, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "leo-key"}, Status: StatusActive, Schedulable: true, GroupIDs: []int64{groupID}}
+	valid := Account{ID: 1, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "leo-key", "model_mapping": map[string]any{"flux-schnell": "flux-schnell"}}, Status: StatusActive, Schedulable: true, GroupIDs: []int64{groupID}}
 	tests := []struct {
 		name    string
 		account *Account
@@ -51,16 +51,16 @@ func TestLeonardoMediaCreateServiceAccountValidation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.want, validLeonardoMediaAccount(test.account, groupID))
+			require.Equal(t, test.want, validLeonardoMediaAccount(test.account, groupID, "flux-schnell"))
 		})
 	}
 }
 
 func TestLeonardoMediaCreateServiceAccountSelectionMatrix(t *testing.T) {
-	valid := Account{ID: 1, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "leo-key"}, Status: StatusActive, Schedulable: true, GroupIDs: []int64{2}}
+	valid := Account{ID: 1, Platform: PlatformLeonardo, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "leo-key", "model_mapping": map[string]any{"flux-schnell": "flux-schnell"}}, Status: StatusActive, Schedulable: true, GroupIDs: []int64{2}}
 	literalAPIKey := valid
 	literalAPIKey.Type = "api_key"
-	input := LeonardoMediaCreateInput{IdempotencyKey: "leo-300a8", UserID: 1, APIKeyID: 1, GroupID: 2, Model: "flux-schnell", Prompt: "cat", Width: 896, Height: 896, Quantity: 1, CustomerQuoteUSD: decimal.RequireFromString("0.005")}
+	input := LeonardoMediaCreateInput{IdempotencyKey: "leo-300a8", UserID: 1, APIKeyID: 1, GroupID: 2, Model: "flux-schnell", Prompt: "cat", Width: 896, Height: 896, Quantity: 1}
 	tests := []struct {
 		name     string
 		accounts []Account
@@ -73,7 +73,8 @@ func TestLeonardoMediaCreateServiceAccountSelectionMatrix(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			service := NewLeonardoMediaCreateService(&leonardoMediaCreateAccountRepoStub{accounts: test.accounts}, &LeonardoImageCreateOrchestrator{})
+			resolver := &leonardoImageQuotePriceResolverFake{estimate: quoteEstimate("0.003", "2026-08-01", "leonardo_authenticated_pricing_calculator", "exact")}
+			service := NewLeonardoMediaCreateService(&leonardoMediaCreateAccountRepoStub{accounts: test.accounts}, &LeonardoImageCreateOrchestrator{quotes: NewLeonardoImageQuoteGuard(resolver, nil)})
 			_, err := service.Create(context.Background(), input)
 			require.True(t, errors.Is(err, test.wantErr), "got %v", err)
 		})
