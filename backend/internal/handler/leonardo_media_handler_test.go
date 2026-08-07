@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -281,6 +282,43 @@ func TestLeonardoOpenAIImagesEditsRejectsMask(t *testing.T) {
 
 	handler.OpenAIImagesEdits(c)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestParseLeonardoImageEditMultipartAcceptsUpToSixImages(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	require.NoError(t, err)
+	for i := 0; i < 6; i++ {
+		part, err := createLeonardoImageEditPart(writer, "image", fmt.Sprintf("image-%d.png", i), "image/png")
+		require.NoError(t, err)
+		_, err = part.Write(png)
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	fields, images, err := parseLeonardoImageEditMultipart(multipart.NewReader(bytes.NewReader(body.Bytes()), writer.Boundary()))
+	require.NoError(t, err)
+	require.Equal(t, "gpt-image-2", fields["model"])
+	require.Len(t, images, 6)
+}
+
+func TestParseLeonardoImageEditMultipartRejectsSevenImages(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	require.NoError(t, err)
+	for i := 0; i < 7; i++ {
+		part, err := createLeonardoImageEditPart(writer, "image", fmt.Sprintf("image-%d.png", i), "image/png")
+		require.NoError(t, err)
+		_, err = part.Write(png)
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	_, _, err = parseLeonardoImageEditMultipart(multipart.NewReader(bytes.NewReader(body.Bytes()), writer.Boundary()))
+	require.ErrorIs(t, err, service.ErrLeonardoImageInputInvalid)
 }
 
 func TestLeonardoMediaHandlerGetRejectsInvalidPublicID(t *testing.T) {

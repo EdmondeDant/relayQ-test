@@ -34,6 +34,7 @@ type LeonardoImageCreateRequest struct {
 	QualityTier      string
 	CustomerQuoteUSD decimal.Decimal
 	InputImage       *LeonardoImageInput
+	InputImages      []*LeonardoImageInput
 	ImageReferences  []leonardo.ImageReference
 	ImageCapability  *LeonardoImageReferenceCapability
 	FluxGuidances    LeonardoFluxGuidances
@@ -216,7 +217,7 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 	if model == "gpt-image-2" {
 		parameters["quality"] = strings.ToUpper(strings.TrimSpace(request.QualityTier))
 	}
-	if (len(request.FluxGuidances.Content) > 0 || len(request.FluxGuidances.Style) > 0) && (request.InputImage != nil || len(request.ImageReferences) > 0 || request.ImageCapability != nil) {
+	if (len(request.FluxGuidances.Content) > 0 || len(request.FluxGuidances.Style) > 0) && (request.InputImage != nil || len(request.InputImages) > 0 || len(request.ImageReferences) > 0 || request.ImageCapability != nil) {
 		return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
 	}
 	fluxGuidances, err := BuildLeonardoFluxGuidances(model, request.FluxGuidances)
@@ -227,7 +228,11 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		parameters["guidances"] = fluxGuidances
 	}
 	references := append([]leonardo.ImageReference(nil), request.ImageReferences...)
+	inputImages := append([]*LeonardoImageInput(nil), request.InputImages...)
 	if request.InputImage != nil {
+		inputImages = append([]*LeonardoImageInput{request.InputImage}, inputImages...)
+	}
+	if len(inputImages) > 0 {
 		strength := ""
 		if request.ImageCapability != nil {
 			strength = request.ImageCapability.DefaultStrength
@@ -236,7 +241,11 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		if request.ImageCapability == nil || (strengthRequired && strength == "") {
 			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
 		}
-		references = append([]leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "pending", Type: "UPLOADED"}, Strength: strength}}, references...)
+		pending := make([]leonardo.ImageReference, len(inputImages))
+		for i := range pending {
+			pending[i] = leonardo.ImageReference{Image: leonardo.ImageReferenceImage{ID: "pending", Type: "UPLOADED"}, Strength: strength}
+		}
+		references = append(pending, references...)
 		if _, err := BuildLeonardoImageReferenceGuidance(references, request.ImageCapability); err != nil {
 			return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
 		}
@@ -244,11 +253,13 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		if !ok || o.uploads == nil {
 			return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
 		}
-		uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, request.InputImage)
-		if uploadErr != nil {
-			return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		for i, image := range inputImages {
+			uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, image)
+			if uploadErr != nil {
+				return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+			}
+			references[i].Image.ID = uploadedID
 		}
-		references[0].Image.ID = uploadedID
 	}
 	guidance, err := BuildLeonardoImageReferenceGuidance(references, request.ImageCapability)
 	if err != nil {

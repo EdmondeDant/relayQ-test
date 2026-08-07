@@ -105,6 +105,30 @@ func TestLeonardoImageCreateOrchestratorUploadsEditImage(t *testing.T) {
 	require.JSONEq(t, `{"image_reference":[{"image":{"id":"uploaded-1","type":"UPLOADED"},"strength":"MID"}]}`, marshalLeonardoTestJSON(t, client.request.Parameters["guidances"]))
 }
 
+func TestLeonardoImageCreateOrchestratorUploadsMultipleGPTImageReferences(t *testing.T) {
+	repository := &leonardoGenerationRepositoryMock{}
+	client := &leonardoGenerationClientMock{
+		response:   &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"},
+		initUpload: &leonardo.InitImageUpload{ID: "uploaded-1", URL: "https://upload.example"},
+	}
+	request := createImageRequest("0.005")
+	request.InputImages = []*LeonardoImageInput{
+		{Data: []byte("image-1"), Extension: "png", FileName: "image-1.png"},
+		{Data: []byte("image-2"), Extension: "png", FileName: "image-2.png"},
+	}
+	request.ImageCapability = &LeonardoImageReferenceCapability{MaxItems: 6}
+	orchestrator := createOrchestrator(createFundsFake("0.005"), &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, repository)
+	orchestrator.uploads = NewLeonardoImageUploadService(nil)
+
+	job, err := orchestrator.Create(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusQueued, job.Status)
+	require.Equal(t, 2, client.initCalls)
+	require.Equal(t, 2, client.uploadCalls)
+	require.JSONEq(t, `{"image_reference":[{"image":{"id":"uploaded-1","type":"UPLOADED"}},{"image":{"id":"uploaded-1","type":"UPLOADED"}}]}`, marshalLeonardoTestJSON(t, client.request.Parameters["guidances"]))
+}
+
 func TestLeonardoImageCreateOrchestratorBuildsFluxGuidances(t *testing.T) {
 	repository := &leonardoGenerationRepositoryMock{}
 	client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"}}

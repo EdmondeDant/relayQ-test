@@ -65,7 +65,7 @@
                             <div v-if="model.pricing.cache_read_price != null" class="price-line">缓存读取价格 {{ formatScaled(model.pricing.cache_read_price, perMillionScale) }}{{ unitPerMillion }}</div>
                           </template>
                           <template v-else-if="model.pricing.billing_mode === BILLING_MODE_PER_REQUEST">
-                            <div class="price-line">按次价格 {{ formatScaled(model.pricing.per_request_price, 1) }}{{ unitPerRequest }}</div>
+                            <div class="price-line">按次价格 {{ formatScaled(model.pricing.per_request_price, 1) }}{{ unitPerRequest }}<span v-if="model.platform === 'leonardo'"> · 其他质量参考价格计算器</span></div>
                             <template v-if="getPricingIntervalPriceItems(model).length > 0">
                               <div v-for="item in getPricingIntervalPriceItems(model)" :key="`${model.name}-${item.label}`" class="price-line">
                                 {{ item.label }} {{ formatScaled(item.value, 1) }}{{ unitPerRequest }}
@@ -78,7 +78,7 @@
                             </template>
                           </template>
                           <template v-else-if="model.pricing.billing_mode === BILLING_MODE_IMAGE">
-                            <div class="price-line">按次价格 {{ formatScaled(model.pricing.per_request_price, 1) }}{{ unitPerRequest }}</div>
+                            <div class="price-line">按次价格 {{ formatScaled(model.pricing.per_request_price, 1) }}{{ unitPerRequest }}<span v-if="model.platform === 'leonardo'"> · 其他质量参考价格计算器</span></div>
                             <template v-if="getPricingIntervalPriceItems(model).length > 0">
                               <div v-for="item in getPricingIntervalPriceItems(model)" :key="`${model.name}-${item.label}`" class="price-line">
                                 {{ item.label }} {{ formatScaled(item.value, 1) }}{{ unitPerRequest }}

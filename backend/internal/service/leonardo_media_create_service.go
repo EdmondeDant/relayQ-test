@@ -50,6 +50,7 @@ type LeonardoMediaCreateInput struct {
 	Height          int
 	Quantity        int
 	InputImage      *LeonardoImageInput
+	InputImages     []*LeonardoImageInput
 	ImageReferences []leonardo.ImageReference
 	ImageCapability *LeonardoImageReferenceCapability
 	FluxGuidances   LeonardoFluxGuidances
@@ -129,19 +130,19 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	publicSum := sha256.Sum256([]byte("leonardo_media_create\n" + strconv.FormatInt(input.UserID, 10) + "\n" + key))
 	publicID := "gen_rq_" + hex.EncodeToString(publicSum[:16])
 	fingerprint, err := json.Marshal(struct {
-		Model            string                    `json:"model"`
-		Modality         string                    `json:"modality"`
-		Prompt           string                    `json:"prompt"`
-		Public           bool                      `json:"public"`
-		Width            int                       `json:"width"`
-		Height           int                       `json:"height"`
-		Quantity         int                       `json:"quantity"`
-		CustomerQuoteUSD string                    `json:"customer_quote_usd"`
-		InputImageSHA256 string                    `json:"input_image_sha256,omitempty"`
-		ImageReferences  []leonardo.ImageReference `json:"image_references,omitempty"`
-		FluxGuidances    LeonardoFluxGuidances     `json:"flux_guidances,omitempty"`
-		RawBodySHA256    string                    `json:"raw_body_sha256,omitempty"`
-	}{model, "image", prompt, input.Public, input.Width, input.Height, input.Quantity, quote.String(), leonardoMediaInputImageSHA256(input.InputImage), input.ImageReferences, input.FluxGuidances, leonardoMediaRawBodySHA256(input.RawBody)})
+		Model             string                    `json:"model"`
+		Modality          string                    `json:"modality"`
+		Prompt            string                    `json:"prompt"`
+		Public            bool                      `json:"public"`
+		Width             int                       `json:"width"`
+		Height            int                       `json:"height"`
+		Quantity          int                       `json:"quantity"`
+		CustomerQuoteUSD  string                    `json:"customer_quote_usd"`
+		InputImageSHA256s []string                  `json:"input_image_sha256s,omitempty"`
+		ImageReferences   []leonardo.ImageReference `json:"image_references,omitempty"`
+		FluxGuidances     LeonardoFluxGuidances     `json:"flux_guidances,omitempty"`
+		RawBodySHA256     string                    `json:"raw_body_sha256,omitempty"`
+	}{model, "image", prompt, input.Public, input.Width, input.Height, input.Quantity, quote.String(), leonardoMediaInputImageSHA256s(input.InputImage, input.InputImages), input.ImageReferences, input.FluxGuidances, leonardoMediaRawBodySHA256(input.RawBody)})
 	if err != nil {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
@@ -162,7 +163,7 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	if len(valid) > 1 {
 		return nil, ErrLeonardoMediaAccountSelectionAmbiguous
 	}
-	job, err := s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, QualityTier: input.QualityTier, CustomerQuoteUSD: quote, InputImage: input.InputImage, ImageReferences: input.ImageReferences, ImageCapability: input.ImageCapability, FluxGuidances: input.FluxGuidances, RawBody: input.RawBody, MultipartImages: input.MultipartImages})
+	job, err := s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, QualityTier: input.QualityTier, CustomerQuoteUSD: quote, InputImage: input.InputImage, InputImages: input.InputImages, ImageReferences: input.ImageReferences, ImageCapability: input.ImageCapability, FluxGuidances: input.FluxGuidances, RawBody: input.RawBody, MultipartImages: input.MultipartImages})
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +190,20 @@ func leonardoMediaInputImageSHA256(input *LeonardoImageInput) string {
 		return ""
 	}
 	return LeonardoImageSHA256(input.Data)
+}
+
+func leonardoMediaInputImageSHA256s(input *LeonardoImageInput, inputs []*LeonardoImageInput) []string {
+	all := append([]*LeonardoImageInput(nil), inputs...)
+	if input != nil {
+		all = append([]*LeonardoImageInput{input}, all...)
+	}
+	hashes := make([]string, 0, len(all))
+	for _, image := range all {
+		if hash := leonardoMediaInputImageSHA256(image); hash != "" {
+			hashes = append(hashes, hash)
+		}
+	}
+	return hashes
 }
 
 func validLeonardoMediaAccount(account *Account, groupID int64, model string) bool {

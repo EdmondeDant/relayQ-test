@@ -82,11 +82,11 @@ type leonardoOpenAIImagesResult struct {
 }
 
 type leonardoOpenAIImageEditFingerprint struct {
-	Model       string `json:"model"`
-	Prompt      string `json:"prompt"`
-	Size        string `json:"size"`
-	N           int    `json:"n"`
-	ImageSHA256 string `json:"image_sha256"`
+	Model        string   `json:"model"`
+	Prompt       string   `json:"prompt"`
+	Size         string   `json:"size"`
+	N            int      `json:"n"`
+	ImageSHA256s []string `json:"image_sha256s"`
 }
 
 func NewLeonardoMediaHandler(create *service.LeonardoMediaCreateService, get *service.LeonardoMediaGetService) *LeonardoMediaHandler {
@@ -392,7 +392,7 @@ func (h *LeonardoMediaHandler) OpenAIImagesEdits(c *gin.Context) {
 		leonardoOpenAIError(c, http.StatusBadRequest, "invalid_request_error", "Content-Type must be multipart/form-data", "invalid_content_type")
 		return
 	}
-	fields, image, err := parseLeonardoImageEditMultipart(multipart.NewReader(c.Request.Body, parameters["boundary"]))
+	fields, images, err := parseLeonardoImageEditMultipart(multipart.NewReader(c.Request.Body, parameters["boundary"]))
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, service.ErrLeonardoImageInputTooLarge) {
@@ -422,7 +422,15 @@ func (h *LeonardoMediaHandler) OpenAIImagesEdits(c *gin.Context) {
 		leonardoOpenAIError(c, http.StatusBadRequest, "invalid_request_error", "Leonardo image edits are not verified for this model", "model_not_supported")
 		return
 	}
-	key, automaticKey := leonardoOpenAIImagesIdempotencyKey(c.GetHeader("Idempotency-Key"), subject.UserID, apiKey.ID, c.FullPath(), []byte(model+"\n"+prompt+"\n"+size+"\n"+quality+"\n"+strconv.Itoa(n)+"\n"+service.LeonardoImageSHA256(image.Data)), time.Now())
+	if len(images) > capability.MaxItems {
+		leonardoOpenAIError(c, http.StatusBadRequest, "invalid_request_error", "Too many reference images for this model", "invalid_request")
+		return
+	}
+	imageHashes := make([]string, len(images))
+	for i := range images {
+		imageHashes[i] = service.LeonardoImageSHA256(images[i].Data)
+	}
+	key, automaticKey := leonardoOpenAIImagesIdempotencyKey(c.GetHeader("Idempotency-Key"), subject.UserID, apiKey.ID, c.FullPath(), []byte(model+"\n"+prompt+"\n"+size+"\n"+quality+"\n"+strconv.Itoa(n)+"\n"+strings.Join(imageHashes, "\n")), time.Now())
 	if _, err := h.create.EstimateQualityQuote(c.Request.Context(), model, width, height, n, quality); err != nil {
 		leonardoOpenAIError(c, http.StatusBadRequest, "invalid_request_error", "Model or image parameters are not supported", "model_not_supported")
 		return
@@ -434,9 +442,9 @@ func (h *LeonardoMediaHandler) OpenAIImagesEdits(c *gin.Context) {
 	}
 	result, err := coordinator.Execute(c.Request.Context(), service.IdempotencyExecuteOptions{
 		Scope: leonardoOpenAIImagesScope("edit", subject.UserID) + map[bool]string{true: ":automatic", false: ":explicit"}[automaticKey], ActorScope: "user:" + strconv.FormatInt(subject.UserID, 10), Method: c.Request.Method,
-		Route: c.FullPath(), IdempotencyKey: key, Payload: leonardoOpenAIImageEditFingerprint{Model: model, Prompt: prompt, Size: size, N: n, ImageSHA256: service.LeonardoImageSHA256(image.Data)}, RequireKey: true, TTL: map[bool]time.Duration{true: 20 * time.Minute, false: service.DefaultWriteIdempotencyTTL()}[automaticKey],
+		Route: c.FullPath(), IdempotencyKey: key, Payload: leonardoOpenAIImageEditFingerprint{Model: model, Prompt: prompt, Size: size, N: n, ImageSHA256s: imageHashes}, RequireKey: true, TTL: map[bool]time.Duration{true: 20 * time.Minute, false: service.DefaultWriteIdempotencyTTL()}[automaticKey],
 	}, func(ctx context.Context) (any, error) {
-		created, createErr := h.create.Create(ctx, service.LeonardoMediaCreateInput{IdempotencyKey: key, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: model, Prompt: prompt, Width: width, Height: height, Quantity: n, QualityTier: quality, InputImage: image, ImageCapability: capability})
+		created, createErr := h.create.Create(ctx, service.LeonardoMediaCreateInput{IdempotencyKey: key, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: model, Prompt: prompt, Width: width, Height: height, Quantity: n, QualityTier: quality, InputImages: images, ImageCapability: capability})
 		if createErr != nil {
 			return nil, createErr
 		}
@@ -471,10 +479,10 @@ func leonardoOpenAIImagesScope(operation string, userID int64) string {
 	return "leonardo_openai_images_" + operation + ":user:" + strconv.FormatInt(userID, 10)
 }
 
-func parseLeonardoImageEditMultipart(reader *multipart.Reader) (map[string]string, *service.LeonardoImageInput, error) {
+func parseLeonardoImageEditMultipart(reader *multipart.Reader) (map[string]string, []*service.LeonardoImageInput, error) {
 	allowedFields := map[string]struct{}{"model": {}, "prompt": {}, "size": {}, "quality": {}, "n": {}, "mask": {}}
 	fields := map[string]string{}
-	var image *service.LeonardoImageInput
+	images := make([]*service.LeonardoImageInput, 0, 6)
 	for {
 		part, err := reader.NextPart()
 		if errors.Is(err, io.EOF) {
@@ -490,13 +498,14 @@ func parseLeonardoImageEditMultipart(reader *multipart.Reader) (map[string]strin
 			}
 		}
 		if name == "image" {
-			if image != nil || part.FileName() == "" {
+			if len(images) >= 6 || part.FileName() == "" {
 				return nil, nil, service.ErrLeonardoImageInputInvalid
 			}
-			image, err = service.ReadLeonardoMultipartImage(part, part.FileName(), part.Header.Get("Content-Type"), 20<<20)
-			if err != nil {
-				return nil, nil, err
+			image, imageErr := service.ReadLeonardoMultipartImage(part, part.FileName(), part.Header.Get("Content-Type"), 20<<20)
+			if imageErr != nil {
+				return nil, nil, imageErr
 			}
+			images = append(images, image)
 			continue
 		}
 		if name == "mask" {
@@ -515,10 +524,10 @@ func parseLeonardoImageEditMultipart(reader *multipart.Reader) (map[string]strin
 		}
 		fields[name] = string(value)
 	}
-	if image == nil {
+	if len(images) == 0 {
 		return nil, nil, service.ErrLeonardoImageInputInvalid
 	}
-	return fields, image, nil
+	return fields, images, nil
 }
 
 func (h *LeonardoMediaHandler) waitLeonardoOpenAIImages(ctx context.Context, input service.LeonardoMediaGetInput, createdAt int64, responseFormat string) (*leonardoOpenAIImagesResult, error) {

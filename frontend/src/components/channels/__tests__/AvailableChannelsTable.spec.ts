@@ -177,4 +177,43 @@ describe('AvailableChannelsTable', () => {
     expect(text.indexOf('z-openai')).toBeLessThan(text.indexOf('a-leonardo'))
     expect(text.indexOf('a-leonardo')).toBeLessThan(text.indexOf('b-leonardo'))
   })
+
+  it('shows the pricing calculator hint only for Leonardo models', () => {
+    const pricing = {
+      billing_mode: BILLING_MODE_IMAGE,
+      input_price: null,
+      output_price: null,
+      cache_write_price: null,
+      cache_read_price: null,
+      image_output_price: null,
+      per_request_price: 0.0852,
+      intervals: [],
+    }
+    const wrapper = mount(AvailableChannelsTable, {
+      props: {
+        columns: { name: 'Channel', description: 'Description', supportedModels: 'Supported Models' },
+        rows: [{
+          name: 'Main Channel',
+          description: '',
+          platforms: [
+            { platform: 'openai', groups: [], supported_models: [{ name: 'openai-image', platform: 'openai', summary: '', pricing, image_pricing: null }] },
+            { platform: 'leonardo', groups: [], supported_models: [{ name: 'gpt-image-2', platform: 'leonardo', summary: '', pricing, image_pricing: null }] },
+          ],
+        }],
+        loading: false,
+        pricingKeyPrefix: 'availableChannels.pricing',
+        noPricingLabel: 'Pricing not configured',
+        noModelsLabel: 'No models configured',
+        emptyLabel: 'No channels',
+        userGroupRates: {},
+        currentPage: 1,
+        modelsPerPage: 10,
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    const rows = wrapper.findAll('.model-price-list')
+    expect(rows[0].text()).not.toContain('其他质量参考价格计算器')
+    expect(rows[1].text()).toContain('其他质量参考价格计算器')
+  })
 })
