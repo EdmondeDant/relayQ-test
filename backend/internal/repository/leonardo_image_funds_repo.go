@@ -178,6 +178,15 @@ WHERE user_id = $1 AND public_id = $2 AND reference = $3 AND status = 'reserved'
 	if affected != 1 {
 		return service.ErrLeonardoImageCreateReservationConflict
 	}
+	// Keep the persisted job ledger consistent with the balance refund in the
+	// same transaction. A job may not exist when submission failed before
+	// creation, so zero affected rows is valid.
+	if _, err = tx.ExecContext(ctx, `
+UPDATE generation_jobs
+SET billing_status = 'refunded', updated_at = NOW()
+WHERE public_id = $1 AND billing_reference = $2 AND billing_status = 'reserved'`, request.PublicID, request.Reference); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

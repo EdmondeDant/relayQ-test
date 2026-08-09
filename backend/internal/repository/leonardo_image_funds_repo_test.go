@@ -112,6 +112,7 @@ func TestLeonardoImageFundsRepositoryRelease(t *testing.T) {
 		mock.ExpectQuery("SELECT reference, user_id, public_id").WithArgs(request.UserID, request.PublicID).WillReturnRows(leonardoReservationRows("reserved"))
 		mock.ExpectExec("UPDATE users").WithArgs(request.AmountUSD, request.UserID).WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectExec("UPDATE leonardo_image_funds_reservations").WithArgs(request.UserID, request.PublicID, request.Reference).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("UPDATE generation_jobs").WithArgs(request.PublicID, request.Reference).WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
 
 		require.NoError(t, NewLeonardoImageFundsRepository(nil, db).Release(context.Background(), request))
