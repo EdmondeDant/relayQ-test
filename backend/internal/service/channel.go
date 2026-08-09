@@ -5,6 +5,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
 // BillingMode 计费模式
@@ -386,6 +389,7 @@ type ChannelUsageFields struct {
 type SupportedModel struct {
 	Name     string               // 用户侧模型名
 	Platform string               // 所属平台
+	Modality string               // 模型模态
 	Summary  string               // 用户侧展示的人工模型说明
 	Pricing  *ChannelModelPricing // 定价详情（nil 表示未配置定价）
 }
@@ -529,10 +533,19 @@ func (c *Channel) SupportedModels() []SupportedModel {
 			return
 		}
 		seen[key] = struct{}{}
+		modality := ""
+		if platform == PlatformLeonardo {
+			if model, ok := leonardo.ResolveByRequestModelSlug(displayName); ok {
+				modality = string(model.Modality)
+			}
+		} else if platform == PlatformOpenAI {
+			modality = openai.ModelModality(displayName)
+		}
 		result = append(result, SupportedModel{
 			Name:     displayName,
 			Platform: platform,
-			Summary:  strings.TrimSpace(func() string {
+			Modality: modality,
+			Summary: strings.TrimSpace(func() string {
 				if pricing == nil {
 					return ""
 				}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	leonardoPollBaseBackoff = 2 * time.Second
-	leonardoPollMaxBackoff  = 5 * time.Minute
-	leonardoPollErrorLimit  = 512
+	leonardoPollBaseBackoff  = 2 * time.Second
+	leonardoPollPendingDelay = 5 * time.Second
+	leonardoPollMaxBackoff   = 5 * time.Minute
+	leonardoPollErrorLimit   = 512
 )
 
 type LeonardoGenerationPollClient interface {
@@ -63,7 +65,7 @@ func (p *LeonardoGenerationPoller) Poll(ctx context.Context, publicID string) (*
 	if job == nil {
 		return nil, ErrGenerationJobNotFound
 	}
-	if err := requireLeonardoImageModality(job.Modality); err != nil {
+	if err := requireLeonardoSupportedModality(job.Modality); err != nil {
 		return job, err
 	}
 	if job.Status == GenerationJobStatusUnknown {
@@ -123,6 +125,19 @@ func requireLeonardoImageModality(modality string) error {
 	}
 }
 
+func requireLeonardoSupportedModality(modality string) error {
+	switch strings.ToLower(strings.TrimSpace(modality)) {
+	case "image", "video":
+		return nil
+	case "audio":
+		return ErrLeonardoAudioSchemaUnverified
+	case "3d":
+		return ErrLeonardo3DSchemaUnverified
+	default:
+		return ErrLeonardoMediaModalityUnverified
+	}
+}
+
 func applyLeonardoGenerationResult(ctx context.Context, job *GenerationJob, generation *leonardo.Generation, now time.Time, moderator LeonardoOutputModerator) (GenerationJob, error) {
 	updated := *job
 	updated.UpstreamStatus = stringPointer(generation.Status)
@@ -131,8 +146,11 @@ func applyLeonardoGenerationResult(ctx context.Context, job *GenerationJob, gene
 	var resultErr error
 	switch generation.Status {
 	case "PENDING":
-		updated.NextPollAt = timePointerValue(now.Add(leonardoPollBackoff(updated.PollAttempts, nil)))
+		updated.NextPollAt = timePointerValue(now.Add(leonardoPollPendingDelay))
 	case "COMPLETE":
+		if strings.EqualFold(strings.TrimSpace(job.Modality), "video") {
+			return applyLeonardoVideoResult(updated, generation, now)
+		}
 		if len(generation.GeneratedImages) == 0 {
 			resultErr = errors.New("leonardo: complete generation returned no image outputs")
 			updated.ErrorCode = stringPointer("invalid_upstream_output")
@@ -190,6 +208,54 @@ func applyLeonardoGenerationResult(ctx context.Context, job *GenerationJob, gene
 		updated.NextPollAt = timePointerValue(now.Add(leonardoPollBackoff(updated.PollAttempts, resultErr)))
 	}
 	return updated, resultErr
+}
+
+func applyLeonardoVideoResult(updated GenerationJob, generation *leonardo.Generation, now time.Time) (GenerationJob, error) {
+	videos := make([]map[string]any, 0, len(generation.GeneratedImages))
+	for _, output := range generation.GeneratedImages {
+		if output.NSFW == nil || *output.NSFW || !validLeonardoHTTPSURL(output.MotionMP4URL) || strings.TrimSpace(output.ID) == "" {
+			continue
+		}
+		video := map[string]any{"id": strings.TrimSpace(output.ID), "url": strings.TrimSpace(output.MotionMP4URL), "mime": "video/mp4", "nsfw": false}
+		for _, key := range []string{"duration", "width", "height"} {
+			if value, ok := leonardoVideoRequestParameter(updated.RequestPayload, key); ok {
+				video[key] = value
+			}
+		}
+		videos = append(videos, video)
+	}
+	if len(videos) == 0 {
+		err := errors.New("leonardo: complete generation returned no valid video outputs")
+		updated.ErrorCode = stringPointer("invalid_upstream_output")
+		updated.ErrorMessage = stringPointer(err.Error())
+		updated.NextPollAt = timePointerValue(now.Add(leonardoPollBackoff(updated.PollAttempts, err)))
+		return updated, err
+	}
+	updated.Status = GenerationJobStatusSucceeded
+	updated.NextPollAt = nil
+	updated.CompletedAt = timePointerValue(now)
+	updated.OutputCount = len(videos)
+	resultPayload := make(map[string]any, len(updated.ResultPayload)+1)
+	for key, value := range updated.ResultPayload {
+		resultPayload[key] = value
+	}
+	resultPayload["videos"] = videos
+	updated.ResultPayload = resultPayload
+	return updated, nil
+}
+
+func validLeonardoHTTPSURL(rawURL string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	return err == nil && parsed.Scheme == "https" && parsed.Host != ""
+}
+
+func leonardoVideoRequestParameter(payload map[string]any, key string) (any, bool) {
+	parameters, ok := payload["parameters"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	value, ok := parameters[key]
+	return value, ok
 }
 
 func allowLeonardoOutputImage(ctx context.Context, job *GenerationJob, imageURL string, moderator LeonardoOutputModerator) (bool, error) {

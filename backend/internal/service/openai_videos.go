@@ -28,6 +28,9 @@ func IsXAIVideoModel(model string) bool {
 }
 
 func IsOpenAICompatibleVideoModel(model string) bool {
+	if strings.EqualFold(strings.TrimSpace(model), "minimax-h3") {
+		return true
+	}
 	switch strings.ToLower(strings.TrimSpace(model)) {
 	case "sora-2", "sora-2-pro":
 		return true
@@ -244,7 +247,7 @@ func (s *OpenAIGatewayService) buildXAIVideoURL(account *Account, suffix string)
 	if err != nil {
 		return "", fmt.Errorf("invalid xai base_url: %w", err)
 	}
-	return strings.TrimRight(validatedURL, "/") + suffix, nil
+	return buildOpenAIEndpointURL(validatedURL, suffix), nil
 }
 
 func (s *OpenAIGatewayService) ForwardXAIVideoGeneration(ctx context.Context, c *gin.Context, account *Account, body []byte) error {
@@ -260,8 +263,8 @@ func (s *OpenAIGatewayService) ForwardXAIVideoExtension(ctx context.Context, c *
 }
 
 func (s *OpenAIGatewayService) forwardXAIVideoSubmit(ctx context.Context, c *gin.Context, account *Account, body []byte, endpoint string) error {
-	if !isXAIOAuthAccount(account) {
-		return fmt.Errorf("account is not an xai oauth account")
+	if account == nil || (account.Platform != PlatformOpenAI && !isXAIOAuthAccount(account)) {
+		return fmt.Errorf("account is not an OpenAI-compatible video account")
 	}
 	forwardBody, _, err := normalizeXAIVideoGenerationBody(body)
 	if err != nil {
@@ -275,8 +278,8 @@ func (s *OpenAIGatewayService) forwardXAIVideoSubmit(ctx context.Context, c *gin
 }
 
 func (s *OpenAIGatewayService) ForwardXAIVideoStatus(ctx context.Context, c *gin.Context, account *Account, requestID string) error {
-	if !isXAIOAuthAccount(account) {
-		return fmt.Errorf("account is not an xai oauth account")
+	if account == nil || (account.Platform != PlatformOpenAI && !isXAIOAuthAccount(account)) {
+		return fmt.Errorf("account is not an OpenAI-compatible video account")
 	}
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
@@ -290,8 +293,8 @@ func (s *OpenAIGatewayService) ForwardXAIVideoStatus(ctx context.Context, c *gin
 }
 
 func (s *OpenAIGatewayService) ForwardXAIVideoContent(ctx context.Context, c *gin.Context, account *Account, requestID string) error {
-	if !isXAIOAuthAccount(account) {
-		return fmt.Errorf("account is not an xai oauth account")
+	if account == nil || (account.Platform != PlatformOpenAI && !isXAIOAuthAccount(account)) {
+		return fmt.Errorf("account is not an OpenAI-compatible video account")
 	}
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
@@ -300,6 +303,10 @@ func (s *OpenAIGatewayService) ForwardXAIVideoContent(ctx context.Context, c *gi
 	targetURL, err := s.buildXAIVideoURL(account, "/v1/videos/"+requestID)
 	if err != nil {
 		return err
+	}
+	if account.Platform == PlatformOpenAI {
+		targetURL += "/content"
+		return s.forwardXAIVideoRequest(ctx, c, account, http.MethodGet, targetURL, nil)
 	}
 	status, _, body, err := s.fetchXAIVideoResponse(ctx, account, http.MethodGet, targetURL, nil)
 	if err != nil {
@@ -341,7 +348,10 @@ func (s *OpenAIGatewayService) forwardXAIVideoRequest(ctx context.Context, c *gi
 
 func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, account *Account, method, targetURL string, body []byte) (int, http.Header, []byte, error) {
 	token := account.GetOpenAIAccessToken()
-	if strings.TrimSpace(token) == "" {
+	if account.Platform == PlatformOpenAI {
+		token = account.GetOpenAIApiKey()
+	}
+	if strings.TrimSpace(token) == "" && account.Platform == PlatformXAI {
 		refreshedToken, err := s.forceRefreshXAIOAuthAccount(ctx, account)
 		if err != nil {
 			return 0, nil, nil, err
@@ -357,7 +367,7 @@ func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, accoun
 	if readErr != nil {
 		return 0, nil, nil, readErr
 	}
-	if (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && isXAIBadCredentials(respBody) {
+	if account.Platform == PlatformXAI && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && isXAIBadCredentials(respBody) {
 		refreshedToken, refreshErr := s.forceRefreshXAIOAuthAccount(ctx, account)
 		if refreshErr == nil && strings.TrimSpace(refreshedToken) != "" {
 			resp, err = s.doXAIVideoRequest(ctx, account, method, targetURL, body, refreshedToken)
@@ -380,7 +390,11 @@ func (s *OpenAIGatewayService) maybeBindXAIVideoRequestAccount(ctx context.Conte
 	}
 	requestID := firstNonEmptyString(
 		gjson.GetBytes(body, "request_id").String(),
+		gjson.GetBytes(body, "job_id").String(),
 		gjson.GetBytes(body, "id").String(),
+		gjson.GetBytes(body, "data.request_id").String(),
+		gjson.GetBytes(body, "data.job_id").String(),
+		gjson.GetBytes(body, "data.id").String(),
 	)
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
@@ -410,7 +424,7 @@ func (s *OpenAIGatewayService) ResolveXAIVideoRequestAccount(ctx context.Context
 		return nil, false
 	}
 	account, err := s.accountRepo.GetByID(ctx, accountID)
-	if err != nil || account == nil || account.Platform != PlatformXAI {
+	if err != nil || account == nil || (account.Platform != PlatformXAI && account.Platform != PlatformOpenAI) {
 		return nil, false
 	}
 	return account, true

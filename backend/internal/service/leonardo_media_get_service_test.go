@@ -93,18 +93,20 @@ func leonardoMediaGetService(repository *leonardoMediaGetRepositoryStub, account
 	return NewLeonardoMediaGetService(repository, poller)
 }
 
-func TestLeonardoMediaGetServiceRejectsOwnedVideoBeforePolling(t *testing.T) {
+func TestLeonardoMediaGetServiceReturnsOwnedVideo(t *testing.T) {
 	job := leonardoMediaOwnedJob()
 	job.Modality = "video"
+	job.ResultPayload = map[string]any{"videos": []map[string]any{{"id": "video-1", "url": "https://cdn.example/video.mp4", "mime": "video/mp4", "duration": float64(4), "width": float64(864), "height": float64(480), "nsfw": false}}}
 	repository := &leonardoMediaGetRepositoryStub{job: job}
 	accounts := &leonardoMediaGetAccountLoaderStub{}
 	upstream := &orchestratorUpstreamMock{}
 	service := leonardoMediaGetService(repository, accounts, upstream)
 
-	_, err := service.Get(context.Background(), leonardoMediaGetInput())
+	result, err := service.Get(context.Background(), leonardoMediaGetInput())
 
-	require.ErrorIs(t, err, ErrLeonardoMediaVideoUnverified)
-	require.Equal(t, 1, repository.reads)
+	require.NoError(t, err)
+	require.Equal(t, []LeonardoMediaGetVideo{{ID: "video-1", URL: "https://cdn.example/video.mp4", MIME: "video/mp4", Duration: 4, Width: 864, Height: 480}}, result.Videos)
+	require.Equal(t, 2, repository.reads)
 	require.Zero(t, repository.casCalls)
 	require.Zero(t, accounts.calls)
 	require.Zero(t, upstream.calls)
@@ -456,22 +458,14 @@ func TestLeonardoMediaGetServiceConcurrentCASOneSuccessOneConflict(t *testing.T)
 	upstream.release <- struct{}{}
 
 	first, second := <-outcomes, <-outcomes
-	successes, conflicts := 0, 0
+	successes := 0
 	for _, outcome := range []getOutcome{first, second} {
-		switch {
-		case outcome.err == nil:
-			successes++
-			require.NotNil(t, outcome.result)
-			require.Equal(t, string(GenerationJobStatusQueued), outcome.result.Status)
-		case errors.Is(outcome.err, ErrGenerationJobConflict):
-			conflicts++
-			require.Nil(t, outcome.result)
-		default:
-			require.NoError(t, outcome.err)
-		}
+		require.NoError(t, outcome.err)
+		successes++
+		require.NotNil(t, outcome.result)
+		require.Equal(t, string(GenerationJobStatusQueued), outcome.result.Status)
 	}
-	require.Equal(t, 1, successes)
-	require.Equal(t, 1, conflicts)
+	require.Equal(t, 2, successes)
 	require.Equal(t, 2, repository.casCalls)
 	require.Equal(t, 1, repository.job.PollAttempts)
 	require.Equal(t, 2, upstream.calls)
@@ -542,6 +536,28 @@ func TestLeonardoMediaGetServiceContentDownloadsValidatedImage(t *testing.T) {
 	require.NoError(t, content.Close())
 	_, err = os.Stat(path)
 	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestLeonardoMediaGetServiceContentDownloadsValidatedVideo(t *testing.T) {
+	mp4 := []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm'}
+	job := leonardoMediaOwnedJob()
+	job.Modality = "video"
+	job.BillingStatus = GenerationJobBillingStatusSettled
+	job.ResultPayload = map[string]any{"videos": []map[string]any{{"id": "video", "url": "https://cdn.example/video.mp4", "mime": "video/mp4", "nsfw": false}}}
+	repository := &leonardoMediaGetRepositoryStub{job: job}
+	getService := leonardoMediaGetService(repository, &leonardoMediaGetAccountLoaderStub{}, &orchestratorUpstreamMock{})
+	getService.content = &http.Client{Transport: leonardoMediaRoundTripper(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, "video/mp4", r.Header.Get("Accept"))
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"video/mp4"}}, Body: io.NopCloser(strings.NewReader(string(mp4))), ContentLength: int64(len(mp4))}, nil
+	})}
+
+	content, err := getService.Content(context.Background(), LeonardoMediaContentInput{LeonardoMediaGetInput: ownedLeonardoMediaGetInput(job), Index: 0})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, content.Close()) }()
+	result, err := io.ReadAll(content.File)
+	require.NoError(t, err)
+	require.Equal(t, mp4, result)
+	require.Equal(t, "video/mp4", content.ContentType)
 }
 
 func TestLeonardoMediaGetServiceContentRejectsMIMEConfusion(t *testing.T) {

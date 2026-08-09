@@ -4,7 +4,7 @@
       <aside class="docs-sidebar">
         <a class="brand" href="#top">
           <span class="brand-mark">R</span>
-          <span><strong>RelayQ Images</strong><small>API DOCUMENTATION</small></span>
+          <span><strong>RelayQ Media</strong><small>API DOCUMENTATION</small></span>
         </a>
 
         <nav class="docs-nav" aria-label="接口文档目录">
@@ -26,6 +26,19 @@
             </div>
           </div>
           <div class="nav-group">
+            <span>视频模型</span>
+            <div v-for="item in videoModels" :key="item.slug" class="model-nav-item">
+              <a :href="`#${item.slug}`"><i :class="item.tone">{{ item.initials }}</i>{{ item.name }}</a>
+              <a class="protocol-nav-link" :href="`#${item.slug}-video-openai`">OpenAI 格式</a>
+              <a class="protocol-nav-link" :href="`#${item.slug}-video-raw`">Leonardo 原生格式</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <span>私有兼容模型</span>
+            <a href="#flux-2-klein-9b-kv">FLUX 2 Klein 9B KV</a>
+            <a href="#minimax-h3">MiniMax H3</a>
+          </div>
+          <div class="nav-group">
             <span>任务与结果</span>
             <a href="#async-task">异步任务</a>
             <a href="#errors">错误响应</a>
@@ -37,8 +50,8 @@
         <section id="top" class="hero-section">
           <div class="hero-copy">
             <span class="eyebrow">RELAYQ · LEONARDO PRODUCTION API</span>
-            <h1>图片生成 API</h1>
-            <p>通过 RelayQ 中转站接入 Leonardo 图片模型。兼容 OpenAI Images API，也支持 Leonardo Production API 原生参数。</p>
+            <h2 class="hero-title">图片与视频生成 API</h2>
+            <p>通过 RelayQ 接入 Leonardo 图片、视频模型以及 OpenAI-compatible 私有媒体模型，支持同步返回和异步任务轮询。</p>
             <div class="base-url">
               <span>Base URL</span>
               <code>{{ baseUrl }}</code>
@@ -46,7 +59,8 @@
             </div>
           </div>
           <div class="hero-badges">
-            <span>4 个已验证模型</span>
+            <span>8 图 + 4 视频</span>
+            <span>2 个私有兼容模型</span>
             <span>Bearer API Key</span>
             <span>同步 / 异步</span>
           </div>
@@ -71,8 +85,17 @@
           </div>
         </section>
 
+        <section id="prompt-language" class="doc-section">
+          <header><span>02</span><div><h2>提示词语言</h2><p>接口接受 UTF-8 文本，但“能够接收中文”不代表每个模型都能稳定理解中文。</p></div></header>
+          <div class="notice warning"><b>中文提示词提醒</b><span>Cinematic Kino、Concept Art、Graphic Design、Illustrative Albedo 等风格模型对英文提示词通常更稳定。中文可能出现主体偏离、文字乱码或构图不符合描述；生产调用建议使用简洁英文或中英双语。图片内需要准确中文时必须进行 OCR 或人工复核。</span></div>
+          <div class="two-columns language-cards">
+            <article class="info-card"><h3>优先使用英文</h3><p>明确写出主体、动作、环境、构图、光线和需要避免的元素。Cinematic Kino 已观察到中文核心主体严重偏离，因此强烈建议英文。</p></article>
+            <article class="info-card"><h3>RelayQ 不自动翻译</h3><p>API 会把 prompt 原样提交给模型，不会隐式翻译或改写。这样可以保持接口行为可预测，但调用方需要自行处理提示词语言。</p></article>
+          </div>
+        </section>
+
         <section id="capability-matrix" class="doc-section">
-          <header><span>02</span><div><h2>功能对照</h2><p>OpenAI 模式侧重兼容性，Leonardo 原生模式提供完整的参考图控制能力。</p></div></header>
+          <header><span>03</span><div><h2>功能对照</h2><p>OpenAI 模式侧重兼容性，Leonardo 原生模式提供完整的参考图控制能力。</p></div></header>
           <div class="matrix-wrap">
             <table class="capability-table">
               <thead><tr><th>能力</th><th>OpenAI 兼容模式</th><th>Leonardo 原生模式</th></tr></thead>
@@ -84,7 +107,7 @@
         </section>
 
         <section id="openai-mode" class="doc-section protocol-section">
-          <header><span>03</span><div><h2>OpenAI 兼容模式</h2><p>使用标准 Images 风格请求。RelayQ 负责模型映射、上传、异步轮询和计费。</p></div></header>
+          <header><span>04</span><div><h2>OpenAI 兼容模式</h2><p>使用标准 Images 风格请求。RelayQ 负责模型映射、上传、异步轮询和计费。</p></div></header>
           <div class="endpoint-line"><b>POST</b><code>/v1/images/generations</code><span>文生图 · 默认同步返回</span></div>
           <div class="two-columns">
             <article class="info-card"><h3>文生图</h3><CodeBlock title="cURL" :code="openAITextExample" @copy="copy" /></article>
@@ -96,7 +119,7 @@
         </section>
 
         <section id="raw-mode" class="doc-section protocol-section">
-          <header><span>04</span><div><h2>Leonardo 原生模式</h2><p>请求结构与 Leonardo Production API v2 对齐，但地址仍使用 RelayQ。顶层存在 parameters 时自动进入 Raw 模式。</p></div></header>
+          <header><span>05</span><div><h2>Leonardo 原生模式</h2><p>请求结构与 Leonardo Production API v2 对齐，但地址仍使用 RelayQ。顶层存在 parameters 时自动进入 Raw 模式。</p></div></header>
           <div class="endpoint-line raw"><b>POST</b><code>/v1/images/generations</code><span>原生 JSON · 异步返回任务</span></div>
           <div class="two-columns">
             <article class="info-card"><h3>原生文生图</h3><CodeBlock title="cURL" :code="rawTextExample" @copy="copy" /></article>
@@ -107,7 +130,7 @@
 
         <section v-for="(item, index) in models" :id="item.slug" :key="item.slug" class="doc-section model-section">
           <header>
-            <span>{{ String(index + 5).padStart(2, '0') }}</span>
+            <span>{{ String(index + 6).padStart(2, '0') }}</span>
             <div class="model-heading"><i :class="item.tone">{{ item.initials }}</i><div><h2>{{ item.name }}</h2><p><code>{{ item.slug }}</code> · {{ item.summary }}</p></div></div>
           </header>
 
@@ -197,8 +220,59 @@
           </article>
         </section>
 
+        <section id="video-api" class="doc-section protocol-section">
+          <header><span>14</span><div><h2>视频生成接口</h2><p>视频提供 OpenAI 兼容格式和 Leonardo 原生格式；两种格式都返回异步任务，成功后下载 MP4。</p></div></header>
+          <div class="endpoint-line"><b>POST</b><code>/v1/videos/generations</code><span>创建视频任务</span></div>
+          <div class="endpoint-line"><b>GET</b><code>/v1/videos/{task_id}</code><span>查询任务状态</span></div>
+          <div class="endpoint-line"><b>GET</b><code>/v1/videos/{task_id}/content</code><span>下载 video/mp4</span></div>
+          <div class="notice warning"><b>防止重复扣费</b><span>创建请求超时或返回状态未知时不要自动重发。只有取得明确失败且确认未提交后才能重试；状态查询和内容下载可以安全重复。</span></div>
+        </section>
+
+        <section v-for="item in videoModels" :id="item.slug" :key="item.slug" class="doc-section model-section video-model-section">
+          <header><span>{{ item.number }}</span><div class="model-heading"><i :class="item.tone">{{ item.initials }}</i><div><h2>{{ item.name }}</h2><p><code>{{ item.slug }}</code> · {{ item.summary }}</p></div></div></header>
+          <div class="model-meta">
+            <div><small>类型</small><b>视频生成</b></div><div><small>当前规格</small><b>{{ item.spec }}</b></div><div><small>返回方式</small><b>异步任务</b></div><div><small>结果格式</small><b>video/mp4</b></div>
+          </div>
+          <div class="feature-grid"><article v-for="feature in item.features" :key="feature.title" class="feature-card"><span>{{ feature.icon }}</span><div><h3>{{ feature.title }}</h3><p>{{ feature.description }}</p></div></article></div>
+          <article :id="`${item.slug}-video-openai`" class="protocol-manual video-openai-manual">
+            <div class="protocol-title"><span class="protocol-number">A</span><div><h3>{{ item.name }} · OpenAI 兼容格式</h3><p>使用简化的 seconds 和 size 字段；RelayQ 负责映射成模型要求的 Leonardo 参数。</p></div><span class="protocol-tag">OpenAI-compatible</span></div>
+            <div class="endpoint-line"><b>POST</b><code>/v1/videos/generations</code><span>application/json</span></div>
+            <div class="manual-grid"><div><h4>OpenAI 请求参数</h4><div class="parameter-table"><div class="parameter-head"><span>字段</span><span>是否必填</span><span>说明</span></div><div v-for="parameter in item.parameters" :key="parameter.name"><code>{{ parameter.name }}</code><b>{{ parameter.required }}</b><span>{{ parameter.description }}</span></div></div></div><div><h4>模型特点</h4><ul class="check-list capability-list"><li v-for="capability in item.capabilities" :key="capability">{{ capability }}</li></ul></div></div>
+            <div class="two-columns examples"><article class="info-card"><h3>OpenAI 格式创建</h3><CodeBlock title="JSON · cURL" :code="item.example" @copy="copy" /></article><article class="info-card"><h3>查询与下载</h3><CodeBlock title="任务轮询" :code="videoPollExample" @copy="copy" /></article></div>
+            <div class="notice warning"><b>提示词与限制</b><span>{{ item.limits }}</span></div>
+          </article>
+          <article :id="`${item.slug}-video-raw`" class="protocol-manual video-raw-manual">
+            <div class="protocol-title"><span class="protocol-number">B</span><div><h3>{{ item.name }} · Leonardo 原生格式</h3><p>{{ item.rawDescription }}</p></div><span class="protocol-tag raw">Leonardo parameters</span></div>
+            <div class="endpoint-line raw"><b>POST</b><code>/v1/videos/generations</code><span>application/json · 顶层 parameters</span></div>
+            <div class="manual-grid"><div><h4>Leonardo 原生参数</h4><div class="parameter-table"><div class="parameter-head"><span>字段</span><span>是否必填</span><span>说明</span></div><div v-for="parameter in item.rawParameters" :key="parameter.name"><code>{{ parameter.name }}</code><b>{{ parameter.required }}</b><span>{{ parameter.description }}</span></div></div></div><div><h4>格式区别</h4><ul class="check-list capability-list"><li>prompt、width、height、quantity 位于 parameters 内。</li><li v-for="difference in item.rawDifferences" :key="difference">{{ difference }}</li><li>不能与顶层 prompt、seconds、size 混用。</li></ul></div></div>
+            <div class="two-columns examples"><article class="info-card"><h3>Leonardo 原生格式创建</h3><CodeBlock title="Leonardo JSON · cURL" :code="item.rawExample" @copy="copy" /></article><article class="info-card"><h3>查询与下载</h3><CodeBlock title="任务轮询" :code="videoPollExample" @copy="copy" /></article></div>
+            <div class="notice success"><b>原生格式要点</b><span>{{ item.rawLimits }}</span></div>
+          </article>
+        </section>
+
+        <section id="private-compatible" class="doc-section protocol-section">
+          <header><span>19</span><div><h2>私有 OpenAI-compatible 模型</h2><p>以下模型通过私有部署账号的 Base URL 转发，不属于 Leonardo 模型。可用参数以当前 RelayQ 已验证契约为准。</p></div></header>
+          <div class="notice warning"><b>部署差异</b><span>私有上游可能自行审核、改写或截断中文提示词。RelayQ 不自动翻译；升级私有模型版本后应重新验证参数和结果格式。</span></div>
+        </section>
+
+        <section id="flux-2-klein-9b-kv" class="doc-section model-section">
+          <header><span>20</span><div class="model-heading"><i class="green">FK</i><div><h2>FLUX 2 Klein 9B KV</h2><p><code>flux-2-klein-9b-kv</code> · 私有部署的快速图片生成模型，使用标准 OpenAI Images 同步接口。</p></div></div></header>
+          <div class="feature-grid"><article class="feature-card"><span>I</span><div><h3>图片模型</h3><p>通过 /v1/images/generations 生成图片。</p></div></article><article class="feature-card"><span>S</span><div><h3>同步响应</h3><p>当前上游直接返回 data[].b64_json。</p></div></article><article class="feature-card"><span>P</span><div><h3>私有部署</h3><p>由账号 Base URL 和 API Key 决定实际上游。</p></div></article></div>
+          <div class="endpoint-line"><b>POST</b><code>/v1/images/generations</code><span>OpenAI-compatible · application/json</span></div>
+          <div class="two-columns examples"><article class="info-card"><h3>请求示例</h3><CodeBlock title="JSON · cURL" :code="privateFluxExample" @copy="copy" /></article><article class="info-card"><h3>响应结构</h3><CodeBlock title="HTTP 200" :code="privateFluxResponse" @copy="copy" /></article></div>
+          <div class="notice warning"><b>中文与异步限制</b><span>中文理解能力由私有上游版本决定，建议英文或中英双语。当前没有图片任务查询接口，不能使用 RelayQ 视频式轮询，也不要自行猜测异步路径。</span></div>
+        </section>
+
+        <section id="minimax-h3" class="doc-section model-section video-model-section">
+          <header><span>21</span><div class="model-heading"><i class="orange">MH</i><div><h2>MiniMax H3</h2><p><code>minimax-h3</code> · 私有部署异步视频模型，当前固定 5 秒、480p。</p></div></div></header>
+          <div class="feature-grid"><article class="feature-card"><span>V</span><div><h3>视频生成</h3><p>创建后返回 request_id、job_id 或 id。</p></div></article><article class="feature-card"><span>2s</span><div><h3>快速轮询</h3><p>账号测试每 2 秒查询一次状态。</p></div></article><article class="feature-card"><span>M</span><div><h3>MP4 内容</h3><p>成功后从 content 端点下载视频。</p></div></article></div>
+          <div class="endpoint-line"><b>POST</b><code>/v1/videos/generations</code><span>创建 5 秒 480p 任务</span></div>
+          <div class="two-columns examples"><article class="info-card"><h3>创建任务</h3><CodeBlock title="JSON · cURL" :code="miniMaxExample" @copy="copy" /></article><article class="info-card"><h3>轮询与下载</h3><CodeBlock title="任务接口" :code="miniMaxPollExample" @copy="copy" /></article></div>
+          <div class="notice warning"><b>参数和语言</b><span>当前固定 duration=5、resolution=480p，不发送 aspect_ratio。中文效果由私有上游决定；动作、镜头和场景描述建议使用简洁英文或中英双语。</span></div>
+        </section>
+
         <section id="async-task" class="doc-section">
-          <header><span>09</span><div><h2>异步任务与结果</h2><p>Raw 模式、OpenAI 图片编辑或显式 async=true 会返回任务对象。</p></div></header>
+          <header><span>22</span><div><h2>异步任务与结果</h2><p>Raw 模式、OpenAI 图片编辑或显式 async=true 会返回任务对象。</p></div></header>
           <div class="two-columns">
             <article class="info-card"><h3>查询任务</h3><CodeBlock title="GET" :code="taskPollExample" @copy="copy" /></article>
             <article class="info-card"><h3>读取图片</h3><CodeBlock title="GET" :code="taskContentExample" @copy="copy" /></article>
@@ -206,14 +280,14 @@
         </section>
 
         <section id="errors" class="doc-section">
-          <header><span>10</span><div><h2>错误响应</h2><p>请求失败时请记录 HTTP 状态码、error.code 和 request_id。</p></div></header>
+          <header><span>23</span><div><h2>错误响应</h2><p>请求失败时请记录 HTTP 状态码、error.code 和 request_id。</p></div></header>
           <CodeBlock title="错误示例" :code="errorExample" @copy="copy" />
         </section>
       </main>
 
       <aside class="docs-toc">
         <span>本页内容</span>
-        <a href="#quick-start">快速开始</a><a href="#capability-matrix">功能对照</a><a href="#openai-mode">OpenAI 模式</a><a href="#raw-mode">Raw 模式</a><a href="#async-task">异步任务</a>
+        <a href="#quick-start">快速开始</a><a href="#prompt-language">提示词语言</a><a href="#capability-matrix">功能对照</a><a href="#openai-mode">OpenAI 图片</a><a href="#raw-mode">Raw 图片</a><a href="#video-api">视频接口</a><a href="#private-compatible">私有模型</a><a href="#async-task">异步任务</a>
         <div class="toc-note"><b>API Host</b><code>www.realyq.top</code><small>所有示例均为 RelayQ 中转地址</small></div>
       </aside>
     </div>
@@ -486,7 +560,147 @@ const models = [
     rawExampleTitle: '多参考图生成', rawExampleHelp: '可继续增加 image_reference 数组项，最多 6 张图片。', rawExample: referenceRaw('nano-banana-2-lite', true),
     rawLimits: '该模型没有原生 quality 参数，采用固定原生质量档。默认尺寸为 1024×1024，也支持官方列出的约 1K 横竖尺寸；参考图 strength 仅允许 LOW、MID、HIGH，不填时默认 MID。',
   },
+  ...[
+    { name: 'Cinematic Kino', slug: 'kino-xl', initials: 'CK', sizes: '896²、1024²、1120²', summary: '电影感摄影与人像氛围突出；中文主体遵循不稳定，强烈建议英文提示词。' },
+    { name: 'Concept Art', slug: 'concept-art', initials: 'CA', sizes: '888²、960²、1024²', summary: '适合角色、场景和世界观概念设定，强调绘画感与设计探索。' },
+    { name: 'Graphic Design', slug: 'graphic-design', initials: 'GD', sizes: '888²、960²、1024²', summary: '适合平面视觉、海报构图和图形素材；图片内中文文字必须复核。' },
+    { name: 'Illustrative Albedo', slug: 'illustrative-albedo', initials: 'IA', sizes: '888²、960²、1024²', summary: '适合插画、材质表现和风格化视觉，轮廓与色块表现突出。' },
+  ].map(model => ({
+    ...model, tone: 'purple', openAIEdit: false, maxQuantity: 8,
+    qualities: 'low（FAST）/ high（QUALITY）', references: '当前 RelayQ 未开放参考图',
+    features: [
+      { icon: 'T', title: '文生图', description: 'OpenAI 与 Raw 模式均支持。' },
+      { icon: 'F', title: 'FAST', description: '低成本快速生成。' },
+      { icon: 'Q', title: 'QUALITY', description: '更高质量生成。' },
+    ],
+    openAIDescription: '支持 FAST 与 QUALITY 两档文生图；RelayQ 分别映射为 quality=low 和 quality=high。',
+    openAISteps: [`将 model 固定为 ${model.slug}。`, '从已开放的正方形尺寸中选择输出尺寸。', 'quality=low 使用 FAST，quality=high 使用 QUALITY。', '发送请求并读取 URL 或 Base64 图片。'],
+    openAIParameters: commonOpenAIParameters(`允许 ${model.sizes.replace(/²/g, 'x')}`, '允许 low（FAST）或 high（QUALITY）', '允许 1 到 8'),
+    openAICapabilities: ['文字生成图片。', 'FAST 与 QUALITY 两档。', '同步 URL 或 Base64 响应。', '一次生成最多 8 张。'],
+    openAILimits: `当前只开放文生图；不支持 /v1/images/edits。medium 不对应上游模式，因此会被拒绝。${model.slug === 'kino-xl' ? '该模型已观察到中文提示词主体严重偏离，生产调用应优先使用英文。' : '复杂中文描述建议改用英文或中英双语。'}`,
+    openAIExample: modelExample(model.slug, 'low', `${model.sizes.split('²')[0]}x${model.sizes.split('²')[0]}`), openAIEditExample: '',
+    rawDescription: '使用 Leonardo v2 原生 parameters 生成图片，mode 必须为 FAST 或 QUALITY。',
+    rawSteps: ['填写准确的模型 slug。', '设置 prompt、quantity、width、height。', 'mode 使用 FAST 或 QUALITY，并建议 prompt_enhance=OFF。', '保存返回的任务 id 并查询终态。'],
+    rawParameters: [...commonRawParameters(`只开放 ${model.sizes} 正方形尺寸。`, '允许 1 到 8。'), { name: 'parameters.mode', required: '是', description: 'FAST 或 QUALITY。' }, { name: 'parameters.prompt_enhance', required: '否', description: '建议使用 OFF。' }],
+    rawCapabilities: ['原生文生图。', 'FAST 与 QUALITY 模式。', '精确尺寸和数量计价。'],
+    rawExampleTitle: '原生文生图', rawExampleHelp: '示例使用最低成本 FAST 档。',
+    rawExample: `{"model":"${model.slug}","public":false,"parameters":{"prompt":"高级产品海报","mode":"FAST","width":${Number(model.sizes.split('²')[0])},"height":${Number(model.sizes.split('²')[0])},"quantity":1,"prompt_enhance":"OFF"}}`,
+    rawLimits: '当前 RelayQ 未开放参考图、透明背景或平台元素；未命中精确价格矩阵的组合会被拒绝。',
+  })),
 ]
+
+const commonVideoParameters = (seconds: string, size: string) => [
+  { name: 'model', required: '是', description: '填写本章节给出的精确视频模型 slug。' },
+  { name: 'prompt', required: '是', description: '视频内容、动作、镜头和场景描述；建议使用英文或中英双语。' },
+  { name: 'seconds', required: '是', description: seconds },
+  { name: 'size', required: '是', description: size },
+]
+
+const videoExample = (model: string, seconds: number, size: string) => `curl ${baseUrl}/videos/generations \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: video-request-001" \
+  -d '{
+    "model": "${model}",
+    "prompt": "A cinematic tracking shot of a paper boat moving through a rainy city street",
+    "seconds": ${seconds},
+    "size": "${size}"
+  }'`
+
+const commonRawVideoParameters = (duration: string, modelParameter: { name: string; description: string }) => [
+  { name: 'model', required: '是', description: '填写本章节给出的精确视频模型 slug。' },
+  { name: 'public', required: '否', description: '是否公开生成结果，建议 false。' },
+  { name: 'parameters.prompt', required: '是', description: '视频内容、动作、镜头和场景描述。' },
+  { name: 'parameters.width', required: '是', description: '官方尺寸矩阵中的宽度。' },
+  { name: 'parameters.height', required: '是', description: '官方尺寸矩阵中的高度。' },
+  { name: 'parameters.quantity', required: '是', description: '当前必须为 1。' },
+  { name: 'parameters.duration', required: duration === '' ? '否' : '是', description: duration || 'Motion 固定时长，不发送该字段。' },
+  { name: modelParameter.name, required: '是', description: modelParameter.description },
+]
+
+const rawVideoExample = (model: string, parameters: string) => `curl ${baseUrl}/videos/generations \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: video-raw-request-001" \
+  -d '{
+    "model": "${model}",
+    "public": false,
+    "parameters": {${parameters}}
+  }'`
+
+const videoModels = [
+  {
+    number: '15', name: 'Seedance 1.0 Pro Fast', slug: 'seedance-1.0-pro-fast', initials: 'SF', tone: 'purple', spec: '4/6/8/10 秒 · 480p/720p/1080p',
+    summary: 'Seedance 快速版，兼顾运动连贯性和较低成本，适合快速预览与短视频草稿。',
+    description: '开放 Leonardo 官方 4/6/8/10 秒、三档分辨率和 16:9、4:3、1:1、3:4、9:16、21:9 比例。',
+    features: [{ icon: 'F', title: '快速生成', description: '适合短视频预览和创意验证。' }, { icon: 'M', title: '运动连贯', description: '适合主体动作与镜头运动描述。' }, { icon: '10', title: '灵活规格', description: '支持最长 10 秒与最高 1080p。' }],
+    parameters: commonVideoParameters('可选 4、6、8、10。', '填写官方尺寸矩阵中的像素值。'), capabilities: ['六种画面比例。', '480p、720p、1080p。', '异步任务和 MP4 下载。'],
+    example: videoExample('seedance-1.0-pro-fast', 6, '1248x704'), limits: '仅支持官方尺寸矩阵、单个无音频视频；复杂中文动作描述可能偏离，建议英文或中英双语。',
+    rawDescription: '直接使用 Leonardo Seedance 参数：duration、mode 和 prompt_enhance，不使用 seconds 或 size。',
+    rawParameters: commonRawVideoParameters('可选 4、6、8、10。', { name: 'parameters.mode', description: 'RESOLUTION_480、RESOLUTION_720 或 RESOLUTION_1080。' }),
+    rawDifferences: ['使用 duration 表示时长。', '使用 mode 表示分辨率，并发送 prompt_enhance=OFF。'],
+    rawExample: rawVideoExample('seedance-1.0-pro-fast', '\n      "prompt": "A cinematic tracking shot of a paper boat",\n      "width": 1248, "height": 704, "quantity": 1,\n      "duration": 6, "mode": "RESOLUTION_720",\n      "prompt_enhance": "OFF"\n    '), rawLimits: 'mode、width 和 height 必须属于同一官方分辨率档；RelayQ 会严格校验，不透传未知组合。',
+  },
+  {
+    number: '16', name: 'Motion 2.0 Fast', slug: 'motion_2.0-fast', initials: 'MF', tone: 'green', spec: '固定时长 · 480p/720p',
+    summary: '快速动态短片模型，上游采用固定时长语义，适合简洁主体运动和镜头动画。',
+    description: 'Motion 上游不接收 duration；RelayQ 兼容请求用 seconds=0 明确表示固定时长。',
+    features: [{ icon: 'F', title: '固定时长', description: '无需向上游发送 duration。' }, { icon: '72', title: '最高 720p', description: '支持 480p 和 720p。' }, { icon: 'M', title: '动态表现', description: '适合简洁运动与镜头描述。' }],
+    parameters: commonVideoParameters('必须为 0，表示模型固定时长。', '支持 16:9、9:16、2:3、4:5 的官方 480p/720p 尺寸。'), capabilities: ['固定时长视频。', '四种画面比例。', '异步任务和 MP4 下载。'],
+    example: videoExample('motion_2.0-fast', 0, '1280x720'), limits: 'seconds 必须为 0，且 size 必须属于官方尺寸矩阵。中文支持未专项验收；涉及动作顺序时优先使用短句英文。',
+    rawDescription: '直接使用 Leonardo Motion 参数；该模型为固定时长，原生格式不能发送 duration。',
+    rawParameters: commonRawVideoParameters('', { name: 'parameters.mode', description: 'RESOLUTION_480 或 RESOLUTION_720。' }),
+    rawDifferences: ['不发送 duration。', '使用 mode 表示 480p 或 720p。'],
+    rawExample: rawVideoExample('motion_2.0-fast', '\n      "prompt": "A slow camera orbit around a ceramic sculpture",\n      "width": 1280, "height": 720, "quantity": 1,\n      "mode": "RESOLUTION_720"\n    '), rawLimits: '原生请求出现 duration、resolution 或 prompt_enhance 会被拒绝；mode 必须与尺寸匹配。',
+  },
+  {
+    number: '17', name: 'Seedance 1.0 Pro', slug: 'seedance-1.0-pro', initials: 'SP', tone: 'orange', spec: '4/6/8/10 秒 · 480p/720p/1080p',
+    summary: 'Seedance 质量版，重视画面细节、运动一致性和成片质感，成本高于 Fast。',
+    description: '开放 Leonardo 官方 4/6/8/10 秒、三档分辨率和六种画面比例。',
+    features: [{ icon: 'Q', title: '质量优先', description: '比 Fast 更偏向细节和成片质感。' }, { icon: 'M', title: '运动一致', description: '适合主体动作和镜头运动。' }, { icon: '10', title: '灵活规格', description: '支持最长 10 秒与最高 1080p。' }],
+    parameters: commonVideoParameters('可选 4、6、8、10。', '填写官方尺寸矩阵中的像素值。'), capabilities: ['质量优先的视频生成。', '六种画面比例。', '480p、720p、1080p。'],
+    example: videoExample('seedance-1.0-pro', 10, '1920x1088'), limits: '仅支持官方尺寸矩阵、单个无音频视频。中文长句可能降低动作遵循，建议拆分成简洁英文描述。',
+    rawDescription: '直接使用 Leonardo Seedance Pro 的 duration、mode 和 prompt_enhance 参数。',
+    rawParameters: commonRawVideoParameters('可选 4、6、8、10。', { name: 'parameters.mode', description: 'RESOLUTION_480、RESOLUTION_720 或 RESOLUTION_1080。' }),
+    rawDifferences: ['使用 duration 表示时长。', '使用 mode 表示分辨率，并发送 prompt_enhance=OFF。'],
+    rawExample: rawVideoExample('seedance-1.0-pro', '\n      "prompt": "A cinematic ocean sunrise with a slow camera push",\n      "width": 1920, "height": 1088, "quantity": 1,\n      "duration": 10, "mode": "RESOLUTION_1080",\n      "prompt_enhance": "OFF"\n    '), rawLimits: 'mode、width 和 height 必须匹配；仅支持单个无音频视频。',
+  },
+  {
+    number: '18', name: 'Wan 2.7', slug: 'wan-2.7', initials: 'W2', tone: 'yellow', spec: '2–10 秒 · 720p/1080p',
+    summary: '支持横屏、方形和竖屏的高分辨率视频模型，适合 2–10 秒动态素材。',
+    description: 'Wan 使用 resolution 字段，开放 Leonardo 官方 2–10 秒、720p/1080p 和三种比例。',
+    features: [{ icon: '10', title: '2–10 秒', description: '支持逐秒选择时长。' }, { icon: 'HD', title: '最高 1080p', description: '支持 720p 和 1080p。' }, { icon: 'W', title: '三种比例', description: '支持 16:9、1:1、9:16。' }],
+    parameters: commonVideoParameters('可选 2 至 10 的整数。', '支持 1280x720、960x960、720x1280、1920x1080、1440x1440、1080x1920。'), capabilities: ['2–10 秒视频。', '720p、1080p。', '横屏、方形、竖屏。'],
+    example: videoExample('wan-2.7', 5, '1920x1080'), limits: '仅支持官方尺寸矩阵、单个无音频视频；中文能力未专项验收。',
+    rawDescription: '直接使用 Leonardo Wan 参数：duration 和 resolution，不使用 Seedance 的 mode。',
+    rawParameters: commonRawVideoParameters('可选 2 至 10 的整数。', { name: 'parameters.resolution', description: '720p 或 1080p。' }),
+    rawDifferences: ['使用 duration 表示时长。', '使用 resolution，不发送 mode 或 prompt_enhance。'],
+    rawExample: rawVideoExample('wan-2.7', '\n      "prompt": "A racing car crossing a wet neon street",\n      "width": 1920, "height": 1080, "quantity": 1,\n      "duration": 5, "resolution": "1080p"\n    '), rawLimits: 'resolution 必须与 width、height 匹配；出现 mode 或 prompt_enhance 会被拒绝。',
+  },
+]
+
+const videoPollExample = `curl ${baseUrl}/videos/gen_rq_0123456789abcdef0123456789abcdef \
+  -H "Authorization: Bearer sk-your-relayq-api-key"
+
+curl ${baseUrl}/videos/gen_rq_0123456789abcdef0123456789abcdef/content \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -o result.mp4`
+
+const privateFluxExample = `curl ${baseUrl}/images/generations \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"flux-2-klein-9b-kv","prompt":"A red product on a clean studio background","n":1,"response_format":"b64_json"}'`
+const privateFluxResponse = `{"data":[{"b64_json":"iVBORw0KGgo..."}]}`
+const miniMaxExample = `curl ${baseUrl}/videos/generations \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"minimax-h3","prompt":"A calm ocean sunrise with a slow camera push","duration":5,"resolution":"480p"}'`
+const miniMaxPollExample = `curl ${baseUrl}/videos/video_123 \
+  -H "Authorization: Bearer sk-your-relayq-api-key"
+
+curl ${baseUrl}/videos/video_123/content \
+  -H "Authorization: Bearer sk-your-relayq-api-key" \
+  -o minimax.mp4`
 
 const taskPollExample = `curl ${baseUrl}/media/generations/gen_123 \\
   -H "Authorization: Bearer sk-your-relayq-api-key"`
@@ -517,11 +731,11 @@ async function copy(value: string) {
 .docs-nav { margin-top: 28px; }.nav-group { margin-bottom: 22px; }.nav-group > span { display: block; margin-bottom: 7px; color: #98a1b1; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }.nav-group a { display: flex; align-items: center; gap: 8px; margin: 2px 0; border-radius: 8px; padding: 7px 9px; color: var(--muted); font-size: 13px; }.nav-group a:hover { background: var(--soft); color: #6c5ce7; }.nav-group i,.model-heading i { display: grid; place-items: center; border-radius: 7px; color: white; font-style: normal; font-weight: 900; }.nav-group i { width: 23px; height: 23px; font-size: 9px; }
 .model-nav-item { margin-bottom: 6px; }.nav-group .protocol-nav-link { margin: 0 0 0 40px; padding: 3px 7px; color: #9aa3b3; font-size: 11px; }
 .purple { background: linear-gradient(135deg,#7c3aed,#a855f7); }.green { background: linear-gradient(135deg,#059669,#34d399); }.yellow { background: linear-gradient(135deg,#d97706,#facc15); }.orange { background: linear-gradient(135deg,#ea580c,#fb923c); }
-.docs-main { min-width: 0; padding: 28px 42px 80px; }.hero-section { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); padding: 18px 0 36px; }.eyebrow { color: #6c5ce7; font-size: 10px; font-weight: 900; letter-spacing: .13em; }.hero-copy h1 { margin: 12px 0 10px; font-size: clamp(32px,4vw,52px); font-weight: 900; letter-spacing: -.04em; }.hero-copy > p { max-width: 720px; color: var(--muted); line-height: 1.8; }.base-url { display: flex; max-width: 650px; align-items: center; gap: 10px; margin-top: 22px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 9px 11px; }.base-url span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }.base-url code { min-width: 0; flex: 1; color: #6555da; font-size: 12px; }.base-url button,.code-head button { color: #6c5ce7; font-size: 10px; font-weight: 800; }.hero-badges { display: flex; max-width: 180px; align-items: flex-end; flex-direction: column; gap: 7px; }.hero-badges span { border: 1px solid var(--line); border-radius: 999px; background: var(--soft); padding: 6px 10px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.docs-main { min-width: 0; padding: 28px 42px 80px; }.hero-section { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); padding: 18px 0 36px; }.eyebrow { color: #6c5ce7; font-size: 10px; font-weight: 900; letter-spacing: .13em; }.hero-title { margin: 12px 0 10px; font-size: clamp(32px,4vw,52px); font-weight: 900; letter-spacing: -.04em; }.hero-copy > p { max-width: 720px; color: var(--muted); line-height: 1.8; }.base-url { display: flex; max-width: 650px; align-items: center; gap: 10px; margin-top: 22px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 9px 11px; }.base-url span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }.base-url code { min-width: 0; flex: 1; color: #6555da; font-size: 12px; }.base-url button,.code-head button { color: #6c5ce7; font-size: 10px; font-weight: 800; }.hero-badges { display: flex; max-width: 180px; align-items: flex-end; flex-direction: column; gap: 7px; }.hero-badges span { border: 1px solid var(--line); border-radius: 999px; background: var(--soft); padding: 6px 10px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .doc-section { scroll-margin-top: 90px; border-bottom: 1px solid var(--line); padding: 42px 0; }.doc-section > header { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 22px; }.doc-section > header > span { padding-top: 5px; color: #a8afbc; font-size: 11px; font-weight: 900; }.doc-section h2 { margin: 0; font-size: 25px; font-weight: 850; letter-spacing: -.02em; }.doc-section header p { margin: 7px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }.two-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }.info-card { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); padding: 17px; }.info-card h3 { margin: 0 0 10px; font-size: 14px; }.info-card > p { color: var(--muted); font-size: 13px; line-height: 1.7; }.check-list { margin: 0; padding: 0; list-style: none; }.check-list li { position: relative; margin: 9px 0; padding-left: 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }.check-list li::before { position: absolute; top: 8px; left: 0; width: 5px; height: 5px; border-radius: 50%; background: #6c5ce7; content: ''; }.check-list code { color: #6555da; }
 .code-block { overflow: hidden; border: 1px solid #293142; border-radius: 11px; background: #111827; }.code-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2b3444; padding: 8px 11px; color: #94a3b8; font-size: 11px; font-weight: 700; }.code-head button { color: #c4b5fd; }.code-block pre { overflow-x: auto; margin: 0; padding: 14px; color: #dbe4f0; font: 11px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace; white-space: pre; }
 .matrix-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }.capability-table { width: 100%; border-collapse: collapse; font-size: 12px; }.capability-table th,.capability-table td { border-bottom: 1px solid var(--line); padding: 13px 15px; text-align: left; }.capability-table th { background: var(--soft); color: var(--muted); font-size: 10px; text-transform: uppercase; }.capability-table td small { display: block; margin-top: 3px; color: var(--muted); }.status-dot { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }.status-dot::before { width: 7px; height: 7px; border-radius: 50%; content: ''; }.status-dot.yes { color: #059669; }.status-dot.yes::before { background: #10b981; }.status-dot.partial { color: #d97706; }.status-dot.partial::before { background: #f59e0b; }.status-dot.no { color: #94a3b8; }.status-dot.no::before { background: #cbd5e1; }
-.endpoint-line { display: flex; align-items: center; gap: 11px; margin: 15px 0; border: 1px solid #d8d4fb; border-radius: 10px; background: #f5f3ff; padding: 10px 12px; }.dark .endpoint-line { border-color: #47406b; background: #28243b; }.endpoint-line b { border-radius: 5px; background: #6c5ce7; padding: 4px 7px; color: white; font-size: 9px; }.endpoint-line code { font-size: 12px; font-weight: 700; }.endpoint-line span { margin-left: auto; color: var(--muted); font-size: 10px; }.endpoint-line.raw b { background: #0891b2; }.notice { display: flex; gap: 12px; margin-top: 16px; border-radius: 11px; padding: 13px 15px; font-size: 11px; line-height: 1.7; }.notice b { flex: 0 0 auto; }.notice.warning { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; }.notice.success { border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; }.dark .notice.warning { border-color: #71551e; background: #362b17; color: #fde68a; }.dark .notice.success { border-color: #245d4b; background: #17352d; color: #a7f3d0; }
+.endpoint-line { display: flex; align-items: center; gap: 11px; margin: 15px 0; border: 1px solid #d8d4fb; border-radius: 10px; background: #f5f3ff; padding: 10px 12px; }.dark .endpoint-line { border-color: #47406b; background: #28243b; }.endpoint-line b { border-radius: 5px; background: #6c5ce7; padding: 4px 7px; color: white; font-size: 9px; }.endpoint-line code { font-size: 12px; font-weight: 700; }.endpoint-line span { margin-left: auto; color: var(--muted); font-size: 10px; }.endpoint-line.raw b { background: #0891b2; }.notice { display: flex; gap: 12px; margin-top: 16px; border-radius: 11px; padding: 13px 15px; font-size: 12px; line-height: 1.75; }.notice b { flex: 0 0 auto; }.notice.warning { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; }.notice.success { border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; }.dark .notice.warning { border-color: #71551e; background: #362b17; color: #fde68a; }.dark .notice.success { border-color: #245d4b; background: #17352d; color: #a7f3d0; }
 .model-heading { display: flex; align-items: center; gap: 12px; }.model-heading i { width: 42px; height: 42px; font-size: 12px; }.model-heading code { color: #6c5ce7; }.model-meta { display: grid; grid-template-columns: repeat(4,1fr); overflow: hidden; border: 1px solid var(--line); border-radius: 13px; }.model-meta div { border-right: 1px solid var(--line); padding: 13px; }.model-meta div:last-child { border: 0; }.model-meta small,.model-meta b { display: block; }.model-meta small { color: var(--muted); font-size: 9px; }.model-meta b { margin-top: 4px; color: #059669; font-size: 11px; }.model-meta b.muted { color: #94a3b8; }.feature-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 13px; }.feature-card { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 13px; }.feature-card > span { display: grid; flex: 0 0 27px; height: 27px; place-items: center; border-radius: 7px; background: #ede9fe; color: #6d5bd0; font-size: 10px; font-weight: 900; }.feature-card h3 { margin: 1px 0 4px; font-size: 11px; }.feature-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }.examples { margin-top: 16px; }.parameter-strip { display: grid; grid-template-columns: repeat(3,1fr); margin-top: 13px; border-radius: 10px; background: var(--soft); }.parameter-strip div { padding: 11px 13px; }.parameter-strip span,.parameter-strip b { display: block; }.parameter-strip span { color: var(--muted); font-size: 9px; }.parameter-strip b { margin-top: 3px; font-size: 10px; }
 .protocol-manual { scroll-margin-top: 90px; margin-top: 24px; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }.openai-manual { border-top: 3px solid #6c5ce7; }.raw-manual { border-top: 3px solid #0891b2; }.protocol-title { display: flex; align-items: flex-start; gap: 11px; }.protocol-number { display: grid; flex: 0 0 30px; height: 30px; place-items: center; border-radius: 8px; background: #ede9fe; color: #6c5ce7; font-size: 12px; font-weight: 900; }.raw-manual .protocol-number { background: #cffafe; color: #0e7490; }.protocol-title h3 { margin: 1px 0 4px; font-size: 18px; }.protocol-title p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }.protocol-tag { margin-left: auto; border-radius: 999px; background: #ede9fe; padding: 5px 9px; color: #6c5ce7; font-size: 10px; font-weight: 800; }.protocol-tag.raw { background: #cffafe; color: #0e7490; }.beginner-steps { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 14px 0; }.beginner-steps div { display: flex; align-items: flex-start; gap: 8px; border-radius: 10px; background: var(--soft); padding: 10px; }.beginner-steps span { display: grid; flex: 0 0 22px; height: 22px; place-items: center; border-radius: 50%; background: #6c5ce7; color: white; font-size: 10px; font-weight: 900; }.raw-steps span { background: #0891b2; }.beginner-steps p { margin: 1px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }.manual-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 17px; }.manual-grid h4,.edit-example h4 { margin: 0 0 10px; font-size: 14px; }.parameter-table { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }.parameter-table > div { display: grid; grid-template-columns: 130px 70px minmax(0,1fr); border-bottom: 1px solid var(--line); }.parameter-table > div:last-child { border: 0; }.parameter-table span,.parameter-table b,.parameter-table code { padding: 8px 9px; font-size: 11px; line-height: 1.55; }.parameter-table code { color: #6555da; font-weight: 700; }.parameter-table b { color: #059669; }.parameter-table span { color: var(--muted); }.parameter-table .parameter-head { background: var(--soft); }.parameter-head span { color: var(--ink); font-weight: 800; }.capability-list { border-radius: 10px; background: var(--soft); padding: 5px 12px; }.mini-endpoint { display: flex; align-items: center; gap: 8px; margin-top: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 9px; font-size: 11px; }.mini-endpoint b { color: #6c5ce7; }.mini-endpoint span { margin-left: auto; color: var(--muted); }.notice.compact { margin-top: 10px; padding: 9px 11px; }.edit-example { margin-top: 16px; border-radius: 12px; background: var(--soft); padding: 15px; }.edit-example > p { color: var(--muted); font-size: 12px; line-height: 1.6; }.image-source-help { margin-top: 10px; border: 1px solid #a5f3fc; border-radius: 10px; background: #ecfeff; padding: 11px; color: #155e75; font-size: 11px; line-height: 1.65; }.image-source-help b,.image-source-help span { display: block; }.image-source-help span { margin-top: 4px; }.dark .image-source-help { border-color: #155e75; background: #15343b; color: #a5f3fc; }
 .docs-toc { position: sticky; top: 5rem; height: fit-content; border-left: 1px solid var(--line); padding: 28px 4px 20px 18px; }.docs-toc > span { color: #98a1b1; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }.docs-toc > a { display: block; margin-top: 10px; color: var(--muted); font-size: 10px; }.docs-toc > a:hover { color: #6c5ce7; }.toc-note { margin-top: 24px; border-radius: 10px; background: var(--soft); padding: 11px; }.toc-note b,.toc-note code,.toc-note small { display: block; }.toc-note b { font-size: 9px; }.toc-note code { margin-top: 5px; color: #6c5ce7; font-size: 9px; }.toc-note small { margin-top: 6px; color: var(--muted); font-size: 8px; line-height: 1.5; }

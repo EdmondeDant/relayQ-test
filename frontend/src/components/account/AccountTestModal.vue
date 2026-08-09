@@ -196,9 +196,9 @@
 
       <ConfirmDialog
 		:show="showPaidConfirmation"
-		:title="t('admin.accounts.paidImageTestTitle')"
-		:message="t('admin.accounts.paidImageTestMessage')"
-		:confirm-text="t('admin.accounts.confirmPaidImageTest')"
+		:title="t(supportsLeonardoVideoTest ? 'admin.accounts.paidVideoTestTitle' : 'admin.accounts.paidImageTestTitle')"
+		:message="t(supportsLeonardoVideoTest ? 'admin.accounts.paidVideoTestMessage' : 'admin.accounts.paidImageTestMessage')"
+		:confirm-text="t(supportsLeonardoVideoTest ? 'admin.accounts.confirmPaidVideoTest' : 'admin.accounts.confirmPaidImageTest')"
 		@confirm="confirmPaidTest"
 		@cancel="showPaidConfirmation = false"
 	  />
@@ -233,13 +233,13 @@
           {{ t('common.close') }}
         </button>
         <button
-		  v-if="supportsLeonardoImageTest"
+		  v-if="supportsLeonardoImageTest || supportsLeonardoVideoTest"
 		  @click="showPaidConfirmation = true"
-		  :disabled="status === 'connecting' || !selectedModelId || !testPrompt.trim()"
+		  :disabled="status === 'connecting' || submissionUnknown || !selectedModelId || !testPrompt.trim()"
 		  class="flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
 		>
           <Icon name="eye" size="sm" :stroke-width="2" />
-		  <span>{{ t('admin.accounts.paidImageTest') }}</span>
+		  <span>{{ submissionUnknown ? t('admin.accounts.submissionUnknownLocked') : t(supportsLeonardoVideoTest ? 'admin.accounts.paidVideoTest' : 'admin.accounts.paidImageTest') }}</span>
 		</button>
 		<button
           @click="startTest()"
@@ -339,6 +339,7 @@ const openAITestModeOptions = computed(() => [
 ])
 const previewImageUrl = ref('')
 const showPaidConfirmation = ref(false)
+const submissionUnknown = ref(false)
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
@@ -349,8 +350,9 @@ const supportsGeminiImageTest = computed(() => {
 
 const supportsOpenAIImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
-  if (!modelID.startsWith('gpt-image-')) return false
-  return props.account?.platform === 'openai'
+  if (props.account?.platform !== 'openai') return false
+  if (selectedModel.value?.modality) return selectedModel.value.modality === 'image'
+  return modelID.startsWith('gpt-image-')
 })
 
 const supportsXAIImageTest = computed(() => {
@@ -367,6 +369,12 @@ const supportsLeonardoImageTest = computed(() => {
 	return ['flux-schnell', 'gpt-image-2', 'nano-banana-2', 'nano-banana-2-lite'].includes(selectedModelId.value)
 })
 
+const supportsLeonardoVideoTest = computed(() => {
+  return props.account?.platform === 'leonardo' && selectedModel.value?.modality === 'video'
+})
+
+const supportsOpenAIVideoTest = computed(() => props.account?.platform === 'openai' && selectedModel.value?.modality === 'video')
+
 const supportsXAIVideoTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
   if (!modelID.startsWith('grok-imagine-video')) return false
@@ -374,7 +382,7 @@ const supportsXAIVideoTest = computed(() => {
 })
 
 const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value || supportsXAIImageTest.value || supportsLeonardoImageTest.value)
-const supportsVideoTest = computed(() => supportsXAIVideoTest.value)
+const supportsVideoTest = computed(() => supportsXAIVideoTest.value || supportsLeonardoVideoTest.value || supportsOpenAIVideoTest.value)
 
 const sortTestModels = (models: ClaudeModel[]) => {
   const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
@@ -437,8 +445,13 @@ watch(
 )
 
 watch(selectedModelId, () => {
-  if (supportsImageTest.value && !testPrompt.value.trim()) {
-    testPrompt.value = t('admin.accounts.imagePromptDefault')
+  submissionUnknown.value = false
+  if (!testPrompt.value.trim()) {
+    if (supportsVideoTest.value) {
+      testPrompt.value = t('admin.accounts.videoPromptDefault')
+    } else if (supportsImageTest.value) {
+      testPrompt.value = t('admin.accounts.imagePromptDefault')
+    }
   }
 })
 
@@ -503,6 +516,8 @@ const resetState = () => {
   streamingContent.value = ''
   errorMessage.value = ''
   generatedImages.value = []
+  generatedVideos.value = []
+  submissionUnknown.value = false
   previewImageUrl.value = ''
 }
 
@@ -619,6 +634,7 @@ const handleEvent = (event: {
   type: string
   text?: string
   model?: string
+  code?: string
   success?: boolean
   error?: string
   image_url?: string
@@ -692,6 +708,7 @@ const handleEvent = (event: {
 
     case 'error':
       status.value = 'error'
+      submissionUnknown.value = event.code === 'LEONARDO_SUBMISSION_UNKNOWN'
       errorMessage.value = event.error || 'Unknown error'
       if (streamingContent.value) {
         addLine(streamingContent.value, 'text-green-300')

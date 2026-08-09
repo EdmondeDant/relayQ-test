@@ -37,10 +37,12 @@ type leonardoMediaCreateHTTPRequest struct {
 }
 
 type leonardoMediaImageParameters struct {
-	Width     int                           `json:"width"`
-	Height    int                           `json:"height"`
-	Quantity  int                           `json:"quantity"`
-	Guidances service.LeonardoFluxGuidances `json:"guidances,omitempty"`
+	Width            int                           `json:"width"`
+	Height           int                           `json:"height"`
+	Quantity         int                           `json:"quantity"`
+	Duration         int                           `json:"duration,omitempty"`
+	Guidances        service.LeonardoFluxGuidances `json:"guidances,omitempty"`
+	StartFrameSource string                        `json:"start_frame_source,omitempty"`
 }
 
 type leonardoRawGenerationProbe struct {
@@ -81,6 +83,31 @@ type leonardoOpenAIImagesResult struct {
 	Status  string                    `json:"status,omitempty"`
 }
 
+type leonardoOpenAIVideoRequest struct {
+	Model          string `json:"model"`
+	Prompt         string `json:"prompt"`
+	Seconds        int    `json:"seconds"`
+	Size           string `json:"size"`
+	InputReference *struct {
+		ImageURL string `json:"image_url"`
+	} `json:"input_reference,omitempty"`
+}
+
+type leonardoRawVideoRequest struct {
+	Model      string `json:"model"`
+	Public     bool   `json:"public"`
+	Parameters struct {
+		Prompt        string `json:"prompt"`
+		Width         int    `json:"width"`
+		Height        int    `json:"height"`
+		Quantity      int    `json:"quantity"`
+		Duration      int    `json:"duration,omitempty"`
+		Mode          string `json:"mode,omitempty"`
+		Resolution    string `json:"resolution,omitempty"`
+		PromptEnhance string `json:"prompt_enhance,omitempty"`
+	} `json:"parameters"`
+}
+
 type leonardoOpenAIImageEditFingerprint struct {
 	Model        string   `json:"model"`
 	Prompt       string   `json:"prompt"`
@@ -91,6 +118,91 @@ type leonardoOpenAIImageEditFingerprint struct {
 
 func NewLeonardoMediaHandler(create *service.LeonardoMediaCreateService, get *service.LeonardoMediaGetService) *LeonardoMediaHandler {
 	return &LeonardoMediaHandler{create: create, get: get}
+}
+
+func (h *LeonardoMediaHandler) OpenAIVideoGenerations(c *gin.Context) {
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 32<<20))
+	if err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	var shape map[string]json.RawMessage
+	if json.Unmarshal(body, &shape) != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	if _, raw := shape["parameters"]; raw {
+		h.leonardoRawVideoGenerations(c, body)
+		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var req leonardoOpenAIVideoRequest
+	if decoder.Decode(&req) != nil || ensureLeonardoMediaJSONEOF(decoder) != nil || strings.TrimSpace(req.Prompt) == "" {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	sizeParts := strings.Split(req.Size, "x")
+	if len(sizeParts) != 2 {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	width, widthErr := strconv.Atoi(sizeParts[0])
+	height, heightErr := strconv.Atoi(sizeParts[1])
+	if widthErr != nil || heightErr != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	if _, err := service.NewLeonardoVideoPriceResolver().Estimate(c.Request.Context(), service.LeonardoVideoPriceRequest{Model: req.Model, Duration: req.Seconds, Width: width, Height: height, Quantity: 1}); err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	startFrameSource := ""
+	if req.InputReference != nil {
+		startFrameSource = strings.TrimSpace(req.InputReference.ImageURL)
+		if startFrameSource == "" || (req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast") {
+			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+			return
+		}
+	}
+	body, err = json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Prompt, Parameters: leonardoMediaImageParameters{Width: width, Height: height, Quantity: 1, Duration: req.Seconds, StartFrameSource: startFrameSource}})
+	if err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.Create(c)
+}
+
+func (h *LeonardoMediaHandler) leonardoRawVideoGenerations(c *gin.Context, body []byte) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var req leonardoRawVideoRequest
+	if decoder.Decode(&req) != nil || ensureLeonardoMediaJSONEOF(decoder) != nil || strings.TrimSpace(req.Parameters.Prompt) == "" {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	expected, err := service.LeonardoVideoGenerationParameters(req.Model, req.Parameters.Prompt, req.Parameters.Duration, req.Parameters.Width, req.Parameters.Height, req.Parameters.Quantity)
+	if err != nil || !sameLeonardoRawVideoParameters(req, expected) {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	mediaBody, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Parameters.Prompt, Public: req.Public, Parameters: leonardoMediaImageParameters{Width: req.Parameters.Width, Height: req.Parameters.Height, Quantity: req.Parameters.Quantity, Duration: req.Parameters.Duration}})
+	if err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(mediaBody))
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.Create(c)
+}
+
+func sameLeonardoRawVideoParameters(req leonardoRawVideoRequest, expected map[string]any) bool {
+	mode, _ := expected["mode"].(string)
+	resolution, _ := expected["resolution"].(string)
+	promptEnhance, _ := expected["prompt_enhance"].(string)
+	return req.Parameters.Mode == mode && req.Parameters.Resolution == resolution && req.Parameters.PromptEnhance == promptEnhance
 }
 
 func (h *LeonardoMediaHandler) Get(c *gin.Context) {
@@ -592,6 +704,7 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32<<20)
 	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
 	var req leonardoMediaCreateHTTPRequest
@@ -603,11 +716,14 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
-	if req.Modality != "image" || strings.TrimSpace(req.Model) == "" || strings.TrimSpace(req.Prompt) == "" || len(strings.TrimSpace(req.Prompt)) > 4000 || req.Parameters.Width <= 0 || req.Parameters.Height <= 0 || req.Parameters.Quantity <= 0 {
+	if (req.Modality != "image" && req.Modality != "video") || strings.TrimSpace(req.Model) == "" || strings.TrimSpace(req.Prompt) == "" || len(strings.TrimSpace(req.Prompt)) > 4000 || req.Parameters.Width <= 0 || req.Parameters.Height <= 0 || req.Parameters.Quantity <= 0 || (req.Modality == "video" && req.Parameters.Duration <= 0 && req.Model != "motion_2.0-fast") {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
-	if _, err = service.BuildLeonardoFluxGuidances(req.Model, req.Parameters.Guidances); err != nil {
+	if req.Modality == "image" {
+		_, err = service.BuildLeonardoFluxGuidances(req.Model, req.Parameters.Guidances)
+	}
+	if err != nil {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
@@ -620,8 +736,29 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrIdempotencyStoreUnavail)
 		return
 	}
-	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances}
+	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances}
+	if req.Modality == "video" && strings.TrimSpace(req.Parameters.StartFrameSource) != "" {
+		if req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" {
+			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+			return
+		}
+		input.RawBody, err = json.Marshal(map[string]any{
+			"model":      req.Model,
+			"public":     req.Public,
+			"parameters": mergeLeonardoVideoStartFrameParameters(req, strings.TrimSpace(req.Parameters.StartFrameSource)),
+		})
+		if err != nil {
+			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+			return
+		}
+	}
 	executeUserIdempotentJSON(c, "leonardo_media_create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) { return h.create.Create(ctx, input) })
+}
+
+func mergeLeonardoVideoStartFrameParameters(req leonardoMediaCreateHTTPRequest, source string) map[string]any {
+	parameters, _ := service.LeonardoVideoGenerationParameters(req.Model, req.Prompt, req.Parameters.Duration, req.Parameters.Width, req.Parameters.Height, req.Parameters.Quantity)
+	parameters["guidances"] = map[string]any{"start_frame": []map[string]any{{"image": map[string]any{"source": source}}}}
+	return parameters
 }
 
 func ensureLeonardoMediaJSONEOF(decoder *json.Decoder) error {

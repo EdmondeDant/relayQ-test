@@ -128,7 +128,7 @@ function buildLeonardoAccount() {
     platform: 'leonardo',
     type: 'apikey',
     status: 'active',
-		credentials: { model_mapping: { 'nano-banana-2': 'nano-banana-2' } },
+		credentials: { model_mapping: { 'kino-xl': 'kino-xl' } },
     extra: {},
     concurrency: 1,
     priority: 1,
@@ -234,9 +234,9 @@ describe('AccountTestModal', () => {
   })
 
   it('requires confirmation before posting a paid Leonardo image test', async () => {
-	getAvailableModelsMock.mockResolvedValue([{ id: 'nano-banana-2', type: 'model', display_name: 'Nano Banana 2', created_at: '', modality: 'image' }])
+	getAvailableModelsMock.mockResolvedValue([{ id: 'kino-xl', type: 'model', display_name: 'Cinematic Kino', created_at: '', modality: 'image' }])
     const wrapper = mount(AccountTestModal, {
-      props: { show: true, account: buildLeonardoAccount() },
+      props: { show: false, account: { ...buildLeonardoAccount(), credentials: {} } },
       global: {
         stubs: {
           BaseDialog: BaseDialogStub,
@@ -248,8 +248,8 @@ describe('AccountTestModal', () => {
       }
     })
 
+    await wrapper.setProps({ show: true })
     await flushPromises()
-	;(wrapper.vm as any).selectedModelId = 'nano-banana-2'
 	;(wrapper.vm as any).testPrompt = 'cat'
 	await flushPromises()
     expect(wrapper.text()).toContain('admin.accounts.paidImageTest')
@@ -262,11 +262,106 @@ describe('AccountTestModal', () => {
     expect(global.fetch).toHaveBeenCalledOnce()
     const [, options] = (global.fetch as any).mock.calls[0]
     expect(JSON.parse(options.body)).toMatchObject({
-		model_id: 'nano-banana-2',
+		model_id: 'kino-xl',
 		prompt: 'cat',
       paid: true,
       confirm_paid: true
     })
+  })
+
+  it('uses image generation for an OpenAI-compatible image model', async () => {
+	getAvailableModelsMock.mockResolvedValue([{ id: 'flux-2-klein-9b-kv', type: 'model', display_name: 'flux-2-klein-9b-kv', created_at: '', modality: 'image' }])
+	const wrapper = mount(AccountTestModal, {
+		props: { show: false, account: buildAccount() },
+		global: { stubs: { BaseDialog: BaseDialogStub, Select: SelectStub, TextArea: TextAreaStub, Icon: true } }
+	})
+
+	await wrapper.setProps({ show: true })
+	await flushPromises()
+	expect((wrapper.vm as any).selectedModelId).toBe('flux-2-klein-9b-kv')
+	expect((wrapper.vm as any).testPrompt).toBe('admin.accounts.imagePromptDefault')
+	await (wrapper.vm as any).startTest()
+	await flushPromises()
+
+	const [, options] = (global.fetch as any).mock.calls[0]
+	expect(JSON.parse(options.body)).toMatchObject({ model_id: 'flux-2-klein-9b-kv', prompt: 'admin.accounts.imagePromptDefault' })
+  })
+
+  it('uses video generation for an OpenAI-compatible video model', async () => {
+	getAvailableModelsMock.mockResolvedValue([{ id: 'minimax-h3', type: 'model', display_name: 'minimax-h3', created_at: '', modality: 'video' }])
+	const wrapper = mount(AccountTestModal, {
+		props: { show: false, account: buildAccount() },
+		global: { stubs: { BaseDialog: BaseDialogStub, Select: SelectStub, TextArea: TextAreaStub, Icon: true } }
+	})
+
+	await wrapper.setProps({ show: true })
+	await flushPromises()
+	expect((wrapper.vm as any).selectedModelId).toBe('minimax-h3')
+	expect((wrapper.vm as any).testPrompt).toBe('admin.accounts.videoPromptDefault')
+	await (wrapper.vm as any).startTest()
+	await flushPromises()
+	const [, options] = (global.fetch as any).mock.calls[0]
+	expect(JSON.parse(options.body)).toMatchObject({ model_id: 'minimax-h3', prompt: 'admin.accounts.videoPromptDefault' })
+  })
+
+  it('uses the paid video flow for a Leonardo video model', async () => {
+    getAvailableModelsMock.mockResolvedValue([{ id: 'seedance-1.0-pro-fast', type: 'model', display_name: 'Seedance 1.0 Pro Fast', created_at: '', modality: 'video' }])
+    const wrapper = mount(AccountTestModal, {
+      props: { show: false, account: { ...buildLeonardoAccount(), credentials: {} } },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+          ConfirmDialog: ConfirmDialogStub,
+          Select: SelectStub,
+          TextArea: TextAreaStub,
+          Icon: true
+        }
+      }
+    })
+
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    expect((wrapper.vm as any).selectedModelId).toBe('seedance-1.0-pro-fast')
+    expect((wrapper.vm as any).testPrompt).toBe('admin.accounts.videoPromptDefault')
+    expect(wrapper.text()).toContain('admin.accounts.videoTestMode')
+    expect(wrapper.text()).toContain('admin.accounts.paidVideoTest')
+    await wrapper.findAll('button').find(button => button.text().includes('admin.accounts.paidVideoTest'))?.trigger('click')
+    expect(global.fetch).not.toHaveBeenCalled()
+    await wrapper.get('[data-test="confirm-paid"]').trigger('click')
+    await flushPromises()
+
+    expect(global.fetch).toHaveBeenCalledOnce()
+    const [, options] = (global.fetch as any).mock.calls[0]
+    expect(JSON.parse(options.body)).toMatchObject({
+      model_id: 'seedance-1.0-pro-fast',
+      prompt: 'admin.accounts.videoPromptDefault',
+      paid: true,
+      confirm_paid: true
+    })
+  })
+
+  it('locks paid retry when Leonardo submission status is unknown', async () => {
+    const encoder = new TextEncoder()
+    const chunks = [encoder.encode('data: {"type":"error","code":"LEONARDO_SUBMISSION_UNKNOWN","error":"Do not retry"}\n\n')]
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockImplementation(() => Promise.resolve(chunks.length ? { done: false, value: chunks.shift() } : { done: true, value: undefined })) }) }
+    } as any)
+    getAvailableModelsMock.mockResolvedValue([{ id: 'graphic-design', type: 'model', display_name: 'Graphic Design', created_at: '', modality: 'image' }])
+    const wrapper = mount(AccountTestModal, {
+      props: { show: false, account: { ...buildLeonardoAccount(), credentials: {} } },
+      global: { stubs: { BaseDialog: BaseDialogStub, ConfirmDialog: ConfirmDialogStub, Select: SelectStub, TextArea: TextAreaStub, Icon: true } }
+    })
+
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    ;(wrapper.vm as any).testPrompt = 'cat'
+    await (wrapper.vm as any).startTest(true)
+    await flushPromises()
+
+    const paidButton = wrapper.findAll('button').find(button => button.text().includes('admin.accounts.submissionUnknownLocked'))
+    expect(paidButton?.attributes('disabled')).toBeDefined()
+    expect(global.fetch).toHaveBeenCalledOnce()
   })
 
   it('for xai accounts only shows locally synced whitelist models', async () => {

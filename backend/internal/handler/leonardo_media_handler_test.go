@@ -57,6 +57,73 @@ func TestLeonardoMediaHandlerStrictJSON(t *testing.T) {
 	require.Error(t, ensureLeonardoMediaJSONEOF(decoder))
 }
 
+func TestLeonardoOpenAIVideoValidatesOfficialSpecifications(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		body string
+		ok   bool
+	}{
+		{`{"model":"motion_2.0-fast","prompt":"cat","seconds":0,"size":"832x480"}`, true},
+		{`{"model":"motion_2.0-fast","prompt":"cat","seconds":0,"size":"1280x720"}`, true},
+		{`{"model":"seedance-1.0-pro-fast","prompt":"cat","seconds":6,"size":"704x1248"}`, true},
+		{`{"model":"seedance-1.0-pro","prompt":"cat","seconds":10,"size":"1920x1088"}`, true},
+		{`{"model":"wan-2.7","prompt":"cat","seconds":3,"size":"1280x720"}`, true},
+		{`{"model":"wan-2.7","prompt":"cat","seconds":10,"size":"1080x1920"}`, true},
+		{`{"model":"wan-2.7","prompt":"cat","seconds":11,"size":"1280x720"}`, false},
+		{`{"model":"motion_2.0-fast","prompt":"cat","seconds":4,"size":"832x480"}`, false},
+	}
+	for _, test := range tests {
+		repo := &leonardoMediaAccountRepoStub{}
+		handler := NewLeonardoMediaHandler(service.NewLeonardoMediaCreateService(repo, service.NewLeonardoImageCreateOrchestrator(nil, nil, nil, nil, nil)), nil)
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(test.body))
+		c.Request.Header.Set("Idempotency-Key", "video-test")
+		apiKey := leonardoMediaValidAPIKey()
+		c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: apiKey.User.ID})
+
+		handler.OpenAIVideoGenerations(c)
+		if test.ok {
+			require.NotEqual(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+		} else {
+			require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
+func TestLeonardoRawVideoValidatesModelParameters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		body string
+		ok   bool
+	}{
+		{`{"model":"seedance-1.0-pro-fast","public":false,"parameters":{"prompt":"cat","width":1248,"height":704,"quantity":1,"duration":6,"mode":"RESOLUTION_720","prompt_enhance":"OFF"}}`, true},
+		{`{"model":"motion_2.0-fast","public":false,"parameters":{"prompt":"cat","width":1280,"height":720,"quantity":1,"mode":"RESOLUTION_720"}}`, true},
+		{`{"model":"wan-2.7","public":false,"parameters":{"prompt":"cat","width":1920,"height":1080,"quantity":1,"duration":5,"resolution":"1080p"}}`, true},
+		{`{"model":"seedance-1.0-pro","public":false,"parameters":{"prompt":"cat","width":1248,"height":704,"quantity":1,"duration":6,"mode":"RESOLUTION_480","prompt_enhance":"OFF"}}`, false},
+		{`{"model":"wan-2.7","public":false,"parameters":{"prompt":"cat","width":1920,"height":1080,"quantity":1,"duration":5,"mode":"RESOLUTION_1080"}}`, false},
+	}
+	for _, test := range tests {
+		repo := &leonardoMediaAccountRepoStub{}
+		handler := NewLeonardoMediaHandler(service.NewLeonardoMediaCreateService(repo, service.NewLeonardoImageCreateOrchestrator(nil, nil, nil, nil, nil)), nil)
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(test.body))
+		c.Request.Header.Set("Idempotency-Key", "raw-video-test")
+		apiKey := leonardoMediaValidAPIKey()
+		c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: apiKey.User.ID})
+
+		handler.OpenAIVideoGenerations(c)
+		if test.ok {
+			require.NotEqual(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+		} else {
+			require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
 func TestLeonardoMediaHandlerDecodesFluxGuidances(t *testing.T) {
 	decoder := json.NewDecoder(strings.NewReader(`{"model":"flux-schnell","modality":"image","prompt":"cat","parameters":{"width":896,"height":896,"quantity":1,"guidances":{"content":[{"image":{"id":"content-1","type":"UPLOADED"},"strength":"HIGH"}],"style":[{"image":{"id":"style-1","type":"GENERATED"},"strength":"MAX"}]}}}`))
 	decoder.DisallowUnknownFields()

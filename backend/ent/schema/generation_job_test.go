@@ -24,8 +24,10 @@ func TestGenerationJobSchema(t *testing.T) {
 		"public_id", "provider", "modality", "model", "upstream_model",
 		"user_id", "api_key_id", "group_id", "account_id", "upstream_generation_id",
 		"status", "upstream_status", "request_hash", "request_payload", "result_payload",
-		"error_code", "error_message", "output_count", "actual_upstream_cost_amount",
-		"actual_upstream_cost_unit", "customer_cost", "billing_status", "billing_reference",
+		"error_code", "error_message", "output_count", "estimated_upstream_cost_amount",
+		"estimated_upstream_cost_unit", "pricing_snapshot_version", "pricing_source", "pricing_match_type",
+		"actual_upstream_cost_amount", "actual_upstream_cost_unit", "customer_cost", "gross_margin",
+		"cost_variance", "billing_status", "billing_reference",
 		"poll_attempts", "next_poll_at", "last_polled_at", "submitted_at", "started_at",
 		"completed_at", "failed_at", "created_at", "updated_at",
 	)
@@ -37,16 +39,17 @@ func TestGenerationJobSchema(t *testing.T) {
 	require.Equal(t, field.TypeJSON, requireSchemaField(t, generationJob, "request_payload").Info.Type)
 	require.Equal(t, field.TypeJSON, requireSchemaField(t, generationJob, "result_payload").Info.Type)
 
-	for _, name := range []string{"actual_upstream_cost_amount", "actual_upstream_cost_unit", "customer_cost"} {
+	for _, name := range []string{"estimated_upstream_cost_amount", "estimated_upstream_cost_unit", "actual_upstream_cost_amount", "actual_upstream_cost_unit", "customer_cost", "gross_margin", "cost_variance"} {
 		schemaField := requireSchemaField(t, generationJob, name)
 		require.True(t, schemaField.Optional)
 		require.True(t, schemaField.Nillable)
 	}
-	for _, name := range []string{"actual_upstream_cost_amount", "customer_cost"} {
+	for _, name := range []string{"estimated_upstream_cost_amount", "actual_upstream_cost_amount", "customer_cost", "gross_margin", "cost_variance"} {
 		schemaField := requireSchemaField(t, generationJob, name)
 		require.Equal(t, field.TypeOther, schemaField.Info.Type)
 		require.Equal(t, "*decimal.Decimal", schemaField.Info.Ident)
 		requirePostgresType(t, generationJob, name, "decimal(20,10)")
+		require.Equal(t, "numeric", schemaField.SchemaType[dialect.SQLite])
 	}
 
 	for _, name := range []string{"next_poll_at", "last_polled_at", "submitted_at", "started_at", "completed_at", "failed_at"} {

@@ -14,7 +14,7 @@ var (
 )
 
 const (
-	leonardoImagePricingVersion = "2026-08-06"
+	leonardoImagePricingVersion = "2026-08-08"
 	leonardoImagePricingSource  = "leonardo_authenticated_pricing_calculator"
 	leonardoImagePricingMatch   = "exact"
 	leonardoImagePricingTierMax = "quality_tier_max"
@@ -118,6 +118,14 @@ func leonardoImageUnitPrice(model string, width, height int, quality string) (st
 		if quality == "low" && width == 1024 {
 			return "0.0449", leonardoImagePricingMatch, true
 		}
+	case "kino-xl":
+		prices := map[string]map[int]string{"low": {896: "0.0045", 1024: "0.006", 1120: "0.006"}, "high": {896: "0.0239", 1024: "0.0239", 1120: "0.0269"}}
+		price, ok := prices[quality][width]
+		return price, leonardoImagePricingMatch, ok
+	case "concept-art", "graphic-design", "illustrative-albedo":
+		prices := map[string]map[int]string{"low": {888: "0.0045", 960: "0.0045", 1024: "0.006"}, "high": {888: "0.0239", 960: "0.0239", 1024: "0.0239"}}
+		price, ok := prices[quality][width]
+		return price, leonardoImagePricingMatch, ok
 	}
 	return "", "", false
 }

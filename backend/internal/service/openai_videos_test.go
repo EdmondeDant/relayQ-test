@@ -3,9 +3,18 @@ package service
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func TestBuildXAIVideoURLHandlesVersionedBaseURL(t *testing.T) {
+	svc := &OpenAIGatewayService{cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://video.example/v1"}}
+	got, err := svc.buildXAIVideoURL(account, "/v1/videos/generations")
+	require.NoError(t, err)
+	require.Equal(t, "https://video.example/v1/videos/generations", got)
+}
 
 func TestNormalizeXAIVideoGenerationBodyAcceptsSoraAlias(t *testing.T) {
 	body := []byte(`{"model":"sora-2","prompt":"city at dusk","seconds":8,"size":"1280x720"}`)

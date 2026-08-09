@@ -81,6 +81,59 @@ func TestLeonardoImageCreateOrchestratorSuccess(t *testing.T) {
 	require.Equal(t, "0.005", funds.reserve.AmountUSD.String())
 }
 
+func TestLeonardoImageCreateOrchestratorMapsStyleModelQuality(t *testing.T) {
+	tests := []struct {
+		quality string
+		mode    string
+	}{
+		{quality: "low", mode: "FAST"},
+		{quality: "high", mode: "QUALITY"},
+	}
+	for _, test := range tests {
+		t.Run(test.quality, func(t *testing.T) {
+			client := &leonardoGenerationClientMock{response: &leonardo.CreateGenerationResponse{GenerationID: "1dd50843-d653-4516-a8e3-f0238ee453ff"}}
+			request := createImageRequest("0.005")
+			request.Model = "kino-xl"
+			request.QualityTier = test.quality
+			_, err := createOrchestrator(createFundsFake("0.005"), &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, &leonardoGenerationRepositoryMock{}).Create(context.Background(), request)
+			require.NoError(t, err)
+			require.Equal(t, test.mode, client.request.Parameters["mode"])
+			require.Equal(t, "OFF", client.request.Parameters["prompt_enhance"])
+		})
+	}
+}
+
+func TestLeonardoImageCreateOrchestratorReturnsExistingJobForExistingReservation(t *testing.T) {
+	request := createImageRequest("0.005")
+	amount := decimal.RequireFromString("0.005")
+	reference := "reservation-1"
+	existing := &GenerationJob{PublicID: request.PublicID, Provider: PlatformLeonardo, Modality: "image", Model: request.Model, UserID: request.UserID, APIKeyID: request.APIKeyID, AccountID: request.AccountID, RequestHash: request.RequestHash, CustomerCost: &amount, BillingReference: &reference, Status: GenerationJobStatusQueued, BillingStatus: GenerationJobBillingStatusSubmitted}
+	repository := &leonardoGenerationRepositoryMock{existing: existing}
+	client := &leonardoGenerationClientMock{}
+	funds := createFundsFake("0.005")
+	funds.reservation.AlreadyReserved = true
+
+	job, err := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, repository).Create(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Equal(t, existing, job)
+	require.Zero(t, client.calls)
+	require.Empty(t, repository.created)
+	require.Zero(t, funds.releaseCalls)
+}
+
+func TestLeonardoImageCreateOrchestratorDoesNotReleaseExistingReservationWithoutMatchingJob(t *testing.T) {
+	funds := createFundsFake("0.005")
+	funds.reservation.AlreadyReserved = true
+	client := &leonardoGenerationClientMock{}
+
+	_, err := createOrchestrator(funds, &leonardoImageCreateAccountReaderFake{account: createLeonardoAccount()}, &leonardoImageCreateClientFactoryFake{client: client}, &leonardoGenerationRepositoryMock{}).Create(context.Background(), createImageRequest("0.005"))
+
+	require.ErrorIs(t, err, ErrLeonardoImageCreateReservationConflict)
+	require.Zero(t, client.calls)
+	require.Zero(t, funds.releaseCalls)
+}
+
 func TestLeonardoImageCreateOrchestratorUploadsEditImage(t *testing.T) {
 	repository := &leonardoGenerationRepositoryMock{}
 	client := &leonardoGenerationClientMock{

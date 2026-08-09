@@ -524,3 +524,134 @@ USD 0.003 来自本地定价快照，只是提交前估价；预算上限不是�
 - 不把空 stdout 或 stderr 解释成未发送请求、未创建任务或未产生副作用。
 - 不补造 HTTP 状态、错误体、执行时间、Request ID 或 `generationId`。
 - 本节不覆盖 LEO-001、LEO-002、LEO-002A、LEO-002B 的历史证据。
+
+---
+
+## LEO-NEXT-001：下一批模型目录只读证据
+
+> 执行时间：2026-08-08T19:55:57+08:00
+> 请求性质：只读模型目录
+> 凭证来源：`LEONARDO_API_KEY` 环境变量，未记录明文、长度、哈希或指纹
+
+### 请求与响应
+
+| 项目 | 结果 |
+|------|------|
+| 请求 | `GET /api/rest/v2/models` |
+| HTTP 状态码 | 200 |
+| `Content-Type` | `application/json; charset=utf-8` |
+| Body 大小 | 263,126 bytes |
+| Body SHA-256 | `df0605ea6c1f76c092dece101546b4d9f1e14ff5596a6e7306581d79cfd37493` |
+| `X-Request-ID` | `08dd043c-0737-476f-98cd-4324f6909796` |
+| JSON 解析 | 成功 |
+| 模型总数 | 73 |
+| GET / POST / 自动重试 / 重定向跟随 | 1 / 0 / 0 / 0 |
+
+### 图片候选
+
+| 候选 | Provider UUID | Schema SHA-256 | Required | Properties 摘要 |
+|------|---------------|----------------|----------|-----------------|
+| Anime | `e71a1c2f-4f80-4800-934f-2c68979d8cc8` | `6a3dff1c054231bd848a3d96435c0c267a7fe55bbc6223fdbd53f4a88674377d` | `prompt` | `contrast,guidances,height,mode,negative_prompt,platform_elements,prompt,prompt_enhance,quantity,seed,style_ids,tiling,transparency,user_elements,width` |
+| Cinematic Kino | `aa77f04e-3eec-4034-9c07-d0f619684628` | `3f6769205f4be19f86561c1f6bcde8a3e1b187d20582537f8ab20f34651b69fa` | `prompt` | 同上 |
+| Concept Art | `dd29ac47-ea88-4720-8678-b8633245c09c` | `d7e9c1a19dc856e301321e5b2c2691982ca745ca4732283f2e41af19407524be` | `prompt` | 同上 |
+| Graphic Design | `9d4ace10-25dd-42fd-a6be-a301a7ac614f` | `c178f259ef7da5bbe85293635dbdaa030221157f990f5bb4316b491280dbda83` | `prompt` | 同上 |
+
+候补 Illustrative Albedo、Leonardo Lightning、Lifelike Vision、Portrait Perfect、Stock Photography 均各精确匹配 1 项，Schema 均为 `type=object`、`additionalProperties=false`、`required=[prompt]`。
+
+### 视频候选
+
+| 候选 | Provider UUID | Schema SHA-256 | Required | Properties |
+|------|---------------|----------------|----------|------------|
+| Seedance 1.0 Pro Fast | `b959ecc2-a7f0-4618-9877-1bc45fc27570` | `bc599100d3d285453e8a608bc25e034da7cf1ada253f8e6a68ee010b1a3a7c00` | `prompt,quantity` | `duration,guidances,height,mode,prompt,prompt_enhance,quantity,seed,width` |
+| Motion 2.0 Fast | `0a7a3eb2-3905-480b-a89a-2f3ffff545e7` | `36db3637b6def74e2276869a88dcf69f1dc5585720412c3225588486c3ec789c` | `prompt` | `controls,elements,frame_interpolation,guidances,height,mode,negative_prompt,prompt,prompt_enhance,quantity,seed,start_frame,style_ids,width` |
+| Seedance 1.0 Pro | `728c9eac-b17d-47fe-b382-b9a28687fa85` | `5e1bb50b7c773fa474d00801a936412bcd11b6effdb9069bd629df51d95417fe` | `prompt,quantity` | `duration,guidances,height,mode,prompt,prompt_enhance,quantity,seed,width` |
+| Wan 2.7 | `52884d8c-e2b9-4bb1-8ed5-927d390fe53a` | `f41877cd8c7a64aa53a7f14c26b864808bbad2bbbf6731b70a8d71b36e9e6cc4` | `prompt` | `duration,guidances,height,omni_edit,prompt,quantity,resolution,width` |
+
+候补 Hailuo 2.3 Fast、Hailuo 2.3、Kling 2.5 Turbo Standard 均各精确匹配 1 项，Schema 均为 `type=object` 且 `additionalProperties=false`。
+
+### Gate 结论
+
+- 8 个主候选及 8 个候补均在当前账号目录中各精确匹配 1 项；目录鉴权、UUID 和顶层 Schema 结构通过。
+- 本次响应仍未提供独立 request slug，不能把显示名或 Provider UUID 当作 `/v2/generations` 的 `model` 值。
+- 当前只完成 Gate 1 的目录存在、账号可见和静态 Schema 合法部分；最低价配置、完整枚举/范围、输入能力和 request slug 尚未获得创建成功证据。
+- 所有候选继续保持 `candidate/blocked`，不得加入 verified registry，不得打开模型白名单或 `video_enabled`。
+- 本次没有创建、上传、状态查询、Webhook 或其他 Leonardo 请求，不产生已知付费副作用。
+
+### I-01 Anime 创建前协议核验
+
+- Leonardo 官方常用模型值文档确认目录 UUID `e71a1c2f-4f80-4800-934f-2c68979d8cc8` 对应 `Leonardo Anime XL`。
+- 当前官方 v2 文档索引没有 Anime 专属生成指南；v2 创建接口的公开参考页当前只展示 `motion_2.0` 枚举，不能据此证明 Anime 的 v2 request slug。
+- 官方建议通过模型专属生成指南或 Web App 的 `Get API Code` 取得准确实现；现有证据没有取得 Anime 的导出代码。
+- 第三方资料出现 `leonardo-anime-xl`，但不属于 Leonardo Production API 官方协议证据，不能批准付费请求。
+- 因 request slug、`mode` 枚举和最低价参数仍无官方证据，本轮没有执行 Anime 创建 POST；POST、状态 GET 和付费副作用均为 0。
+- 用户决定将 Anime 移出本批接入范围；它不会进入后续探针、verified registry、模型白名单或生产启用流程。
+
+### 其余候选官方 request model 核验
+
+Leonardo 官方 v2 Create a Generation OpenAPI 已确认：
+
+| 显示名 | request model |
+|--------|---------------|
+| Cinematic Kino | `kino-xl` |
+| Concept Art | `concept-art` |
+| Graphic Design | `graphic-design` |
+| Illustrative Albedo | `illustrative-albedo` |
+| Seedance 1.0 Pro Fast | `seedance-1.0-pro-fast` |
+| Motion 2.0 Fast | `motion_2.0-fast` |
+| Seedance 1.0 Pro | `seedance-1.0-pro` |
+| Wan 2.7 | `wan-2.7` |
+
+图片模型共同支持 `FAST/QUALITY`、`quantity=1..8` 和经过 Schema 约束的宽高；视频官方最低档分别为 Seedance 4 秒 864×480、Motion 2.0 Fast 480p 832×480、Wan 2.7 2 秒 1280×720。以上仅完成创建前协议核验，未替代每个模型的一次真实成功探针。
+
+### I-01 至 I-04 最低成本真实探针
+
+四个图片模型各发送一次独立创建 POST，均不重试；仅凭各自返回的 `generationId` 查询原任务。
+
+| 模型 | 配置 | 创建 | 上游成本 | 终态 | 输出 |
+|------|------|------|----------|------|------|
+| `kino-xl` | FAST / 896×896 / 1 | HTTP 200 | 0.0045 DOLLARS | COMPLETE | 1 个 HTTPS 图片，`nsfw=false` |
+| `concept-art` | FAST / 888×888 / 1 | HTTP 200 | 0.0045 DOLLARS | COMPLETE | 1 个 HTTPS 图片，`nsfw=false` |
+| `graphic-design` | FAST / 888×888 / 1 | HTTP 200 | 0.0045 DOLLARS | COMPLETE | 1 个 HTTPS 图片，`nsfw=false` |
+| `illustrative-albedo` | FAST / 888×888 / 1 | HTTP 200 | 0.0045 DOLLARS | COMPLETE | 1 个 HTTPS 图片，`nsfw=false` |
+
+请求计数：创建 POST 共 4 次，每个模型 1 次；创建自动重试 0；没有补发、重放、换 Key 或故障转移。四个创建响应均返回 `generate.generationId` 和 `generate.cost`，成本与当前最低价快照一致。
+
+四个图片模型已通过 request model、最低价参数、真实创建、终态图片、HTTPS URL、NSFW 和实际成本门禁，可以进入 verified registry。生产模型白名单仍默认关闭，由管理员逐模型灰度启用。
+
+### V-01 Seedance 1.0 Pro Fast 最低成本真实探针
+
+> 执行时间：2026-08-09 Asia/Shanghai
+> 创建请求：严格 1 次 POST，自动重试 0，重定向跟随 0
+
+| 项目 | 结果 |
+|------|------|
+| 模型 | `seedance-1.0-pro-fast` |
+| 配置 | 4 秒 / 864×480 / quantity 1 / 无音频 |
+| RelayQ 上游估价 | USD 0.0449 |
+| RelayQ 客户预留 | USD 0.31879（当前媒体客户倍率 7.1） |
+| 创建结果 | 成功，返回可信 UUID generation ID |
+| 终态 | `succeeded`，output_count 1 |
+| 输出 | HTTPS MP4，`video/mp4`，2,958,782 bytes，`ftyp` magic-byte 通过 |
+| 资金预留 | `settled`，金额 USD 0.31879 |
+| 用户余额 | USD 1.00000000 → USD 0.68121000，差额 USD 0.31879 |
+| Usage log | 唯一 1 条，`billing_mode=video`，`image_count=0`，费用 USD 0.31879 |
+| 创建响应成本 | `apiCreditCost=0`，RelayQ 记录 `0 API_CREDIT` |
+
+只轮询创建响应返回的 generation ID，没有猜测或查询其他任务。RelayQ 的 reservation、generation job、usage log 和余额差额完全一致。
+
+Leonardo 当前登录会话显示 Free 套餐和 150 Fast Tokens，但 Subscription and Billing 页面不提供逐笔账单或按 generation 查询用量；generation 页面也不能展示该私有 API 任务。因此 Leonardo 控制台无法独立确认本次实际扣费。可验证的上游实际成本字段仅为创建响应的 `apiCreditCost=0`，它与 USD 0.0449 的预估口径不一致，不能将 USD 0.0449 宣称为已由实际账单确认。上线前应将此成本差异作为账务风险保留，并在可取得逐笔账单或余额前后快照时补证。
+
+### V-02 至 V-04 最低成本真实探针
+
+> 执行时间：2026-08-09 Asia/Shanghai
+> 创建请求：每个模型严格 1 次 POST，自动重试 0，重定向跟随 0
+
+| 模型 | 配置 | RelayQ 上游估价 | RelayQ 客户预留 | 终态 | MP4 校验 |
+|------|------|------------------|------------------|------|----------|
+| `motion_2.0-fast` | 固定时长 / 832×480 / quantity 1 | USD 0.1047 | USD 0.74337 | succeeded | 3,430,500 bytes，`ftyp` 通过 |
+| `seedance-1.0-pro` | 4 秒 / 864×480 / quantity 1 | USD 0.1346 | USD 0.95566 | succeeded | 3,634,206 bytes，`ftyp` 通过 |
+| `wan-2.7` | 2 秒 / 1280×720 / quantity 1 | USD 0.1645 | USD 1.16795 | succeeded | 946,264 bytes，`ftyp` 通过 |
+
+三个任务均取得可信 generation ID，仅轮询各自返回的 ID。终态均为 `succeeded`、`output_count=1`、HTTPS MP4、`video/mp4`、`nsfw=false`。三个 reservation 均为 `settled`，usage log 各唯一 1 条，`billing_mode=video`、`image_count=0`，用户余额 USD 97.78105550 → USD 94.91407550，差额 USD 2.86698，与三笔客户预留之和一致。
+
+三个创建响应的可验证实际成本仍为 `0 API_CREDIT`，RelayQ 保存的 `actual_upstream_cost_amount=0`。Leonardo 控制台不提供逐 generation 账单，因此 USD 0.1047、USD 0.1346、USD 0.1645 仅能声明为认证价格计算器的精确估价，不能声明为逐笔实际账单成本。

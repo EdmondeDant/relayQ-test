@@ -101,7 +101,7 @@ func reportProxyTestDebugEvent(hypothesisID, location, msg string, data map[stri
 
 // isOpenAIImageModel checks if the model is an OpenAI image generation model (e.g. gpt-image-2).
 func isOpenAIImageModel(model string) bool {
-	return strings.HasPrefix(strings.ToLower(model), "gpt-image-")
+	return openai.ModelModality(model) == "image"
 }
 
 func isXAIImageModel(model string) bool {
@@ -370,15 +370,36 @@ func (s *AccountTestService) testLeonardoAccountConnection(c *gin.Context, accou
 
 func (s *AccountTestService) testLeonardoPaidGeneration(c *gin.Context, client *leonardo.Client, modelID, prompt string) error {
 	modelID, prompt = strings.TrimSpace(modelID), strings.TrimSpace(prompt)
-	if _, ok := leonardo.ResolveByRequestModelSlug(modelID); !ok {
+	model, ok := leonardo.ResolveByRequestModelSlug(modelID)
+	if !ok {
 		return s.sendErrorAndEnd(c, "Leonardo paid test model is not verified")
 	}
 	if prompt == "" || len(prompt) > 4000 {
 		return s.sendErrorAndEnd(c, "Leonardo paid test prompt must contain 1 to 4000 characters")
 	}
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
-	created, err := client.CreateGeneration(c.Request.Context(), leonardo.CreateGenerationRequest{Model: modelID, Parameters: map[string]any{"prompt": prompt, "width": 896, "height": 896, "quantity": 1}})
+	parameters := map[string]any{"prompt": prompt, "width": 896, "height": 896, "quantity": 1}
+	if model.Modality == leonardo.ModelModalityVideo {
+		defaults := map[string][3]int{"seedance-1.0-pro-fast": {4, 864, 480}, "motion_2.0-fast": {0, 832, 480}, "seedance-1.0-pro": {4, 864, 480}, "wan-2.7": {2, 1280, 720}}[modelID]
+		parameters, _ = LeonardoVideoGenerationParameters(modelID, prompt, defaults[0], defaults[1], defaults[2], 1)
+	} else if model.Modality != leonardo.ModelModalityImage {
+		return s.sendErrorAndEnd(c, "Leonardo paid test model modality is not supported")
+	} else if modelID == "kino-xl" || modelID == "concept-art" || modelID == "graphic-design" || modelID == "illustrative-albedo" {
+		size := 888
+		if modelID == "kino-xl" {
+			size = 896
+		}
+		parameters = map[string]any{"prompt": prompt, "width": size, "height": size, "quantity": 1, "mode": "FAST", "prompt_enhance": "OFF"}
+	}
+	created, err := client.CreateGeneration(c.Request.Context(), leonardo.CreateGenerationRequest{Model: modelID, Parameters: parameters})
 	if err != nil {
+		var apiErr *leonardo.LeonardoError
+		if errors.As(err, &apiErr) && apiErr.SubmissionStatus == leonardo.SubmissionUnknown {
+			message := "Leonardo may have accepted this paid generation, but its ID was not returned. Do not retry; check Leonardo generation history or usage before sending another paid test."
+			log.Printf("Account test error: %s", message)
+			s.sendEvent(c, TestEvent{Type: "error", Code: "LEONARDO_SUBMISSION_UNKNOWN", Error: message})
+			return fmt.Errorf("%s", message)
+		}
 		return s.sendErrorAndEnd(c, "Leonardo paid generation request failed: "+err.Error())
 	}
 	deadline := time.Now().Add(90 * time.Second)
@@ -399,7 +420,17 @@ func (s *AccountTestService) testLeonardoPaidGeneration(c *gin.Context, client *
 			return s.sendErrorAndEnd(c, "Leonardo paid generation failed")
 		case "COMPLETE":
 			if len(generation.GeneratedImages) == 0 {
-				return s.sendErrorAndEnd(c, "Leonardo paid generation returned no images")
+				return s.sendErrorAndEnd(c, "Leonardo paid generation returned no output")
+			}
+			if model.Modality == leonardo.ModelModalityVideo {
+				for _, output := range generation.GeneratedImages {
+					if output.NSFW == nil || *output.NSFW || apicompat.IsPotentiallyUnsafeRemoteMediaURL(output.MotionMP4URL) || !strings.HasPrefix(output.MotionMP4URL, "https://") {
+						return s.sendErrorAndEnd(c, "Leonardo paid video generation output was blocked")
+					}
+					s.sendEvent(c, TestEvent{Type: "video", VideoURL: output.MotionMP4URL, MimeType: "video/mp4"})
+				}
+				s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+				return nil
 			}
 			for _, image := range generation.GeneratedImages {
 				if image.NSFW == nil || *image.NSFW || apicompat.IsPotentiallyUnsafeRemoteMediaURL(image.URL) || !strings.HasPrefix(image.URL, "https://") {
@@ -758,7 +789,7 @@ func (s *AccountTestService) testXAIAccountConnection(c *gin.Context, account *A
 		if videoPrompt == "" {
 			videoPrompt = defaultXAIVideoTestPrompt
 		}
-		return s.testXAIVideoGeneration(c, c.Request.Context(), account, testModelID, videoPrompt, normalizedBaseURL, authToken)
+		return s.testOpenAICompatibleVideoGeneration(c, c.Request.Context(), account, testModelID, videoPrompt, normalizedBaseURL, authToken, 5*time.Second)
 	}
 	return s.testOpenAIChatCompletionsConnection(c, account, testModelID, prompt, normalizedBaseURL, authToken)
 }
@@ -792,6 +823,25 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			return s.testOpenAIImageAPIKey(c, ctx, account, testModelID, imagePrompt)
 		}
 		return s.testOpenAIImageOAuth(c, ctx, account, testModelID, imagePrompt)
+	}
+	if openai.ModelModality(testModelID) == "video" && account.Type == "apikey" {
+		authToken := account.GetOpenAIApiKey()
+		if authToken == "" {
+			return s.sendErrorAndEnd(c, "No API key available")
+		}
+		baseURL := account.GetOpenAIBaseURL()
+		if baseURL == "" {
+			baseURL = "https://api.openai.com"
+		}
+		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
+		}
+		videoPrompt := strings.TrimSpace(prompt)
+		if videoPrompt == "" {
+			videoPrompt = defaultXAIVideoTestPrompt
+		}
+		return s.testOpenAICompatibleVideoGeneration(c, ctx, account, testModelID, videoPrompt, normalizedBaseURL, authToken, 2*time.Second)
 	}
 
 	// Determine authentication method and API URL
@@ -1788,8 +1838,8 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 	}
 }
 
-func (s *AccountTestService) testXAIVideoGeneration(c *gin.Context, ctx context.Context, account *Account, modelID, prompt, normalizedBaseURL, authToken string) error {
-	apiURL := strings.TrimRight(normalizedBaseURL, "/") + "/v1/videos/generations"
+func (s *AccountTestService) testOpenAICompatibleVideoGeneration(c *gin.Context, ctx context.Context, account *Account, modelID, prompt, normalizedBaseURL, authToken string, pollInterval time.Duration) error {
+	apiURL := buildOpenAIEndpointURL(normalizedBaseURL, "/v1/videos/generations")
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -1798,14 +1848,18 @@ func (s *AccountTestService) testXAIVideoGeneration(c *gin.Context, ctx context.
 	c.Writer.Flush()
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
-	s.sendEvent(c, TestEvent{Type: "status", Text: "正在通过 xAI /v1/videos/generations 提交视频生成任务"})
+	s.sendEvent(c, TestEvent{Type: "status", Text: "正在通过 /v1/videos/generations 提交视频生成任务"})
 
 	payload := map[string]any{
-		"model":        modelID,
-		"prompt":       prompt,
-		"duration":     6,
-		"aspect_ratio": "16:9",
-		"resolution":   "480p",
+		"model":      modelID,
+		"prompt":     prompt,
+		"duration":   6,
+		"resolution": "480p",
+	}
+	if modelID == "minimax-h3" {
+		payload["duration"] = 5
+	} else {
+		payload["aspect_ratio"] = "16:9"
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
@@ -1839,21 +1893,29 @@ func (s *AccountTestService) testXAIVideoGeneration(c *gin.Context, ctx context.
 
 	var startResult struct {
 		RequestID string `json:"request_id"`
+		JobID     string `json:"job_id"`
+		ID        string `json:"id"`
 	}
 	if err := json.Unmarshal(body, &startResult); err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Failed to parse xAI video response: %s", err.Error()))
 	}
 	requestID := strings.TrimSpace(startResult.RequestID)
 	if requestID == "" {
+		requestID = strings.TrimSpace(startResult.JobID)
+	}
+	if requestID == "" {
+		requestID = strings.TrimSpace(startResult.ID)
+	}
+	if requestID == "" {
 		return s.sendErrorAndEnd(c, "xAI Video API response did not include request_id")
 	}
 
 	s.sendEvent(c, TestEvent{Type: "status", Text: "视频生成任务已提交，request_id: " + requestID})
-	return s.pollXAIVideoGeneration(c, ctx, account, normalizedBaseURL, authToken, requestID, proxyURL)
+	return s.pollOpenAICompatibleVideoGeneration(c, ctx, account, modelID, normalizedBaseURL, authToken, requestID, proxyURL, pollInterval)
 }
 
-func (s *AccountTestService) pollXAIVideoGeneration(c *gin.Context, ctx context.Context, account *Account, normalizedBaseURL, authToken, requestID, proxyURL string) error {
-	pollURL := strings.TrimRight(normalizedBaseURL, "/") + "/v1/videos/" + requestID
+func (s *AccountTestService) pollOpenAICompatibleVideoGeneration(c *gin.Context, ctx context.Context, account *Account, modelID, normalizedBaseURL, authToken, requestID, proxyURL string, pollInterval time.Duration) error {
+	pollURL := buildOpenAIEndpointURL(normalizedBaseURL, "/v1/videos/"+requestID)
 	deadline := time.Now().Add(3 * time.Minute)
 	attempt := 0
 
@@ -1865,7 +1927,7 @@ func (s *AccountTestService) pollXAIVideoGeneration(c *gin.Context, ctx context.
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(5 * time.Second):
+		case <-time.After(pollInterval):
 		}
 
 		attempt++
@@ -1908,6 +1970,9 @@ func (s *AccountTestService) pollXAIVideoGeneration(c *gin.Context, ctx context.
 		switch strings.ToLower(strings.TrimSpace(result.Status)) {
 		case "done", "completed", "succeeded":
 			videoURL := strings.TrimSpace(result.Video.URL)
+			if videoURL == "" && modelID == "minimax-h3" {
+				videoURL = buildOpenAIEndpointURL(normalizedBaseURL, "/v1/videos/"+requestID+"/content")
+			}
 			if videoURL == "" {
 				return s.sendErrorAndEnd(c, "xAI video generation completed but response did not include video.url")
 			}

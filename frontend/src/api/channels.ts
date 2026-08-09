@@ -49,6 +49,7 @@ export interface UserSupportedModelImagePricing {
 export interface UserSupportedModel {
   name: string
   platform: string
+  modality?: 'image' | 'video' | 'audio' | '3d'
   summary?: string
   pricing: UserSupportedModelPricing | null
   image_pricing?: UserSupportedModelImagePricing | null

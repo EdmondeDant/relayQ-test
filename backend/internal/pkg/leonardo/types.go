@@ -81,9 +81,10 @@ type CreateGenerationResponse struct {
 }
 
 type GeneratedImage struct {
-	ID   string `json:"id"`
-	URL  string `json:"url"`
-	NSFW *bool  `json:"nsfw"`
+	ID           string `json:"id"`
+	URL          string `json:"url"`
+	MotionMP4URL string `json:"motionMP4URL"`
+	NSFW         *bool  `json:"nsfw"`
 }
 
 type Generation struct {

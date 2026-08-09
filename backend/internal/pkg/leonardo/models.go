@@ -67,6 +67,26 @@ var verifiedModels = []VerifiedModel{
 		DisplayName: "Nano Banana 2 Lite", ProviderModelID: "21278dfe-ac26-4292-82e0-8e588373a30c", RequestModelSlug: "nano-banana-2-lite", Modality: ModelModalityImage,
 		ImageCapabilities: &VerifiedImageCapabilities{MinWidth: 0, MaxWidth: 1584, MinHeight: 0, MaxHeight: 1376, MaxQuantity: 8, AllowedQualities: []string{"low"}, ImageReference: &VerifiedImageGuidance{MaxItems: 6, AllowedStrengths: []string{"LOW", "MID", "HIGH"}, AllowedImageTypes: []string{"UPLOADED", "GENERATED"}, DefaultStrength: "MID", StrengthRequired: true}},
 	},
+	{
+		DisplayName: "Cinematic Kino", ProviderModelID: "aa77f04e-3eec-4034-9c07-d0f619684628", RequestModelSlug: "kino-xl", Modality: ModelModalityImage,
+		ImageCapabilities: &VerifiedImageCapabilities{MinWidth: 32, MaxWidth: 1536, MinHeight: 32, MaxHeight: 1536, MaxQuantity: 8, AllowedQualities: []string{"low", "high"}},
+	},
+	{
+		DisplayName: "Concept Art", ProviderModelID: "dd29ac47-ea88-4720-8678-b8633245c09c", RequestModelSlug: "concept-art", Modality: ModelModalityImage,
+		ImageCapabilities: &VerifiedImageCapabilities{MinWidth: 32, MaxWidth: 1584, MinHeight: 32, MaxHeight: 1536, MaxQuantity: 8, AllowedQualities: []string{"low", "high"}},
+	},
+	{
+		DisplayName: "Graphic Design", ProviderModelID: "9d4ace10-25dd-42fd-a6be-a301a7ac614f", RequestModelSlug: "graphic-design", Modality: ModelModalityImage,
+		ImageCapabilities: &VerifiedImageCapabilities{MinWidth: 32, MaxWidth: 1584, MinHeight: 32, MaxHeight: 1536, MaxQuantity: 8, AllowedQualities: []string{"low", "high"}},
+	},
+	{
+		DisplayName: "Illustrative Albedo", ProviderModelID: "2067ae52-33fd-4a82-bb92-c2c55e7d2786", RequestModelSlug: "illustrative-albedo", Modality: ModelModalityImage,
+		ImageCapabilities: &VerifiedImageCapabilities{MinWidth: 32, MaxWidth: 1584, MinHeight: 32, MaxHeight: 1536, MaxQuantity: 8, AllowedQualities: []string{"low", "high"}},
+	},
+	{DisplayName: "Seedance 1.0 Pro Fast", ProviderModelID: "b959ecc2-a7f0-4618-9877-1bc45fc27570", RequestModelSlug: "seedance-1.0-pro-fast", Modality: ModelModalityVideo},
+	{DisplayName: "Motion 2.0 Fast", ProviderModelID: "0a7a3eb2-3905-480b-a89a-2f3ffff545e7", RequestModelSlug: "motion_2.0-fast", Modality: ModelModalityVideo},
+	{DisplayName: "Seedance 1.0 Pro", ProviderModelID: "728c9eac-b17d-47fe-b382-b9a28687fa85", RequestModelSlug: "seedance-1.0-pro", Modality: ModelModalityVideo},
+	{DisplayName: "Wan 2.7", ProviderModelID: "52884d8c-e2b9-4bb1-8ed5-927d390fe53a", RequestModelSlug: "wan-2.7", Modality: ModelModalityVideo},
 }
 
 func ValidateSyncedModel(model Model) (VerifiedModel, bool) {

@@ -42,6 +42,16 @@ type LeonardoImageCreateRequest struct {
 	MultipartImages  map[string]*LeonardoImageInput
 }
 
+type LeonardoVideoCreateRequest struct {
+	PublicID, RequestHash, Model, Prompt string
+	UserID, APIKeyID, AccountID          int64
+	GroupID                              *int64
+	Duration, Width, Height, Quantity    int
+	Public                               bool
+	CustomerQuoteUSD                     decimal.Decimal
+	RawBody                              []byte
+}
+
 type LeonardoImageFundsReserveRequest struct {
 	UserID           int64
 	PublicID         string
@@ -173,6 +183,16 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 		}
 		return nil, ErrLeonardoImageCreateReservationInvalid
 	}
+	if reservation.AlreadyReserved {
+		existing, getErr := o.jobs.GetByPublicID(ctx, publicID)
+		if getErr != nil {
+			return nil, errors.Join(ErrLeonardoImageCreateReservationConflict, getErr)
+		}
+		if !sameLeonardoImageCreateJob(existing, request, reservation.Reference, quote.CustomerQuoteUSD) {
+			return nil, ErrLeonardoImageCreateReservationConflict
+		}
+		return existing, nil
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, errors.Join(err, o.release(ctx, request.UserID, publicID, reservation.Reference, quote.CustomerQuoteUSD, "context_cancelled_before_submit"))
 	}
@@ -216,6 +236,14 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 	parameters := map[string]any{"prompt": prompt, "width": request.Width, "height": request.Height, "quantity": request.Quantity}
 	if model == "gpt-image-2" {
 		parameters["quality"] = strings.ToUpper(strings.TrimSpace(request.QualityTier))
+	}
+	if model == "kino-xl" || model == "concept-art" || model == "graphic-design" || model == "illustrative-albedo" {
+		mode := map[string]string{"low": "FAST", "high": "QUALITY"}[strings.TrimSpace(request.QualityTier)]
+		if mode == "" {
+			return nil, errors.Join(ErrLeonardoImagePricingNotFound, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_quality_invalid"))
+		}
+		parameters["mode"] = mode
+		parameters["prompt_enhance"] = "OFF"
 	}
 	if (len(request.FluxGuidances.Content) > 0 || len(request.FluxGuidances.Style) > 0) && (request.InputImage != nil || len(request.InputImages) > 0 || len(request.ImageReferences) > 0 || request.ImageCapability != nil) {
 		return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_reference_invalid"))
@@ -270,6 +298,87 @@ func (o *LeonardoImageCreateOrchestrator) Create(ctx context.Context, request Le
 	}
 	upstreamRequest := leonardo.CreateGenerationRequest{Model: model, Public: request.Public, Parameters: parameters}
 	result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGeneration(ctx, job, upstreamRequest)
+	return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)
+}
+
+func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, request LeonardoVideoCreateRequest) (*GenerationJob, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if o == nil || o.funds == nil || o.accounts == nil || o.clients == nil || o.jobs == nil {
+		return nil, ErrLeonardoImageCreateNotConfigured
+	}
+	model, prompt, publicID, requestHash := strings.TrimSpace(request.Model), strings.TrimSpace(request.Prompt), strings.TrimSpace(request.PublicID), strings.TrimSpace(request.RequestHash)
+	if publicID == "" || requestHash == "" || request.UserID <= 0 || request.APIKeyID <= 0 || request.AccountID <= 0 || prompt == "" || request.CustomerQuoteUSD.Sign() <= 0 {
+		return nil, ErrLeonardoImageCreateRequestInvalid
+	}
+	estimate, err := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: request.Duration, Width: request.Width, Height: request.Height, Quantity: request.Quantity})
+	if err != nil || estimate == nil || !request.CustomerQuoteUSD.Equal(estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)) {
+		return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+	}
+	account, err := o.accounts.GetByID(ctx, request.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if !validLeonardoImageCreateAccount(account, request.AccountID, request.GroupID) {
+		return nil, ErrLeonardoImageCreateAccountBindingInvalid
+	}
+	client, err := o.clients.Build(account)
+	if err != nil {
+		return nil, err
+	}
+	reservation, err := o.funds.Reserve(ctx, LeonardoImageFundsReserveRequest{UserID: request.UserID, PublicID: publicID, AmountUSD: request.CustomerQuoteUSD, PricingVersion: estimate.PricingVersion, PricingSource: estimate.PricingSource, PricingMatchType: estimate.MatchType})
+	if err != nil {
+		return nil, err
+	}
+	if reservation == nil || strings.TrimSpace(reservation.Reference) == "" || reservation.UserID != request.UserID || reservation.PublicID != publicID || !reservation.AmountUSD.Equal(request.CustomerQuoteUSD) || reservation.PricingVersion != estimate.PricingVersion || reservation.PricingSource != estimate.PricingSource || reservation.PricingMatchType != estimate.MatchType {
+		if reservation != nil && reservation.UserID == request.UserID && reservation.PublicID == publicID && reservation.AmountUSD.Equal(request.CustomerQuoteUSD) && strings.TrimSpace(reservation.Reference) != "" {
+			return nil, errors.Join(ErrLeonardoImageCreateReservationInvalid, o.release(ctx, request.UserID, publicID, reservation.Reference, request.CustomerQuoteUSD, "invalid_reservation_response"))
+		}
+		return nil, ErrLeonardoImageCreateReservationInvalid
+	}
+	if reservation.AlreadyReserved {
+		existing, getErr := o.jobs.GetByPublicID(ctx, publicID)
+		if getErr != nil {
+			return nil, errors.Join(ErrLeonardoImageCreateReservationConflict, getErr)
+		}
+		if existing == nil || existing.Modality != "video" || existing.RequestHash != requestHash || existing.BillingReference == nil || *existing.BillingReference != reservation.Reference {
+			return nil, ErrLeonardoImageCreateReservationConflict
+		}
+		return existing, nil
+	}
+	estimatedCost, customerCost, unit, reference := estimate.EstimatedCostUSD, request.CustomerQuoteUSD, "USD", strings.TrimSpace(reservation.Reference)
+	job := &GenerationJob{PublicID: publicID, Provider: PlatformLeonardo, Modality: "video", Model: model, UpstreamModel: model, UserID: request.UserID, APIKeyID: request.APIKeyID, GroupID: request.GroupID, AccountID: account.ID, RequestHash: requestHash, EstimatedUpstreamCostAmount: &estimatedCost, EstimatedUpstreamCostUnit: &unit, PricingSnapshotVersion: &estimate.PricingVersion, PricingSource: &estimate.PricingSource, PricingMatchType: &estimate.MatchType, CustomerCost: &customerCost, BillingStatus: GenerationJobBillingStatusReserved, BillingReference: &reference}
+	parameters, parameterErr := LeonardoVideoGenerationParameters(model, prompt, request.Duration, request.Width, request.Height, request.Quantity)
+	if parameterErr != nil {
+		return nil, errors.Join(ErrLeonardoVideoPricingEvidenceUnavailable, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_parameters_invalid"))
+	}
+	if len(request.RawBody) > 0 {
+		body := request.RawBody
+		sources, sourceErr := ParseLeonardoRawImageSources(body)
+		if sourceErr != nil || len(sources) != 1 || sources[0].Section != "start_frame" {
+			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_start_frame_invalid"))
+		}
+		uploadClient, ok := client.(LeonardoInitImageClient)
+		if !ok || o.uploads == nil {
+			return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		}
+		input, resolveErr := ResolveLeonardoRawImageSource(ctx, sources[0].Value, nil, 20<<20)
+		if resolveErr != nil {
+			return nil, errors.Join(resolveErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		}
+		uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, input)
+		if uploadErr != nil {
+			return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+		}
+		body, sourceErr = SetLeonardoRawImageID(body, sources[0], uploadedID)
+		if sourceErr != nil {
+			return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_start_frame_invalid"))
+		}
+		result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGenerationRaw(ctx, job, body)
+		return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)
+	}
+	result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGeneration(ctx, job, leonardo.CreateGenerationRequest{Model: model, Public: request.Public, Parameters: parameters})
 	return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)
 }
 
@@ -345,4 +454,12 @@ func validLeonardoImageReservation(reservation *LeonardoImageFundsReservation, u
 
 func safeLeonardoImageReservation(reservation *LeonardoImageFundsReservation, userID int64, publicID string, amount decimal.Decimal) bool {
 	return reservation != nil && strings.TrimSpace(reservation.Reference) != "" && reservation.UserID == userID && reservation.PublicID == publicID && reservation.AmountUSD.Equal(amount)
+}
+
+func sameLeonardoImageCreateJob(job *GenerationJob, request LeonardoImageCreateRequest, reference string, amount decimal.Decimal) bool {
+	return job != nil && job.PublicID == strings.TrimSpace(request.PublicID) && job.UserID == request.UserID && job.APIKeyID == request.APIKeyID && job.AccountID == request.AccountID && sameOptionalLeonardoGroupID(job.GroupID, request.GroupID) && job.RequestHash == strings.TrimSpace(request.RequestHash) && job.Provider == PlatformLeonardo && job.Modality == "image" && job.Model == strings.TrimSpace(request.Model) && job.BillingReference != nil && strings.TrimSpace(*job.BillingReference) == strings.TrimSpace(reference) && job.CustomerCost != nil && job.CustomerCost.Equal(amount)
+}
+
+func sameOptionalLeonardoGroupID(left, right *int64) bool {
+	return (left == nil && right == nil) || (left != nil && right != nil && *left == *right)
 }

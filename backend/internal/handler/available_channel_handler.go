@@ -100,6 +100,7 @@ type userSupportedModelImagePricing struct {
 type userSupportedModel struct {
 	Name         string                          `json:"name"`
 	Platform     string                          `json:"platform"`
+	Modality     string                          `json:"modality,omitempty"`
 	Summary      string                          `json:"summary,omitempty"`
 	Pricing      *userSupportedModelPricing      `json:"pricing"`
 	ImagePricing *userSupportedModelImagePricing `json:"image_pricing,omitempty"`
@@ -260,6 +261,7 @@ func toUserSupportedModels(
 		out = append(out, userSupportedModel{
 			Name:         m.Name,
 			Platform:     m.Platform,
+			Modality:     m.Modality,
 			Summary:      strings.TrimSpace(m.Summary),
 			Pricing:      toUserPricing(m.Pricing),
 			ImagePricing: toUserImagePricingForModel(m.Pricing, visibleGroups),

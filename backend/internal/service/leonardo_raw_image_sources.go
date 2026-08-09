@@ -23,7 +23,7 @@ func ParseLeonardoRawImageSources(body []byte) ([]LeonardoRawImageSource, error)
 	}
 	guidances, _ := parameters["guidances"].(map[string]any)
 	sources := []LeonardoRawImageSource{}
-	for _, section := range []string{"content", "style", "image_reference"} {
+	for _, section := range []string{"content", "style", "image_reference", "start_frame", "end_frame"} {
 		values, _ := guidances[section].([]any)
 		for index, value := range values {
 			reference, ok := value.(map[string]any)

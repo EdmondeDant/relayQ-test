@@ -116,13 +116,13 @@ func TestLeonardoGenerationPollerPendingAndRebuild(t *testing.T) {
 	require.Equal(t, GenerationJobStatusRunning, first.Status)
 	require.Equal(t, 1, first.PollAttempts)
 	require.Equal(t, now.UTC(), *first.LastPolledAt)
-	require.Equal(t, now.UTC().Add(2*time.Second), *first.NextPollAt)
+	require.Equal(t, now.UTC().Add(5*time.Second), *first.NextPollAt)
 
 	secondNow := now.Add(time.Minute)
 	second, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: secondNow}).Poll(context.Background(), "job-1")
 	require.NoError(t, err)
 	require.Equal(t, 2, second.PollAttempts)
-	require.Equal(t, secondNow.UTC().Add(4*time.Second), *second.NextPollAt)
+	require.Equal(t, secondNow.UTC().Add(5*time.Second), *second.NextPollAt)
 	require.Equal(t, 2, client.callCount())
 }
 
@@ -360,18 +360,33 @@ func pollerTestJob(status GenerationJobStatus) *GenerationJob {
 	}
 }
 
-func TestLeonardoGenerationPollerRejectsUnverifiedVideoWithoutNetwork(t *testing.T) {
+func TestLeonardoGenerationPollerCompletesVideo(t *testing.T) {
 	job := pollerTestJob(GenerationJobStatusQueued)
 	job.Modality = "video"
+	job.RequestPayload = map[string]any{"parameters": map[string]any{"duration": 4, "width": 864, "height": 480}}
 	repository := &generationPollRepositoryMock{job: job}
-	client := &generationPollClientMock{}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{{ID: "video-1", MotionMP4URL: "https://example.com/video.mp4", NSFW: leonardoNSFW(false)}}}}
 
 	result, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()}).Poll(context.Background(), job.PublicID)
 
-	require.ErrorIs(t, err, ErrLeonardoVideoSchemaUnverified)
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusSucceeded, result.Status)
+	require.Equal(t, 1, result.OutputCount)
+	require.Equal(t, 1, client.callCount())
+	require.Equal(t, []map[string]any{{"id": "video-1", "url": "https://example.com/video.mp4", "mime": "video/mp4", "nsfw": false, "duration": 4, "width": 864, "height": 480}}, result.ResultPayload["videos"])
+}
+
+func TestLeonardoGenerationPollerDoesNotCompleteVideoWithoutSafeMP4(t *testing.T) {
+	job := pollerTestJob(GenerationJobStatusQueued)
+	job.Modality = "video"
+	repository := &generationPollRepositoryMock{job: job}
+	client := &generationPollClientMock{response: &leonardo.Generation{Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{{ID: "video-1", MotionMP4URL: "http://example.com/video.mp4", NSFW: leonardoNSFW(false)}}}}
+
+	result, err := NewLeonardoGenerationPoller(repository, client, generationPollClockMock{now: time.Now()}).Poll(context.Background(), job.PublicID)
+
+	require.Error(t, err)
 	require.Equal(t, GenerationJobStatusQueued, result.Status)
-	require.Zero(t, result.PollAttempts)
-	require.Zero(t, client.callCount())
+	require.Equal(t, "invalid_upstream_output", *result.ErrorCode)
 }
 
 func TestLeonardoGenerationPollerRejectsUnverifiedAudioWithoutNetwork(t *testing.T) {

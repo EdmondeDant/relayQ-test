@@ -1,7 +1,10 @@
 // Package openai provides helpers and types for OpenAI API integration.
 package openai
 
-import _ "embed"
+import (
+	_ "embed"
+	"strings"
+)
 
 // Model represents an OpenAI model
 type Model struct {
@@ -11,6 +14,18 @@ type Model struct {
 	OwnedBy     string `json:"owned_by"`
 	Type        string `json:"type"`
 	DisplayName string `json:"display_name"`
+	Modality    string `json:"modality,omitempty"`
+}
+
+func ModelModality(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if strings.HasPrefix(model, "gpt-image-") || model == "flux-2-klein-9b-kv" {
+		return "image"
+	}
+	if model == "minimax-h3" {
+		return "video"
+	}
+	return ""
 }
 
 // DefaultModels OpenAI models list

@@ -1044,7 +1044,7 @@ const routeOptions = computed<RouteOption[]>(() => {
     })
   }
 
-  ;(publicSettings.value?.custom_endpoints || []).forEach((item, index) => {
+	(publicSettings.value?.custom_endpoints || []).forEach((item, index) => {
     pushOption({
       id: `custom-${index}`,
       name: item.name || `线路 ${index + 1}`,

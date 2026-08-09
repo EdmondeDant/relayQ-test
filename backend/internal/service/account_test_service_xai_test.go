@@ -3,20 +3,33 @@
 package service
 
 import (
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAccountTestService_XAIAPIKeyUsesAPIKeyInsteadOfAccessToken(t *testing.T) {
 	ctx, recorder := newTestContext()
 
-	resp := newJSONResponse(http.StatusOK, "")
-	resp.Body = http.NoBody
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(strings.Join([]string{
+			`data: {"id":"chatcmpl_test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"pong"},"finish_reason":null}]}`,
+			"",
+			`data: {"id":"chatcmpl_test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+			"",
+			"data: [DONE]",
+			"",
+		}, "\n"))),
+	}
 
 	upstream := &queuedHTTPUpstream{responses: []*http.Response{resp}}
-	svc := &AccountTestService{httpUpstream: upstream}
+	svc := &AccountTestService{httpUpstream: upstream, cfg: &config.Config{}}
 	account := &Account{
 		ID:          101,
 		Platform:    PlatformXAI,

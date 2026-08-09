@@ -101,7 +101,7 @@ func (GenerationJob) Fields() []ent.Field {
 		field.Other("estimated_upstream_cost_amount", &decimal.Decimal{}).
 			Optional().
 			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)", dialect.SQLite: "numeric"}),
 		field.String("estimated_upstream_cost_unit").Optional().Nillable().MaxLen(32),
 		field.String("pricing_snapshot_version").Optional().Nillable().MaxLen(64),
 		field.String("pricing_source").Optional().Nillable().MaxLen(128),
@@ -109,7 +109,7 @@ func (GenerationJob) Fields() []ent.Field {
 		field.Other("actual_upstream_cost_amount", &decimal.Decimal{}).
 			Optional().
 			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)", dialect.SQLite: "numeric"}),
 		field.String("actual_upstream_cost_unit").
 			Optional().
 			Nillable().
@@ -117,15 +117,15 @@ func (GenerationJob) Fields() []ent.Field {
 		field.Other("customer_cost", &decimal.Decimal{}).
 			Optional().
 			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)", dialect.SQLite: "numeric"}),
 		field.Other("gross_margin", &decimal.Decimal{}).
 			Optional().
 			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)", dialect.SQLite: "numeric"}),
 		field.Other("cost_variance", &decimal.Decimal{}).
 			Optional().
 			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)", dialect.SQLite: "numeric"}),
 		field.Enum("billing_status").
 			Values("unpriced", "estimated", "reserved", "submitted", "settled", "refunded", "manual_review").
 			Default("unpriced"),

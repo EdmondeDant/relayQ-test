@@ -492,7 +492,7 @@ func TestSyncPricingModels_LeonardoVerifiedModels(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Equal(t, []string{"flux-schnell", "gpt-image-2", "nano-banana-2", "nano-banana-2-lite"}, body.Data.Models)
+	require.Equal(t, []string{"flux-schnell", "gpt-image-2", "nano-banana-2", "nano-banana-2-lite", "kino-xl", "concept-art", "graphic-design", "illustrative-albedo"}, body.Data.Models)
 }
 
 func TestGetModelDefaultPricing_LeonardoLocalCost(t *testing.T) {

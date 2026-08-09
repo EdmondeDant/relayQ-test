@@ -75,7 +75,7 @@ func (h *OpenAIGatewayHandler) forwardXAIVideoSubmit(c *gin.Context, mode string
 			selection.ReleaseFunc()
 		}
 	}()
-	if selection.Account.Platform != service.PlatformXAI {
+	if selection.Account.Platform != service.PlatformXAI && selection.Account.Platform != service.PlatformOpenAI {
 		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No available xAI video accounts")
 		return
 	}
@@ -151,7 +151,7 @@ func (h *OpenAIGatewayHandler) forwardXAIVideoLookup(c *gin.Context, content boo
 			releaseFunc()
 		}
 	}()
-	if account == nil || account.Platform != service.PlatformXAI {
+	if account == nil || (account.Platform != service.PlatformXAI && account.Platform != service.PlatformOpenAI) {
 		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No available xAI video accounts")
 		return
 	}

@@ -66,6 +66,12 @@ func TestToUserSupportedModels_NilAllowedPlatformsKeepsAll(t *testing.T) {
 	require.Len(t, toUserSupportedModels(src, nil, nil), 2)
 }
 
+func TestToUserSupportedModels_PreservesModality(t *testing.T) {
+	out := toUserSupportedModels([]service.SupportedModel{{Name: "wan-2.7", Platform: "leonardo", Modality: "video"}}, nil, nil)
+	require.Len(t, out, 1)
+	require.Equal(t, "video", out[0].Modality)
+}
+
 func TestToUserImagePricingForModel_UsesConfiguredTierPricesWithoutImageToggle(t *testing.T) {
 	pricing := toUserImagePricingForModel(&service.ChannelModelPricing{
 		BillingMode: service.BillingModePerRequest,

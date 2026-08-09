@@ -233,15 +233,20 @@ func (c *Client) CreateGenerationRaw(ctx context.Context, body []byte) (*CreateG
 		apiErr.SideEffectStatus = SideEffectUnknown
 		return nil, apiErr
 	}
-	var decoded struct {
+	type generationCreateEnvelope struct {
 		GenerationID    string          `json:"generationId"`
 		Cost            json.RawMessage `json:"cost"`
 		APICreditCost   json.RawMessage `json:"apiCreditCost"`
 		Generate        json.RawMessage `json:"generate"`
 		SDGenerationJob json.RawMessage `json:"sdGenerationJob"`
 	}
+	var decoded generationCreateEnvelope
 	if err := json.Unmarshal(responseBody, &decoded); err != nil {
-		return nil, submissionUnknownError(GenerationErrorClassResponseDecodeFailed, resp.StatusCode, c.sanitize("leonardo: decode generation response: "+err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
+		var items []generationCreateEnvelope
+		if arrayErr := json.Unmarshal(responseBody, &items); arrayErr != nil || len(items) != 1 {
+			return nil, submissionUnknownError(GenerationErrorClassResponseDecodeFailed, resp.StatusCode, c.sanitize("leonardo: decode generation response: "+err.Error()), "", sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))), "", responseBody, false, true)
+		}
+		decoded = items[0]
 	}
 	result := &CreateGenerationResponse{GenerationID: decoded.GenerationID}
 	cost := decoded.Cost

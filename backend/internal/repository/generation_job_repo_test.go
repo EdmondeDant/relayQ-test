@@ -240,7 +240,7 @@ func TestGenerationJobRepositoryRejectsTerminalRegression(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrGenerationJobConflict)
 }
 
-func TestGenerationJobRepositoryUnknownForcesManualReviewAndNilCosts(t *testing.T) {
+func TestGenerationJobRepositoryUnknownPreservesReservationAndClearsActualCosts(t *testing.T) {
 	repo, _ := newGenerationJobRepoSQLite(t)
 	ctx := context.Background()
 	job := minimalGenerationJob("job-unknown")
@@ -257,15 +257,18 @@ func TestGenerationJobRepositoryUnknownForcesManualReviewAndNilCosts(t *testing.
 	job.PricingMatchType = &pricingMatchType
 	require.NoError(t, repo.Create(ctx, job))
 
-	cost := decimal.RequireFromString("9.99")
+	actualCost := decimal.RequireFromString("9.99")
+	customerCost := decimal.RequireFromString("0.10")
+	billingReference := "bill-unknown"
 	update := *job
 	update.Status = service.GenerationJobStatusUnknown
-	update.ActualUpstreamCostAmount = &cost
+	update.ActualUpstreamCostAmount = &actualCost
 	update.ActualUpstreamCostUnit = &unit
-	update.CustomerCost = &cost
-	update.GrossMargin = &cost
-	update.CostVariance = &cost
+	update.CustomerCost = &customerCost
+	update.GrossMargin = &actualCost
+	update.CostVariance = &actualCost
 	update.BillingStatus = service.GenerationJobBillingStatusSettled
+	update.BillingReference = &billingReference
 	require.NoError(t, repo.CompareAndSwapStatus(ctx, job.PublicID, service.GenerationJobStatusSubmitting, &update))
 
 	require.Equal(t, "submission_unknown", *update.ErrorCode)
@@ -277,9 +280,14 @@ func TestGenerationJobRepositoryUnknownForcesManualReviewAndNilCosts(t *testing.
 	require.Equal(t, pricingMatchType, *update.PricingMatchType)
 	require.Nil(t, update.ActualUpstreamCostAmount)
 	require.Nil(t, update.ActualUpstreamCostUnit)
-	require.Nil(t, update.CustomerCost)
+	require.Equal(t, customerCost.String(), update.CustomerCost.String())
+	require.Equal(t, billingReference, *update.BillingReference)
 	require.Nil(t, update.GrossMargin)
 	require.Nil(t, update.CostVariance)
+	stored, err := repo.GetByPublicID(ctx, job.PublicID)
+	require.NoError(t, err)
+	require.Equal(t, customerCost.String(), stored.CustomerCost.String())
+	require.Equal(t, billingReference, *stored.BillingReference)
 }
 
 func TestGenerationJobRepositoryPollPending(t *testing.T) {

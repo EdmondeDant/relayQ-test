@@ -28,7 +28,10 @@ var (
 	leonardoMediaPublicIDPattern     = regexp.MustCompile(`^gen_rq_[0-9a-f]{32}$`)
 )
 
-const leonardoMediaContentMaxBytes = 50 << 20
+const (
+	leonardoImageContentMaxBytes = 50 << 20
+	leonardoVideoContentMaxBytes = 500 << 20
+)
 
 type LeonardoMediaGetInput struct {
 	PublicID string
@@ -76,6 +79,7 @@ type LeonardoMediaGetResult struct {
 	CompletedAt int64                   `json:"completed_at"`
 	Error       *LeonardoMediaGetError  `json:"error"`
 	Data        []LeonardoMediaGetImage `json:"data"`
+	Videos      []LeonardoMediaGetVideo `json:"videos,omitempty"`
 }
 
 type LeonardoMediaGetError struct {
@@ -87,6 +91,16 @@ type LeonardoMediaGetImage struct {
 	ID   string `json:"id"`
 	URL  string `json:"url"`
 	NSFW bool   `json:"nsfw"`
+}
+
+type LeonardoMediaGetVideo struct {
+	ID       string  `json:"id"`
+	URL      string  `json:"url"`
+	MIME     string  `json:"mime"`
+	Duration float64 `json:"duration,omitempty"`
+	Width    int     `json:"width,omitempty"`
+	Height   int     `json:"height,omitempty"`
+	NSFW     bool    `json:"nsfw"`
 }
 
 type LeonardoMediaGetService struct {
@@ -131,15 +145,18 @@ func (s *LeonardoMediaGetService) getOwnedJob(ctx context.Context, input Leonard
 	if !ownsLeonardoMediaJob(job, input) {
 		return nil, ErrGenerationJobNotFound
 	}
-	if strings.EqualFold(strings.TrimSpace(job.Modality), "video") {
-		return nil, ErrLeonardoMediaVideoUnverified
-	}
-	if err = requireLeonardoImageModality(job.Modality); err != nil {
+	if err = requireLeonardoSupportedModality(job.Modality); err != nil {
 		return nil, err
 	}
 	job, err = s.poller.Poll(ctx, publicID)
 	if job != nil && !ownsLeonardoMediaJob(job, input) {
 		return nil, ErrGenerationJobNotFound
+	}
+	if errors.Is(err, ErrGenerationJobConflict) {
+		job, err = s.repository.GetByPublicID(ctx, publicID)
+		if err == nil && !ownsLeonardoMediaJob(job, input) {
+			return nil, ErrGenerationJobNotFound
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -161,11 +178,11 @@ func (s *LeonardoMediaGetService) Content(ctx context.Context, input LeonardoMed
 	if job.Status != GenerationJobStatusSucceeded {
 		return nil, ErrLeonardoMediaContentNotReady
 	}
-	images := leonardoMediaImages(job.ResultPayload)
-	if input.Index >= len(images) {
+	outputs := leonardoMediaOutputURLs(job)
+	if input.Index >= len(outputs) {
 		return nil, ErrLeonardoMediaContentNotFound
 	}
-	return s.downloadContent(ctx, images[input.Index].URL)
+	return s.downloadContent(ctx, outputs[input.Index], job.Modality)
 }
 
 func (s *LeonardoMediaGetService) ContentBase64(ctx context.Context, input LeonardoMediaContentInput) (string, error) {
@@ -181,7 +198,7 @@ func (s *LeonardoMediaGetService) ContentBase64(ctx context.Context, input Leona
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL string) (*LeonardoMediaContent, error) {
+func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL, modality string) (*LeonardoMediaContent, error) {
 	if s == nil || s.content == nil || apicompat.IsPotentiallyUnsafeRemoteMediaURL(rawURL) || !strings.HasPrefix(rawURL, "https://") {
 		return nil, ErrLeonardoMediaContentFailed
 	}
@@ -189,13 +206,18 @@ func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL st
 	if err != nil {
 		return nil, ErrLeonardoMediaContentFailed
 	}
-	req.Header.Set("Accept", "image/*")
+	video := strings.EqualFold(strings.TrimSpace(modality), "video")
+	maxBytes, accept := int64(leonardoImageContentMaxBytes), "image/*"
+	if video {
+		maxBytes, accept = leonardoVideoContentMaxBytes, "video/mp4"
+	}
+	req.Header.Set("Accept", accept)
 	resp, err := s.content.Do(req)
 	if err != nil {
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK || resp.ContentLength > leonardoMediaContentMaxBytes {
+	if resp.StatusCode != http.StatusOK || resp.ContentLength > maxBytes {
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	file, err := os.CreateTemp("", "relayq-leonardo-media-*")
@@ -209,8 +231,8 @@ func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL st
 			_ = content.Close()
 		}
 	}()
-	written, err := io.Copy(file, io.LimitReader(resp.Body, leonardoMediaContentMaxBytes+1))
-	if err != nil || written == 0 || written > leonardoMediaContentMaxBytes {
+	written, err := io.Copy(file, io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil || written == 0 || written > maxBytes {
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
@@ -222,12 +244,15 @@ func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL st
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	detected := http.DetectContentType(header[:n])
-	if !allowedLeonardoMediaContentType(detected) {
+	if strings.EqualFold(strings.TrimSpace(modality), "video") && isMP4Header(header[:n]) {
+		detected = "video/mp4"
+	}
+	if !allowedLeonardoMediaContentType(detected, modality) {
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	if declared := strings.TrimSpace(resp.Header.Get("Content-Type")); declared != "" {
 		mediaType, _, parseErr := mime.ParseMediaType(declared)
-		if parseErr != nil || !allowedLeonardoMediaContentType(mediaType) {
+		if parseErr != nil || !allowedLeonardoMediaContentType(mediaType, modality) {
 			return nil, ErrLeonardoMediaContentFailed
 		}
 	}
@@ -239,7 +264,14 @@ func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL st
 	return content, nil
 }
 
-func allowedLeonardoMediaContentType(value string) bool {
+func isMP4Header(header []byte) bool {
+	return len(header) >= 12 && string(header[4:8]) == "ftyp"
+}
+
+func allowedLeonardoMediaContentType(value, modality string) bool {
+	if strings.EqualFold(strings.TrimSpace(modality), "video") {
+		return value == "video/mp4"
+	}
 	switch value {
 	case "image/jpeg", "image/png", "image/gif", "image/webp":
 		return true
@@ -253,7 +285,7 @@ func ownsLeonardoMediaJob(job *GenerationJob, input LeonardoMediaGetInput) bool 
 }
 
 func newLeonardoMediaGetResult(job *GenerationJob) *LeonardoMediaGetResult {
-	result := &LeonardoMediaGetResult{ID: job.PublicID, Object: "media.generation", Provider: job.Provider, Model: job.Model, Modality: job.Modality, Status: string(job.Status), Data: []LeonardoMediaGetImage{}}
+	result := &LeonardoMediaGetResult{ID: job.PublicID, Object: "media.generation", Provider: job.Provider, Model: job.Model, Modality: job.Modality, Status: string(job.Status), Data: []LeonardoMediaGetImage{}, Videos: []LeonardoMediaGetVideo{}}
 	if !job.CreatedAt.IsZero() {
 		result.CreatedAt = job.CreatedAt.Unix()
 	}
@@ -267,7 +299,76 @@ func newLeonardoMediaGetResult(job *GenerationJob) *LeonardoMediaGetResult {
 		result.Error = &LeonardoMediaGetError{Code: stringValue(job.ErrorCode), Message: stringValue(job.ErrorMessage)}
 	}
 	result.Data = leonardoMediaImages(job.ResultPayload)
+	result.Videos = leonardoMediaVideos(job.ResultPayload)
 	return result
+}
+
+func leonardoMediaOutputURLs(job *GenerationJob) []string {
+	if strings.EqualFold(strings.TrimSpace(job.Modality), "video") {
+		videos := leonardoMediaVideos(job.ResultPayload)
+		urls := make([]string, len(videos))
+		for i := range videos {
+			urls[i] = videos[i].URL
+		}
+		return urls
+	}
+	images := leonardoMediaImages(job.ResultPayload)
+	urls := make([]string, len(images))
+	for i := range images {
+		urls[i] = images[i].URL
+	}
+	return urls
+}
+
+func leonardoMediaVideos(payload map[string]any) []LeonardoMediaGetVideo {
+	videos := []LeonardoMediaGetVideo{}
+	values, ok := payload["videos"].([]any)
+	if !ok {
+		if typed, typedOK := payload["videos"].([]map[string]any); typedOK {
+			values = make([]any, len(typed))
+			for i := range typed {
+				values[i] = typed[i]
+			}
+		} else {
+			return videos
+		}
+	}
+	for _, value := range values {
+		video, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := video["id"].(string)
+		rawURL, _ := video["url"].(string)
+		mimeType, _ := video["mime"].(string)
+		nsfw, nsfwOK := video["nsfw"].(bool)
+		if strings.TrimSpace(id) == "" || mimeType != "video/mp4" || !nsfwOK || nsfw || !validLeonardoHTTPSURL(rawURL) {
+			continue
+		}
+		result := LeonardoMediaGetVideo{ID: strings.TrimSpace(id), URL: strings.TrimSpace(rawURL), MIME: mimeType}
+		result.Duration, _ = numberAsFloat64(video["duration"])
+		result.Width, _ = numberAsInt(video["width"])
+		result.Height, _ = numberAsInt(video["height"])
+		videos = append(videos, result)
+	}
+	return videos
+}
+
+func numberAsFloat64(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	default:
+		return 0, false
+	}
+}
+func numberAsInt(value any) (int, bool) {
+	valueFloat, ok := numberAsFloat64(value)
+	return int(valueFloat), ok
 }
 
 func leonardoMediaImages(payload map[string]any) []LeonardoMediaGetImage {

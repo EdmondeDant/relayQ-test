@@ -3116,9 +3116,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
           ? 'https://generativelanguage.googleapis.com'
           : 'https://api.anthropic.com'
     editBaseUrl.value = (credentials.base_url as string) || platformDefaultUrl
+		loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
 
     if (newAccount.platform !== 'leonardo') {
-      loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
       poolModeEnabled.value = credentials.pool_mode === true
       poolModeRetryCount.value = normalizePoolModeRetryCount(
         Number(credentials.pool_mode_retry_count ?? DEFAULT_POOL_MODE_RETRY_COUNT)

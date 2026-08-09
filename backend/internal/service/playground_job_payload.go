@@ -197,6 +197,10 @@ func isPlaygroundGptImageModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
 }
 
+func isPlaygroundFluxKleinModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "flux-2-klein-9b-kv")
+}
+
 func isPlaygroundLeonardoImage(payload playgroundJobPayload) bool {
 	platform, _ := payload.Metadata["platform"].(string)
 	return strings.EqualFold(strings.TrimSpace(platform), PlatformLeonardo)
@@ -293,6 +297,23 @@ func applyPlaygroundImageOptions(body map[string]any, model string, payload play
 		return
 	}
 	size := strings.TrimSpace(payload.Size)
+	if isPlaygroundFluxKleinModel(model) {
+		body["size"] = map[string]string{
+			"1:1":  "1024x1024",
+			"16:9": "1024x576",
+			"9:16": "576x1024",
+			"3:2":  "1024x682",
+			"2:3":  "682x1024",
+		}[size]
+		if body["size"] == "" {
+			if strings.Contains(strings.ToLower(size), "x") {
+				body["size"] = size
+			} else {
+				body["size"] = "1024x1024"
+			}
+		}
+		return
+	}
 	if size != "" {
 		body["size"] = size
 	} else if ensureSize {
@@ -423,6 +444,27 @@ func (p playgroundJobPayload) buildAudioRequest(kind, model string) (string, jso
 func (p playgroundJobPayload) buildVideoRequest(model string) (string, json.RawMessage, error) {
 	if p.Prompt == "" {
 		return "", nil, fmt.Errorf("%w: prompt is required", ErrPlaygroundInvalidInput)
+	}
+	platform, _ := p.Metadata["platform"].(string)
+	if strings.EqualFold(strings.TrimSpace(platform), PlatformLeonardo) {
+		size, err := LeonardoVideoSize(model, playgroundFirstNonEmpty(p.Resolution, "480p"), playgroundFirstNonEmpty(p.AspectRatio, "16:9"))
+		if err != nil {
+			return "", nil, fmt.Errorf("%w: unsupported Leonardo video model", ErrPlaygroundInvalidInput)
+		}
+		body := map[string]any{"model": model, "prompt": p.Prompt, "seconds": p.Duration, "size": size}
+		if p.Media.InputReference != nil && strings.TrimSpace(p.Media.InputReference.URL) != "" {
+			if model != "seedance-1.0-pro-fast" && model != "seedance-1.0-pro" && model != "wan-2.7" && model != "motion_2.0-fast" {
+				return "", nil, fmt.Errorf("%w: first-frame image is not supported by this Leonardo video model", ErrPlaygroundInvalidInput)
+			}
+			body["input_reference"] = map[string]any{"image_url": strings.TrimSpace(p.Media.InputReference.URL)}
+		}
+		return "/v1/videos/generations", mustJSON(body), nil
+	}
+	if strings.EqualFold(strings.TrimSpace(platform), PlatformOpenAI) && model == "minimax-h3" {
+		if p.Media.InputReference != nil && strings.TrimSpace(p.Media.InputReference.URL) != "" {
+			return "", nil, fmt.Errorf("%w: first-frame image is not supported by minimax-h3", ErrPlaygroundInvalidInput)
+		}
+		return "/v1/videos/generations", mustJSON(map[string]any{"model": model, "prompt": p.Prompt, "duration": 5, "resolution": "480p"}), nil
 	}
 	body := map[string]any{
 		"model":        model,

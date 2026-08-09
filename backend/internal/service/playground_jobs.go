@@ -5,14 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"go.uber.org/zap"
 )
 
@@ -136,6 +137,7 @@ func (s *PlaygroundService) executeImageJob(ctx context.Context, userID, taskID 
 	if err != nil {
 		return err
 	}
+	_, _ = s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{Status: "running", ResultPayload: mustJSON(mergeStringAnyMaps(payload.Metadata, map[string]any{"status": "generating", "progress": 15, "progress_percent": 15}))})
 	// #region debug-point J:backend-async-edit-request
 	if input.Kind == "edit" {
 		reportImageEditDebugEvent("J", "playground_jobs.go:executeImageJob", "[DEBUG] backend async edit request start", map[string]any{
@@ -172,6 +174,7 @@ func (s *PlaygroundService) executeImageJob(ctx context.Context, userID, taskID 
 		// #endregion
 		return fmt.Errorf("图片任务完成但未返回图片")
 	}
+	_, _ = s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{Status: "running", RequestID: requestID, ResultPayload: mustJSON(mergeStringAnyMaps(payload.Metadata, map[string]any{"status": "saving", "progress": 90, "progress_percent": 90}))})
 	if _, err := s.createTaskAsset(context.Background(), userID, taskID, input.InternalBaseURL, payload.AssetKind, payload.Title, imageURL, "image/png", mergePlaygroundAssetMetadata(nil, mergeStringAnyMaps(payload.Metadata, map[string]any{
 		"request_id": requestID,
 		"inline":     strings.HasPrefix(strings.ToLower(imageURL), "data:"),
@@ -180,8 +183,10 @@ func (s *PlaygroundService) executeImageJob(ctx context.Context, userID, taskID 
 		return err
 	}
 	resultPayload := mergeStringAnyMaps(payload.Metadata, map[string]any{
-		"request_id": requestID,
-		"url":        imageURL,
+		"request_id":       requestID,
+		"url":              imageURL,
+		"progress":         100,
+		"progress_percent": 100,
 	})
 	return s.updateSucceededTask(context.Background(), userID, taskID, requestID, resultPayload)
 }
@@ -332,7 +337,8 @@ func (s *PlaygroundService) executeVideoJob(ctx context.Context, userID, taskID 
 	if err != nil {
 		return err
 	}
-	body, _, err := doPlaygroundJSONRequest(ctx, input.InternalBaseURL, input.APIKey, http.MethodPost, endpoint, requestBody)
+	idempotencyKey := fmt.Sprintf("playground-video-%d", taskID)
+	body, _, err := doPlaygroundJSONRequestWithIdempotency(ctx, input.InternalBaseURL, input.APIKey, http.MethodPost, endpoint, requestBody, idempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -348,7 +354,7 @@ func (s *PlaygroundService) executeVideoJob(ctx context.Context, userID, taskID 
 			"progress": video.Progress,
 		})),
 	})
-	status, err := s.pollVideoJob(ctx, input.InternalBaseURL, input.APIKey, video.RequestID)
+	status, err := s.pollVideoJob(ctx, userID, taskID, input.InternalBaseURL, input.APIKey, video.RequestID, payload.Metadata)
 	if err != nil {
 		if ctx.Err() != nil {
 			_, _ = s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{
@@ -472,23 +478,54 @@ func (s *PlaygroundService) recordPlaygroundVideoUsage(ctx context.Context, user
 	return err
 }
 
-func (s *PlaygroundService) pollVideoJob(ctx context.Context, baseURL, apiKey, requestID string) (*playgroundVideoStatus, error) {
+func (s *PlaygroundService) pollVideoJob(ctx context.Context, userID, taskID int64, baseURL, apiKey, requestID string, metadata map[string]any) (*playgroundVideoStatus, error) {
+	attempt := 0
+	lastProgress := 10
 	for {
 		body, _, err := doPlaygroundJSONRequest(ctx, baseURL, apiKey, http.MethodGet, fmt.Sprintf("/v1/videos/%s", requestID), nil)
 		if err != nil {
 			return nil, err
 		}
+		attempt++
 		status := extractVideoStatus(body)
 		if status.RequestID == "" {
 			status.RequestID = requestID
 		}
+		if isFailedVideoStatus(status.Status) {
+			return nil, fmt.Errorf("视频任务失败：%s", strings.TrimSpace(status.Status))
+		}
+		progress := normalizePlaygroundProgress(status.Progress)
+		if progress <= 0 {
+			progress = 10 + attempt*4
+		}
+		if progress > 94 {
+			progress = 94
+		}
+		if progress < lastProgress {
+			progress = lastProgress
+		}
+		lastProgress = progress
+		status.Progress = progress
+		_, updateErr := s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{
+			Status:    "submitted",
+			RequestID: requestID,
+			ResultPayload: mustJSON(mergeStringAnyMaps(metadata, map[string]any{
+				"status":           playgroundFirstNonEmpty(status.Status, "queued"),
+				"progress":         progress,
+				"progress_percent": progress,
+			})),
+		})
+		if updateErr != nil {
+			return nil, updateErr
+		}
 		if status.VideoURL != "" || isFinishedVideoStatus(status.Status) {
+			status.Progress = 100
 			return status, nil
 		}
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(5 * time.Second):
+		case <-time.After(3 * time.Second):
 		}
 	}
 }
@@ -538,6 +575,10 @@ func (s *PlaygroundService) updateFailedTask(ctx context.Context, userID, taskID
 }
 
 func doPlaygroundJSONRequest(ctx context.Context, baseURL, apiKey, method, endpoint string, body json.RawMessage) (map[string]any, http.Header, error) {
+	return doPlaygroundJSONRequestWithIdempotency(ctx, baseURL, apiKey, method, endpoint, body, "")
+}
+
+func doPlaygroundJSONRequestWithIdempotency(ctx context.Context, baseURL, apiKey, method, endpoint string, body json.RawMessage, idempotencyKey string) (map[string]any, http.Header, error) {
 	target := strings.TrimRight(playgroundInternalBaseURL(baseURL), "/") + endpoint
 	var reader io.Reader
 	if len(body) > 0 {
@@ -550,6 +591,9 @@ func doPlaygroundJSONRequest(ctx context.Context, baseURL, apiKey, method, endpo
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -728,11 +772,20 @@ func extractAudioResult(payload map[string]any) (string, string, string) {
 
 func extractVideoStatus(payload map[string]any) *playgroundVideoStatus {
 	return &playgroundVideoStatus{
-		RequestID: playgroundFirstNonEmptyString(payload["request_id"], payload["id"]),
-		Status:    playgroundFirstNonEmptyString(payload["status"]),
-		Progress:  payload["progress"],
-		VideoURL:  playgroundFirstNonEmptyString(nestedMapValue(payload, "video", "url"), nestedMapValue(payload, "output", "video", "url"), payload["output_url"], payload["url"]),
+		RequestID: playgroundFirstNonEmptyString(payload["request_id"], payload["job_id"], payload["id"], nestedMapValue(payload, "data", "request_id"), nestedMapValue(payload, "data", "job_id"), nestedMapValue(payload, "data", "id")),
+		Status:    playgroundFirstNonEmptyString(payload["status"], nestedMapValue(payload, "data", "status")),
+		Progress:  playgroundFirstNonNil(payload["progress"], nestedMapValue(payload, "data", "progress")),
+		VideoURL:  playgroundFirstNonEmptyString(nestedMapValue(payload, "video", "url"), nestedMapValue(payload, "output", "video", "url"), nestedMapValue(payload, "data", "video", "url"), payload["output_url"], payload["url"]),
 	}
+}
+
+func playgroundFirstNonNil(values ...any) any {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func isFinishedVideoStatus(status string) bool {
@@ -743,6 +796,44 @@ func isFinishedVideoStatus(status string) bool {
 	default:
 		return false
 	}
+}
+
+func isFailedVideoStatus(status string) bool {
+	value := strings.ToLower(strings.TrimSpace(status))
+	switch value {
+	case "failed", "error", "canceled", "cancelled", "rejected", "expired":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizePlaygroundProgress(value any) int {
+	var progress float64
+	switch typed := value.(type) {
+	case float64:
+		progress = typed
+	case float32:
+		progress = float64(typed)
+	case int:
+		progress = float64(typed)
+	case int64:
+		progress = float64(typed)
+	case json.Number:
+		progress, _ = typed.Float64()
+	case string:
+		progress, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(typed, "%")), 64)
+	}
+	if progress > 0 && progress <= 1 {
+		progress *= 100
+	}
+	if progress < 0 {
+		return 0
+	}
+	if progress > 100 {
+		return 100
+	}
+	return int(progress + 0.5)
 }
 
 func audioMimeType(format string) string {

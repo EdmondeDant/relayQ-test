@@ -387,6 +387,41 @@ func TestCreateGenerationParsesNestedJob(t *testing.T) {
 	}
 }
 
+func TestCreateGenerationParsesSingleItemArray(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-ID", "request-array-response")
+		_, _ = fmt.Fprintf(w, `[{"generate":{"generationId":%q,"cost":{"amount":0.0048,"unit":"USD"}}}]`, testGenerationID)
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "graphic-design", Parameters: map[string]any{"prompt": "cat"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.GenerationID != testGenerationID || response.Cost == nil || response.Cost.Amount != 0.0048 || response.Cost.Unit != "USD" {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestCreateGenerationRejectsAmbiguousArray(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, `[{"generationId":%q},{"generationId":%q}]`, testGenerationID, testGenerationID)
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.CreateGeneration(context.Background(), CreateGenerationRequest{Model: "graphic-design", Parameters: map[string]any{}})
+	var apiErr *LeonardoError
+	if !errors.As(err, &apiErr) || apiErr.Class != GenerationErrorClassResponseDecodeFailed || apiErr.SubmissionStatus != SubmissionUnknown || apiErr.SafeToRetry {
+		t.Fatalf("error = %#v", apiErr)
+	}
+}
+
 func TestCreateGenerationIgnoresUnknownCostShapeAfterValidID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"generate":{"generationId":%q,"apiCreditCost":{"amount":9},"cost":0.003}}`, testGenerationID)

@@ -320,7 +320,7 @@ describe('EditAccountModal', () => {
   it('edits a Leonardo API Key account with the Production API default URL', async () => {
     const account = buildLeonardoAccount()
     account.credentials = {
-      model_mapping: { old: 'model' },
+			model_mapping: { 'flux-schnell': 'flux-schnell' },
       pool_mode: true,
       pool_mode_retry_count: 4,
       pool_mode_retry_status_codes: [429, 503],
@@ -340,7 +340,7 @@ describe('EditAccountModal', () => {
     expect(inputs[1]?.attributes('placeholder')).toBe('https://cloud.leonardo.ai/api/rest')
     expect(inputs[2]?.attributes('placeholder')).toBe('Leonardo API Key')
     expect(wrapper.text()).toContain('Leonardo Production API')
-    expect(wrapper.text()).not.toContain('admin.accounts.modelRestriction')
+		expect(wrapper.text()).toContain('admin.accounts.modelRestriction')
     expect(wrapper.text()).not.toContain('admin.accounts.poolMode')
     expect(wrapper.text()).not.toContain('admin.accounts.customErrorCodes')
     expect(wrapper.text()).not.toContain('admin.accounts.tempUnschedulable.title')
@@ -352,7 +352,7 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       api_key: 'leo-updated',
       base_url: 'https://cloud.leonardo.ai/api/rest',
-      model_mapping: { old: 'model' },
+			model_mapping: { 'flux-schnell': 'flux-schnell' },
       temp_unschedulable_enabled: true,
       temp_unschedulable_rules: [{ error_code: 429, duration_minutes: 5 }]
     })

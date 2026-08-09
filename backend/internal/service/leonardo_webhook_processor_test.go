@@ -120,7 +120,7 @@ func TestLeonardoWebhookProcessorHeartbeat(t *testing.T) {
 	require.Equal(t, "claimed=3 processed=2 failed=1", *heartbeat.LastResult)
 }
 
-func TestLeonardoGenerationPollOrchestratorDoesNotBillVideoTerminalJob(t *testing.T) {
+func TestLeonardoGenerationPollOrchestratorBillsVideoTerminalJob(t *testing.T) {
 	job := validTerminalOrchestratorJob(GenerationJobStatusSucceeded)
 	job.Modality = "video"
 	repository := &orchestratorRepositoryMock{job: job}
@@ -130,24 +130,29 @@ func TestLeonardoGenerationPollOrchestratorDoesNotBillVideoTerminalJob(t *testin
 	result, err := orchestrator.Poll(context.Background(), job.PublicID)
 
 	require.NoError(t, err)
-	require.Equal(t, GenerationJobBillingStatusManualReview, result.BillingStatus)
-	require.Zero(t, funds.settleCalls)
+	require.Equal(t, GenerationJobBillingStatusSettled, result.BillingStatus)
+	require.Equal(t, 1, funds.settleCalls)
 	require.Zero(t, funds.releaseCalls)
 }
 
-func TestLeonardoGenerationPollOrchestratorRejectsVideoWebhookBeforeMutation(t *testing.T) {
+func TestLeonardoGenerationPollOrchestratorAppliesVideoWebhook(t *testing.T) {
 	job := orchestratorJob(GenerationJobStatusQueued)
 	job.Modality = "video"
+	job.BillingStatus = GenerationJobBillingStatusSubmitted
+	cost := decimal.RequireFromString("0.005")
+	job.CustomerCost = &cost
+	job.BillingReference = stringPointer("leo_hold_video")
 	repository := &orchestratorRepositoryMock{job: job}
 	funds := &orchestratorFundsMock{}
 	orchestrator := NewLeonardoGenerationPollOrchestrator(repository, &orchestratorAccountLoaderMock{}, &orchestratorUpstreamMock{}, &config.Config{}, generationPollClockMock{now: time.Now()}, funds)
 
-	result, err := orchestrator.ApplyWebhook(context.Background(), job.AccountID, &leonardo.Generation{ID: orchestratorGenerationID, Status: "COMPLETE"})
+	result, err := orchestrator.ApplyWebhook(context.Background(), job.AccountID, &leonardo.Generation{ID: orchestratorGenerationID, Status: "COMPLETE", GeneratedImages: []leonardo.GeneratedImage{{ID: "video", MotionMP4URL: "https://example.com/video.mp4", NSFW: leonardoNSFW(false)}}})
 
-	require.ErrorIs(t, err, ErrLeonardoVideoSchemaUnverified)
-	require.Equal(t, GenerationJobStatusQueued, result.Status)
-	require.Zero(t, repository.statusCASCalls)
-	require.Zero(t, funds.settleCalls)
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobStatusSucceeded, result.Status)
+	require.Equal(t, GenerationJobBillingStatusSettled, result.BillingStatus)
+	require.Equal(t, 2, repository.statusCASCalls)
+	require.Equal(t, 1, funds.settleCalls)
 	require.Zero(t, funds.releaseCalls)
 }
 

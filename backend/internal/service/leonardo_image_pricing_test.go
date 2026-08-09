@@ -13,7 +13,7 @@ func TestLeonardoImagePriceResolverExactEstimate(t *testing.T) {
 	require.Equal(t, "0.003", estimate.UnitCostUSD.String())
 	require.Equal(t, 1, estimate.Quantity)
 	require.Equal(t, "0.003", estimate.EstimatedCostUSD.String())
-	require.Equal(t, "2026-08-06", estimate.PricingVersion)
+	require.Equal(t, "2026-08-08", estimate.PricingVersion)
 	require.Equal(t, "leonardo_authenticated_pricing_calculator", estimate.PricingSource)
 	require.Equal(t, "exact", estimate.MatchType)
 }
@@ -84,6 +84,12 @@ func TestLeonardoImagePriceResolverNewModels(t *testing.T) {
 		{"nano-banana-2", "low", "0.0389", 1024},
 		{"nano-banana-2", "low", "0.0583", 2048},
 		{"nano-banana-2-lite", "low", "0.0449", 1024},
+		{"kino-xl", "low", "0.0045", 896},
+		{"kino-xl", "high", "0.0269", 1120},
+		{"concept-art", "low", "0.0045", 888},
+		{"concept-art", "high", "0.0239", 1024},
+		{"graphic-design", "low", "0.0045", 960},
+		{"illustrative-albedo", "high", "0.0239", 888},
 	}
 	for _, test := range tests {
 		estimate, err := NewLeonardoImagePriceResolver().Estimate(context.Background(), LeonardoImagePriceRequest{Model: test.model, Width: test.width, Height: test.width, Quantity: 1, QualityTier: test.quality})

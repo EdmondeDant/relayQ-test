@@ -316,8 +316,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Leonardo 图片 API 文档',
-      description: '四个 Leonardo 图片模型的 OpenAI 兼容与原生接口说明'
+      title: '图片与视频 API 文档',
+      description: 'Leonardo 与私有 OpenAI-compatible 图片、视频模型接口说明'
     }
   },
   {

@@ -116,12 +116,19 @@ func (o *LeonardoGenerationPollOrchestrator) Poll(ctx context.Context, publicID 
 			return job, errors.New("leonardo: empty generation response")
 		}
 		updated, applyErr := applyLeonardoGenerationResult(ctx, job, generation, now, o.moderator)
-		updated.BillingStatus = GenerationJobBillingStatusManualReview
+		if job.BillingStatus == GenerationJobBillingStatusManualReview && validLeonardoTerminalBilling(job) {
+			updated.BillingStatus = GenerationJobBillingStatusSubmitted
+		} else if job.BillingStatus != GenerationJobBillingStatusSubmitted {
+			updated.BillingStatus = GenerationJobBillingStatusManualReview
+		}
 		if applyErr != nil && updated.ErrorCode == nil {
 			return job, applyErr
 		}
 		if err = o.repository.CompareAndSwapStatus(ctx, job.PublicID, job.Status, &updated); err != nil {
 			return job, errors.Join(applyErr, err)
+		}
+		if terminalLeonardoGenerationJob(&updated) {
+			return o.reconcileBilling(ctx, &updated)
 		}
 		return &updated, applyErr
 	}
@@ -130,6 +137,10 @@ func (o *LeonardoGenerationPollOrchestrator) Poll(ctx context.Context, publicID 
 		return job, err
 	}
 	return o.reconcileBilling(ctx, job)
+}
+
+func validLeonardoTerminalBilling(job *GenerationJob) bool {
+	return job != nil && job.UserID > 0 && job.CustomerCost != nil && validLeonardoFundsAmount(*job.CustomerCost) && job.BillingReference != nil && strings.TrimSpace(*job.BillingReference) != ""
 }
 
 func (o *LeonardoGenerationPollOrchestrator) ApplyWebhook(ctx context.Context, accountID int64, generation *leonardo.Generation) (*GenerationJob, error) {
@@ -143,7 +154,7 @@ func (o *LeonardoGenerationPollOrchestrator) ApplyWebhook(ctx context.Context, a
 	if job.Provider != PlatformLeonardo || job.AccountID != accountID {
 		return job, ErrLeonardoGenerationPollAccountBinding
 	}
-	if err = requireLeonardoImageModality(job.Modality); err != nil {
+	if err = requireLeonardoSupportedModality(job.Modality); err != nil {
 		return job, err
 	}
 	if job.Status == GenerationJobStatusSucceeded || job.Status == GenerationJobStatusFailed || job.Status == GenerationJobStatusCancelled {
@@ -174,7 +185,7 @@ func terminalLeonardoGenerationJob(job *GenerationJob) bool {
 }
 
 func (o *LeonardoGenerationPollOrchestrator) reconcileBilling(ctx context.Context, job *GenerationJob) (*GenerationJob, error) {
-	if requireLeonardoImageModality(job.Modality) != nil {
+	if requireLeonardoSupportedModality(job.Modality) != nil {
 		updated := *job
 		updated.BillingStatus = GenerationJobBillingStatusManualReview
 		if err := o.repository.CompareAndSwapStatus(ctx, job.PublicID, job.Status, &updated); err != nil {
@@ -211,24 +222,32 @@ func (o *LeonardoGenerationPollOrchestrator) reconcileBilling(ctx context.Contex
 
 func leonardoUsageLog(job *GenerationJob) *UsageLog {
 	customerCost, _ := job.CustomerCost.Float64()
-	billingMode := "image"
+	billingMode := strings.ToLower(strings.TrimSpace(job.Modality))
+	if billingMode == "" {
+		billingMode = "image"
+	}
 	imageSize := "1K"
 	inboundEndpoint := "/v1/media/generations"
 	upstreamEndpoint := "/api/rest/v2/generations"
 	upstreamModel := job.UpstreamModel
 	return &UsageLog{
-		UserID:           job.UserID,
-		APIKeyID:         job.APIKeyID,
-		AccountID:        job.AccountID,
-		RequestID:        job.PublicID,
-		Model:            job.Model,
-		RequestedModel:   job.Model,
-		UpstreamModel:    &upstreamModel,
-		GroupID:          job.GroupID,
-		TotalCost:        customerCost,
-		ActualCost:       customerCost,
-		RateMultiplier:   1,
-		ImageCount:       job.OutputCount,
+		UserID:         job.UserID,
+		APIKeyID:       job.APIKeyID,
+		AccountID:      job.AccountID,
+		RequestID:      job.PublicID,
+		Model:          job.Model,
+		RequestedModel: job.Model,
+		UpstreamModel:  &upstreamModel,
+		GroupID:        job.GroupID,
+		TotalCost:      customerCost,
+		ActualCost:     customerCost,
+		RateMultiplier: 1,
+		ImageCount: func() int {
+			if billingMode == "image" {
+				return job.OutputCount
+			}
+			return 0
+		}(),
 		ImageSize:        &imageSize,
 		BillingMode:      &billingMode,
 		InboundEndpoint:  &inboundEndpoint,

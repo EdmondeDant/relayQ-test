@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
@@ -486,7 +487,7 @@ func IsOpenAIImageGenerationModel(model string) bool {
 
 func isOpenAIImageGenerationModel(model string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(model))
-	return strings.HasPrefix(normalized, "gpt-image-") || strings.HasPrefix(normalized, "grok-imagine-image")
+	return openai.ModelModality(normalized) == "image" || strings.HasPrefix(normalized, "grok-imagine-image")
 }
 
 func isGrokImagineImageModel(model string) bool {

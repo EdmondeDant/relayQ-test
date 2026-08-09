@@ -57,6 +57,8 @@ type LeonardoMediaCreateInput struct {
 	RawBody         []byte
 	MultipartImages map[string]*LeonardoImageInput
 	QualityTier     string
+	Modality        string
+	Duration        int
 }
 
 type LeonardoMediaCreateResult struct {
@@ -104,22 +106,36 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 		return nil, ErrLeonardoMediaCreateNotConfigured
 	}
 	model, prompt := strings.TrimSpace(input.Model), strings.TrimSpace(input.Prompt)
+	modality := strings.ToLower(strings.TrimSpace(input.Modality))
+	if modality == "" {
+		modality = "image"
+	}
 	matchReferenceSize := len(input.RawBody) > 0 && (model == "nano-banana-2" || model == "nano-banana-2-lite") && input.Width == 0 && input.Height == 0
-	if input.UserID <= 0 || input.APIKeyID <= 0 || input.GroupID <= 0 || model == "" || prompt == "" || len(prompt) > 4000 || (!matchReferenceSize && (input.Width <= 0 || input.Height <= 0)) || input.Quantity <= 0 {
+	if input.UserID <= 0 || input.APIKeyID <= 0 || input.GroupID <= 0 || (modality != "image" && modality != "video") || model == "" || prompt == "" || len(prompt) > 4000 || (!matchReferenceSize && (input.Width <= 0 || input.Height <= 0)) || input.Quantity <= 0 || (modality == "video" && input.Duration <= 0 && model != "motion_2.0-fast") {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
 	verified, ok := leonardo.ResolveByRequestModelSlug(model)
-	if !ok || verified.Modality != leonardo.ModelModalityImage {
+	if !ok || (modality == "image" && verified.Modality != leonardo.ModelModalityImage) || (modality == "video" && verified.Modality != leonardo.ModelModalityVideo) {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
-	if len(input.RawBody) == 0 {
+	if modality == "image" && len(input.RawBody) == 0 {
 		if _, err := BuildLeonardoFluxGuidances(model, input.FluxGuidances); err != nil {
 			return nil, ErrLeonardoMediaCreateInputInvalid
 		}
-	} else if !json.Valid(input.RawBody) {
+	} else if len(input.RawBody) > 0 && !json.Valid(input.RawBody) {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
-	quote, err := s.EstimateQualityQuote(ctx, model, input.Width, input.Height, input.Quantity, input.QualityTier)
+	var quote decimal.Decimal
+	var err error
+	if modality == "video" {
+		estimate, priceErr := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: input.Duration, Width: input.Width, Height: input.Height, Quantity: input.Quantity})
+		if priceErr != nil {
+			return nil, priceErr
+		}
+		quote = estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)
+	} else {
+		quote, err = s.EstimateQualityQuote(ctx, model, input.Width, input.Height, input.Quantity, input.QualityTier)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +153,13 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 		Width             int                       `json:"width"`
 		Height            int                       `json:"height"`
 		Quantity          int                       `json:"quantity"`
+		Duration          int                       `json:"duration,omitempty"`
 		CustomerQuoteUSD  string                    `json:"customer_quote_usd"`
 		InputImageSHA256s []string                  `json:"input_image_sha256s,omitempty"`
 		ImageReferences   []leonardo.ImageReference `json:"image_references,omitempty"`
 		FluxGuidances     LeonardoFluxGuidances     `json:"flux_guidances,omitempty"`
 		RawBodySHA256     string                    `json:"raw_body_sha256,omitempty"`
-	}{model, "image", prompt, input.Public, input.Width, input.Height, input.Quantity, quote.String(), leonardoMediaInputImageSHA256s(input.InputImage, input.InputImages), input.ImageReferences, input.FluxGuidances, leonardoMediaRawBodySHA256(input.RawBody)})
+	}{model, modality, prompt, input.Public, input.Width, input.Height, input.Quantity, input.Duration, quote.String(), leonardoMediaInputImageSHA256s(input.InputImage, input.InputImages), input.ImageReferences, input.FluxGuidances, leonardoMediaRawBodySHA256(input.RawBody)})
 	if err != nil {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
@@ -163,7 +180,12 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	if len(valid) > 1 {
 		return nil, ErrLeonardoMediaAccountSelectionAmbiguous
 	}
-	job, err := s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, QualityTier: input.QualityTier, CustomerQuoteUSD: quote, InputImage: input.InputImage, InputImages: input.InputImages, ImageReferences: input.ImageReferences, ImageCapability: input.ImageCapability, FluxGuidances: input.FluxGuidances, RawBody: input.RawBody, MultipartImages: input.MultipartImages})
+	var job *GenerationJob
+	if modality == "video" {
+		job, err = s.orchestrator.CreateVideo(ctx, LeonardoVideoCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Duration: input.Duration, Quantity: input.Quantity, Public: input.Public, CustomerQuoteUSD: quote, RawBody: input.RawBody})
+	} else {
+		job, err = s.orchestrator.Create(ctx, LeonardoImageCreateRequest{PublicID: publicID, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &input.GroupID, AccountID: valid[0].ID, RequestHash: hex.EncodeToString(hash[:]), Model: model, Prompt: prompt, Width: input.Width, Height: input.Height, Quantity: input.Quantity, Public: input.Public, QualityTier: input.QualityTier, CustomerQuoteUSD: quote, InputImage: input.InputImage, InputImages: input.InputImages, ImageReferences: input.ImageReferences, ImageCapability: input.ImageCapability, FluxGuidances: input.FluxGuidances, RawBody: input.RawBody, MultipartImages: input.MultipartImages})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +196,7 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	if !job.CreatedAt.IsZero() {
 		createdAt = job.CreatedAt.Unix()
 	}
-	return &LeonardoMediaCreateResult{ID: job.PublicID, Object: "media.generation", Provider: PlatformLeonardo, Model: job.Model, Modality: "image", Status: string(job.Status), CreatedAt: createdAt}, nil
+	return &LeonardoMediaCreateResult{ID: job.PublicID, Object: "media.generation", Provider: PlatformLeonardo, Model: job.Model, Modality: modality, Status: string(job.Status), CreatedAt: createdAt}, nil
 }
 
 func leonardoMediaRawBodySHA256(body []byte) string {

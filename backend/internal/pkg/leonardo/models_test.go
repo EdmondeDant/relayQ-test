@@ -7,8 +7,8 @@ import (
 
 func TestListVerifiedModels(t *testing.T) {
 	models := ListVerifiedModels()
-	if len(models) != 4 {
-		t.Fatalf("ListVerifiedModels() returned %d models, want 4", len(models))
+	if len(models) != 12 {
+		t.Fatalf("ListVerifiedModels() returned %d models, want 12", len(models))
 	}
 	want := VerifiedModel{
 		DisplayName:      "FLUX Schnell",
@@ -64,6 +64,24 @@ func TestVerifiedImageModels(t *testing.T) {
 	}
 }
 
+func TestVerifiedImageStyleModels(t *testing.T) {
+	tests := []struct{ slug, id string }{
+		{"kino-xl", "aa77f04e-3eec-4034-9c07-d0f619684628"},
+		{"concept-art", "dd29ac47-ea88-4720-8678-b8633245c09c"},
+		{"graphic-design", "9d4ace10-25dd-42fd-a6be-a301a7ac614f"},
+		{"illustrative-albedo", "2067ae52-33fd-4a82-bb92-c2c55e7d2786"},
+	}
+	for _, test := range tests {
+		model, ok := ResolveByRequestModelSlug(test.slug)
+		if !ok || model.ProviderModelID != test.id || model.Modality != ModelModalityImage || model.ImageCapabilities == nil || model.ImageCapabilities.MaxQuantity != 8 {
+			t.Fatalf("ResolveByRequestModelSlug(%q) = %#v, %v", test.slug, model, ok)
+		}
+		if len(model.ImageCapabilities.AllowedQualities) != 2 || model.ImageCapabilities.AllowedQualities[0] != "low" || model.ImageCapabilities.AllowedQualities[1] != "high" {
+			t.Fatalf("ResolveByRequestModelSlug(%q) qualities = %#v", test.slug, model.ImageCapabilities.AllowedQualities)
+		}
+	}
+}
+
 func TestValidateSyncedModelRequiresStrictSchema(t *testing.T) {
 	strict := false
 	validSchema, err := json.Marshal(ParameterSchema{Type: "object", Properties: map[string]json.RawMessage{"prompt": json.RawMessage(`{"type":"string"}`)}, Required: []string{"prompt"}, AdditionalProperties: &strict})
@@ -84,9 +102,21 @@ func TestValidateSyncedModelRequiresStrictSchema(t *testing.T) {
 	}
 }
 
-func TestListVerifiedVideoModelsIsEmptyUntilEvidenceExists(t *testing.T) {
-	if models := ListVerifiedVideoModels(); len(models) != 0 {
+func TestListVerifiedVideoModels(t *testing.T) {
+	models := ListVerifiedVideoModels()
+	want := map[string]string{
+		"seedance-1.0-pro-fast": "b959ecc2-a7f0-4618-9877-1bc45fc27570",
+		"motion_2.0-fast":       "0a7a3eb2-3905-480b-a89a-2f3ffff545e7",
+		"seedance-1.0-pro":      "728c9eac-b17d-47fe-b382-b9a28687fa85",
+		"wan-2.7":               "52884d8c-e2b9-4bb1-8ed5-927d390fe53a",
+	}
+	if len(models) != len(want) {
 		t.Fatalf("ListVerifiedVideoModels() returned %#v", models)
+	}
+	for _, model := range models {
+		if want[model.RequestModelSlug] != model.ProviderModelID || model.Modality != ModelModalityVideo {
+			t.Fatalf("ListVerifiedVideoModels() returned %#v", models)
+		}
 	}
 }
 

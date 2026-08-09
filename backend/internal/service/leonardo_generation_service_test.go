@@ -17,7 +17,9 @@ import (
 type leonardoGenerationRepositoryMock struct {
 	created   []*GenerationJob
 	updates   []*GenerationJob
+	existing  *GenerationJob
 	createErr error
+	getErr    error
 	casErr    error
 }
 
@@ -27,6 +29,9 @@ func (m *leonardoGenerationRepositoryMock) Create(_ context.Context, job *Genera
 }
 
 func (m *leonardoGenerationRepositoryMock) GetByPublicID(context.Context, string) (*GenerationJob, error) {
+	if m.existing != nil || m.getErr != nil {
+		return cloneGenerationJob(m.existing), m.getErr
+	}
 	return nil, ErrGenerationJobNotFound
 }
 
@@ -261,11 +266,16 @@ func TestLeonardoGenerationServiceUnknownClearsLifecycleFields(t *testing.T) {
 	upstreamStatus := "PENDING"
 	now := time.Now()
 	cost := decimal.NewFromInt(1)
+	customerCost := decimal.RequireFromString("0.10")
+	billingReference := "bill-unknown"
 	job.UpstreamGenerationID = &upstreamID
 	job.UpstreamStatus = &upstreamStatus
 	job.OutputCount = 2
 	job.ActualUpstreamCostAmount = &cost
 	job.ActualUpstreamCostUnit = stringPointer("USD")
+	job.CustomerCost = &customerCost
+	job.BillingReference = &billingReference
+	job.BillingStatus = GenerationJobBillingStatusReserved
 	job.NextPollAt = &now
 	job.LastPolledAt = &now
 	job.SubmittedAt = &now
@@ -282,6 +292,8 @@ func TestLeonardoGenerationServiceUnknownClearsLifecycleFields(t *testing.T) {
 	require.Zero(t, result.OutputCount)
 	require.Nil(t, result.ActualUpstreamCostAmount)
 	require.Nil(t, result.ActualUpstreamCostUnit)
+	require.Equal(t, customerCost.String(), result.CustomerCost.String())
+	require.Equal(t, billingReference, *result.BillingReference)
 	require.Nil(t, result.NextPollAt)
 	require.Nil(t, result.LastPolledAt)
 	require.Nil(t, result.SubmittedAt)

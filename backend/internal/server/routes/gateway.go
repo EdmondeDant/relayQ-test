@@ -1,7 +1,11 @@
 package routes
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
@@ -74,6 +78,17 @@ func RegisterGatewayRoutes(
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Media API is not supported for this platform"}})
 				return
+			}
+			if !cfg.Leonardo.VideoEnabled && strings.Contains(strings.ToLower(c.GetHeader("Content-Type")), "application/json") {
+				body, _ := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
+				c.Request.Body = io.NopCloser(bytes.NewReader(body))
+				var probe struct {
+					Modality string `json:"modality"`
+				}
+				if json.Unmarshal(body, &probe) == nil && strings.EqualFold(strings.TrimSpace(probe.Modality), "video") {
+					c.Status(http.StatusNotFound)
+					return
+				}
 			}
 			h.LeonardoMedia.Create(c)
 		})
@@ -153,6 +168,10 @@ func RegisterGatewayRoutes(
 				})
 				return
 			}
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				h.LeonardoMedia.OpenAIVideoGenerations(c)
+				return
+			}
 			h.OpenAIGateway.VideoGenerations(c)
 		})
 		gateway.POST("/videos/generations", func(c *gin.Context) {
@@ -168,6 +187,10 @@ func RegisterGatewayRoutes(
 						"message": "Videos API is not supported for this platform",
 					},
 				})
+				return
+			}
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				h.LeonardoMedia.OpenAIVideoGenerations(c)
 				return
 			}
 			h.OpenAIGateway.VideoGenerations(c)
@@ -199,6 +222,10 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoExtensions(c)
 		})
 		gateway.GET("/videos/:request_id/content", func(c *gin.Context) {
+			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
+				c.Status(http.StatusNotFound)
+				return
+			}
 			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -209,9 +236,18 @@ func RegisterGatewayRoutes(
 				})
 				return
 			}
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				c.Params = append(c.Params, gin.Param{Key: "id", Value: c.Param("request_id")})
+				h.LeonardoMedia.Content(c)
+				return
+			}
 			h.OpenAIGateway.VideoContent(c)
 		})
 		gateway.GET("/videos/:request_id", func(c *gin.Context) {
+			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
+				c.Status(http.StatusNotFound)
+				return
+			}
 			if !isVideoGenerationPlatform(getGroupPlatform(c)) {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -220,6 +256,11 @@ func RegisterGatewayRoutes(
 						"message": "Videos API is not supported for this platform",
 					},
 				})
+				return
+			}
+			if getGroupPlatform(c) == service.PlatformLeonardo {
+				c.Params = append(c.Params, gin.Param{Key: "id", Value: c.Param("request_id")})
+				h.LeonardoMedia.Get(c)
 				return
 			}
 			h.OpenAIGateway.VideoStatus(c)
@@ -340,6 +381,19 @@ func RegisterGatewayRoutes(
 				})
 				return
 			}
+			if platform == service.PlatformLeonardo {
+				switch mode {
+				case "generation":
+					h.LeonardoMedia.OpenAIVideoGenerations(c)
+				case "content":
+					c.Params = append(c.Params, gin.Param{Key: "id", Value: c.Param("request_id")})
+					h.LeonardoMedia.Content(c)
+				case "status":
+					c.Params = append(c.Params, gin.Param{Key: "id", Value: c.Param("request_id")})
+					h.LeonardoMedia.Get(c)
+				}
+				return
+			}
 			switch mode {
 			case "edit":
 				h.OpenAIGateway.VideoEdits(c)
@@ -439,7 +493,7 @@ func RegisterGatewayRoutes(
 }
 
 func isVideoGenerationPlatform(platform string) bool {
-	return platform == service.PlatformXAI || platform == service.PlatformLeonardo
+	return platform == service.PlatformXAI || platform == service.PlatformLeonardo || platform == service.PlatformOpenAI
 }
 
 func isOpenAICompatiblePlatform(platform string) bool {

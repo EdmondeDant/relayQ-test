@@ -106,6 +106,34 @@ func TestAccountHandlerGetAvailableModels_OpenAIOAuthUsesExplicitModelMapping(t 
 	require.Equal(t, "gpt-5", resp.Data[0].ID)
 }
 
+func TestAccountHandlerGetAvailableModels_OpenAICompatibleImageIncludesModality(t *testing.T) {
+	svc := &availableModelsAdminService{
+		stubAdminService: newStubAdminService(),
+		account: service.Account{ID: 47, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Status: service.StatusActive, Credentials: map[string]any{
+			"model_mapping": map[string]any{"flux-2-klein-9b-kv": "flux-2-klein-9b-kv", "minimax-h3": "minimax-h3"},
+		}},
+	}
+	router := setupAvailableModelsRouter(svc)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/47/models", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Data []struct {
+			ID       string `json:"id"`
+			Modality string `json:"modality"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	modalities := map[string]string{}
+	for _, model := range resp.Data {
+		modalities[model.ID] = model.Modality
+	}
+	require.Equal(t, "image", modalities["flux-2-klein-9b-kv"])
+	require.Equal(t, "video", modalities["minimax-h3"])
+}
+
 func TestAccountHandlerGetAvailableModels_LeonardoUsesVerifiedModels(t *testing.T) {
 	svc := &availableModelsAdminService{
 		stubAdminService: newStubAdminService(),
@@ -116,7 +144,7 @@ func TestAccountHandlerGetAvailableModels_LeonardoUsesVerifiedModels(t *testing.
 			Type:     service.AccountTypeAPIKey,
 			Status:   service.StatusActive,
 			Credentials: map[string]any{
-				"model_mapping": map[string]any{"flux-schnell": "flux-schnell"},
+				"model_mapping": map[string]any{"kino-xl": "kino-xl"},
 			},
 		},
 	}
@@ -139,7 +167,7 @@ func TestAccountHandlerGetAvailableModels_LeonardoUsesVerifiedModels(t *testing.
 		ID          string `json:"id"`
 		DisplayName string `json:"display_name"`
 		Modality    string `json:"modality"`
-	}{{ID: "flux-schnell", DisplayName: "FLUX Schnell", Modality: "image"}}, resp.Data)
+	}{{ID: "kino-xl", DisplayName: "Cinematic Kino", Modality: "image"}}, resp.Data)
 	require.NotContains(t, rec.Body.String(), "claude")
 }
 

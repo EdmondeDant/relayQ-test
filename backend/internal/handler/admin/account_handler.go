@@ -2013,6 +2013,7 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 			var found bool
 			for _, dm := range openai.DefaultModels {
 				if dm.ID == requestedModel {
+					dm.Modality = openai.ModelModality(requestedModel)
 					models = append(models, dm)
 					found = true
 					break
@@ -2024,6 +2025,7 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 					Object:      "model",
 					Type:        "model",
 					DisplayName: requestedModel,
+					Modality:    openai.ModelModality(requestedModel),
 				})
 			}
 		}

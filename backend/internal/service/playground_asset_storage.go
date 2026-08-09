@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -340,7 +341,8 @@ func isLocalPlaygroundProtectedURL(raw string) bool {
 		return false
 	}
 	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
-	if host != "127.0.0.1" && host != "localhost" {
+	ip := net.ParseIP(host)
+	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
 		return false
 	}
 	path := u.EscapedPath()

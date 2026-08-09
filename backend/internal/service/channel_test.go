@@ -489,6 +489,20 @@ func TestSupportedModels_ExactKeysAndPricing(t *testing.T) {
 	require.Equal(t, int64(10), got[1].Pricing.ID)
 }
 
+func TestSupportedModels_OpenAIMediaModalities(t *testing.T) {
+	ch := &Channel{ModelMapping: map[string]map[string]string{PlatformOpenAI: {
+		"flux-2-klein-9b-kv": "flux-2-klein-9b-kv",
+		"minimax-h3":         "minimax-h3",
+	}}}
+	got := ch.SupportedModels()
+	modalities := map[string]string{}
+	for _, model := range got {
+		modalities[model.Name] = model.Modality
+	}
+	require.Equal(t, "image", modalities["flux-2-klein-9b-kv"])
+	require.Equal(t, "video", modalities["minimax-h3"])
+}
+
 func TestSupportedModels_WildcardExpandedFromPricing(t *testing.T) {
 	ch := &Channel{
 		ModelPricing: []ChannelModelPricing{
@@ -512,7 +526,6 @@ func TestSupportedModels_WildcardExpandedFromPricing(t *testing.T) {
 		require.NotContains(t, m.Name, "*")
 	}
 }
-
 
 func TestSupportedModels_MissingPricingKeepsNilPricing(t *testing.T) {
 	ch := &Channel{

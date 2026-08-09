@@ -214,7 +214,7 @@ func TestGatewayRoutesXAIVideosPathsAreRegistered(t *testing.T) {
 	}
 }
 
-func TestGatewayRoutesLeonardoVideosGenerationPathsRequireFlag(t *testing.T) {
+func TestGatewayRoutesLeonardoVideosGenerationPathsRouteToLeonardo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	groupID := int64(1)
@@ -230,8 +230,8 @@ func TestGatewayRoutesLeonardoVideosGenerationPathsRequireFlag(t *testing.T) {
 	}{
 		{http.MethodPost, "/v1/videos", http.StatusBadRequest},
 		{http.MethodPost, "/videos/generations", http.StatusBadRequest},
-		{http.MethodGet, "/v1/videos/req_123", http.StatusBadRequest},
-		{http.MethodGet, "/videos/req_123/content", http.StatusBadRequest},
+		{http.MethodGet, "/v1/videos/req_123", http.StatusInternalServerError},
+		{http.MethodGet, "/videos/req_123/content", http.StatusInternalServerError},
 		{http.MethodPost, "/v1/videos/edits", http.StatusNotFound},
 		{http.MethodPost, "/videos/extensions", http.StatusNotFound},
 	} {
@@ -241,7 +241,7 @@ func TestGatewayRoutesLeonardoVideosGenerationPathsRequireFlag(t *testing.T) {
 		router.ServeHTTP(w, req)
 		require.Equal(t, test.want, w.Code, "path=%s", test.path)
 		if test.want == http.StatusBadRequest {
-			require.Contains(t, w.Body.String(), "not verified")
+			require.NotContains(t, w.Body.String(), "not verified")
 		}
 	}
 }
