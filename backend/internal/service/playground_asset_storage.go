@@ -110,7 +110,7 @@ func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID in
 	if err != nil {
 		return input, fmt.Errorf("build asset request: %w", err)
 	}
-	if token := playgroundAssetAuthToken(input); token != "" && isLocalPlaygroundProtectedURL(resolvedURL) {
+	if token := playgroundAssetAuthToken(input); token != "" && (isLocalPlaygroundProtectedURL(rawURL) || isLocalPlaygroundProtectedURL(resolvedURL)) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := s.httpClient.Do(req)
@@ -340,13 +340,17 @@ func isLocalPlaygroundProtectedURL(raw string) bool {
 	if err != nil {
 		return false
 	}
-	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
-	ip := net.ParseIP(host)
-	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+	path := u.EscapedPath()
+	protected := strings.HasPrefix(path, "/v1/videos/") || strings.HasPrefix(path, "/api/v1/playground/assets/content/")
+	if !protected {
 		return false
 	}
-	path := u.EscapedPath()
-	return strings.HasPrefix(path, "/v1/videos/") || strings.HasPrefix(path, "/api/v1/playground/assets/content/")
+	if u.Host == "" {
+		return strings.HasPrefix(strings.TrimSpace(raw), "/")
+	}
+	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+	ip := net.ParseIP(host)
+	return host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
 func playgroundDataDir() string {
