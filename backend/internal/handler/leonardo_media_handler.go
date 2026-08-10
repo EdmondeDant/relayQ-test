@@ -420,13 +420,8 @@ func (h *LeonardoMediaHandler) OpenAIImagesGenerations(c *gin.Context) {
 		result.Data, err = h.waitLeonardoOpenAIImages(waitCtx, service.LeonardoMediaGetInput{PublicID: task.TaskID, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID}, task.Created, req.ResponseFormat)
 		cancel()
 		if err != nil {
-			status, code := http.StatusBadGateway, "upstream_error"
-			message := "Leonardo image generation failed"
-			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-				status, code = http.StatusGatewayTimeout, "generation_timeout"
-				message = "Leonardo image generation is still running; query task " + task.TaskID
-			}
-			leonardoOpenAIError(c, status, "api_error", message, code)
+			status, errorType, message, code := leonardoOpenAIImageWaitError(err, task.TaskID)
+			leonardoOpenAIError(c, status, errorType, message, code)
 			return
 		}
 	}
@@ -664,6 +659,13 @@ func (h *LeonardoMediaHandler) waitLeonardoOpenAIImages(ctx context.Context, inp
 			}
 			return out, nil
 		case string(service.GenerationJobStatusFailed), string(service.GenerationJobStatusUnknown):
+			if result.Error != nil && strings.TrimSpace(result.Error.Code) != "" {
+				status := http.StatusBadGateway
+				if result.Error.Code == "content_policy_violation" {
+					status = http.StatusBadRequest
+				}
+				return nil, infraerrors.New(status, result.Error.Code, result.Error.Message)
+			}
 			return nil, infraerrors.New(http.StatusBadGateway, "LEONARDO_GENERATION_FAILED", "Leonardo image generation failed")
 		}
 		timer := time.NewTimer(time.Second)
@@ -674,6 +676,17 @@ func (h *LeonardoMediaHandler) waitLeonardoOpenAIImages(ctx context.Context, inp
 		case <-timer.C:
 		}
 	}
+}
+
+func leonardoOpenAIImageWaitError(err error, taskID string) (int, string, string, string) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return http.StatusGatewayTimeout, "api_error", "Leonardo image generation is still running; query task " + taskID, "generation_timeout"
+	}
+	reason := infraerrors.Reason(err)
+	if reason == "content_policy_violation" {
+		return http.StatusBadRequest, "invalid_request_error", infraerrors.Message(err), reason
+	}
+	return http.StatusBadGateway, "api_error", "Leonardo image generation failed", "upstream_error"
 }
 
 func leonardoOpenAIError(c *gin.Context, status int, errorType, message, code string) {

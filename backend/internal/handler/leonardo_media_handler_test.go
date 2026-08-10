@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -289,6 +290,17 @@ func TestLeonardoOpenAIImagesTaskDecodesStoredReplay(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, int64(123), task.Created)
 	require.Equal(t, "gen_rq_0123456789abcdef0123456789abcdef", task.TaskID)
+}
+
+func TestLeonardoOpenAIImageWaitErrorPreservesContentPolicyReason(t *testing.T) {
+	status, errorType, message, code := leonardoOpenAIImageWaitError(
+		infraerrors.New(http.StatusBadRequest, "content_policy_violation", "leonardo generation output was blocked by content policy"),
+		"gen_rq_0123456789abcdef0123456789abcdef",
+	)
+	require.Equal(t, http.StatusBadRequest, status)
+	require.Equal(t, "invalid_request_error", errorType)
+	require.Equal(t, "leonardo generation output was blocked by content policy", message)
+	require.Equal(t, "content_policy_violation", code)
 }
 
 func TestLeonardoOpenAIImagesEditsFailsClosedForUnverifiedModel(t *testing.T) {
