@@ -448,6 +448,7 @@
                   :entry="entry"
                   :platform="section.platform"
                   :model-options="getModelOptionsForGroupIds(section.group_ids, section.platform)"
+                  :model-modalities="modelModalitiesMap"
                   :show-summary-field="true"
                   @update="updatePricingEntry(sIdx, idx, $event)"
                   @remove="removePricingEntry(sIdx, idx)"
@@ -580,6 +581,7 @@
                       :entry="entry"
                       :platform="section.platform"
                       :model-options="getModelOptionsForGroupIds(rule.group_ids.length > 0 ? rule.group_ids : section.group_ids, section.platform)"
+                      :model-modalities="modelModalitiesMap"
                       @update="rule.pricing.splice(pIdx, 1, $event)"
                       @remove="removeRulePricingEntry(sIdx, ruleIndex, pIdx)"
                     />
@@ -746,6 +748,7 @@ const activeTab = ref<string>('basic')
 const allGroups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
 const groupModelOptionsMap = ref<Record<string, string[]>>({})
+const modelModalitiesMap = ref<Record<string, 'image' | 'video' | 'audio' | '3d'>>({})
 
 // All channels for group-conflict detection (independent of current page)
 const allChannelsForConflict = ref<Channel[]>([])
@@ -849,6 +852,7 @@ async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatf
     if (platform === 'leonardo') {
       const result = await adminAPI.channels.syncPricingModels(platform)
       groupModelOptionsMap.value[key] = result.models || []
+      modelModalitiesMap.value = { ...modelModalitiesMap.value, ...(result.modalities || {}) }
     } else {
       groupModelOptionsMap.value[key] = []
     }
@@ -860,9 +864,14 @@ async function ensureGroupModelOptions(groupIds: number[], platform?: GroupPlatf
     const key = getGroupModelOptionsKey(group.id)
     if (groupModelOptionsMap.value[key]) return
     try {
-      const models = group.platform === 'leonardo'
-        ? (await adminAPI.channels.syncPricingModels(group.platform)).models
-        : await extractStrictModelOptionsFromAccountMappings(group.id, group.platform)
+      let models: string[]
+      if (group.platform === 'leonardo') {
+        const result = await adminAPI.channels.syncPricingModels(group.platform)
+        models = result.models
+        modelModalitiesMap.value = { ...modelModalitiesMap.value, ...(result.modalities || {}) }
+      } else {
+        models = await extractStrictModelOptionsFromAccountMappings(group.id, group.platform)
+      }
       groupModelOptionsMap.value[key] = [...new Set(models || [])].sort((a, b) => a.localeCompare(b))
     } catch {
       groupModelOptionsMap.value[key] = []
@@ -952,7 +961,7 @@ async function syncLatestModels(sectionIdx: number) {
 		if (platform === 'leonardo') {
 			for (const model of newModels) {
 				const pricing = await adminAPI.channels.getModelDefaultPricing(model, platform)
-				form.platforms[sectionIdx].model_pricing.push({ models: [model], summary: '本地上游成本 × 7.1', billing_mode: 'image', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, image_output_price: null, per_request_price: pricing.found ? pricing.per_request_price ?? null : null, intervals: [] })
+				form.platforms[sectionIdx].model_pricing.push({ models: [model], summary: '本地上游成本 × 7.1', billing_mode: pricing.modality === 'video' ? 'per_request' : 'image', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, image_output_price: null, per_request_price: pricing.found ? pricing.per_request_price ?? null : null, intervals: [] })
 			}
 		} else {
 			form.platforms[sectionIdx].model_pricing.push({ models: newModels, summary: '', billing_mode: 'token', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, image_output_price: null, per_request_price: null, intervals: [] })

@@ -34,8 +34,32 @@ func EstimateLeonardoCustomerPrice(ctx context.Context, request LeonardoImagePri
 	return estimate, estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate), nil
 }
 
+func EstimateLeonardoVideoCustomerPrice(ctx context.Context, request LeonardoVideoPriceRequest) (*LeonardoVideoPriceEstimate, decimal.Decimal, error) {
+	estimate, err := NewLeonardoVideoPriceResolver().Estimate(ctx, request)
+	if err != nil {
+		return nil, decimal.Zero, err
+	}
+	if estimate == nil || estimate.EstimatedCostUSD.Sign() <= 0 {
+		return nil, decimal.Zero, ErrLeonardoVideoPricingEvidenceUnavailable
+	}
+	return estimate, estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate), nil
+}
+
 func LeonardoDefaultImagePriceRequest(model string) LeonardoImagePriceRequest {
 	return LeonardoImagePriceRequest{Model: strings.TrimSpace(model), Width: 1024, Height: 1024, Quantity: 1, QualityTier: "low"}
+}
+
+func LeonardoDefaultVideoPriceRequest(model string) LeonardoVideoPriceRequest {
+	switch strings.TrimSpace(model) {
+	case "seedance-1.0-pro-fast", "seedance-1.0-pro":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 4, Width: 864, Height: 480, Quantity: 1}
+	case "motion_2.0-fast":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Width: 832, Height: 480, Quantity: 1}
+	case "wan-2.7":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 2, Width: 1280, Height: 720, Quantity: 1}
+	default:
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Quantity: 1}
+	}
 }
 
 type LeonardoMediaCreateInput struct {

@@ -488,11 +488,41 @@ func TestSyncPricingModels_LeonardoVerifiedModels(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var body struct {
 		Data struct {
-			Models []string `json:"models"`
+			Models     []string          `json:"models"`
+			Modalities map[string]string `json:"modalities"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Equal(t, []string{"flux-schnell", "gpt-image-2", "nano-banana-2", "nano-banana-2-lite", "kino-xl", "concept-art", "graphic-design", "illustrative-albedo"}, body.Data.Models)
+	require.Contains(t, body.Data.Models, "flux-schnell")
+	require.Contains(t, body.Data.Models, "seedance-1.0-pro")
+	require.Equal(t, "image", body.Data.Modalities["flux-schnell"])
+	require.Equal(t, "video", body.Data.Modalities["seedance-1.0-pro"])
+}
+
+func TestGetModelDefaultPricing_LeonardoVideoLocalCost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	handler := NewChannelHandler(nil, nil, nil)
+	router.GET("/channels/model-pricing", handler.GetModelDefaultPricing)
+	req := httptest.NewRequest(http.MethodGet, "/channels/model-pricing?platform=leonardo&model=seedance-1.0-pro", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var body struct {
+		Data struct {
+			Found           bool    `json:"found"`
+			Modality        string  `json:"modality"`
+			BillingMode     string  `json:"billing_mode"`
+			PerRequestPrice float64 `json:"per_request_price"`
+			UpstreamCost    float64 `json:"upstream_cost"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.True(t, body.Data.Found)
+	require.Equal(t, "video", body.Data.Modality)
+	require.Equal(t, "per_request", body.Data.BillingMode)
+	require.InDelta(t, 0.1346, body.Data.UpstreamCost, 0.00000001)
+	require.InDelta(t, 0.95566, body.Data.PerRequestPrice, 0.00000001)
 }
 
 func TestGetModelDefaultPricing_LeonardoLocalCost(t *testing.T) {

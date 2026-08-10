@@ -111,7 +111,7 @@
               :modelValue="entry.billing_mode"
               @update:modelValue="emit('update', { ...entry, billing_mode: $event as BillingMode, intervals: [] })"
               :options="billingModeOptions"
-              :disabled="isLeonardoPricing"
+              :disabled="isLeonardoAutomaticPricing"
               class="mt-1"
             />
           </div>
@@ -178,6 +178,9 @@
 
         <!-- Per-request mode -->
         <div v-else-if="entry.billing_mode === 'per_request'">
+          <div v-if="isLeonardoVideoPricing" class="mt-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">
+            Leonardo 视频按服务端本地成本计算器动态计费，客户价格固定为本地成本 × 7.1。此处显示该模型最低规格的参考价格；实际扣费按时长、分辨率和音频能力计算。
+          </div>
           <!-- Default per-request price -->
           <label class="mt-3 block text-xs font-medium text-gray-500 dark:text-gray-400">
             {{ t('admin.channels.form.defaultPerRequestPrice', '默认单次价格（未命中层级时使用）') }}
@@ -185,11 +188,11 @@
           </label>
           <div class="mt-1 w-48">
             <input :value="entry.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
-              type="number" step="any" min="0" class="input text-sm" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
+              type="number" step="any" min="0" class="input text-sm" :readonly="isLeonardoVideoPricing" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
           </div>
 
           <!-- Tiers -->
-          <div class="mt-3 flex items-center justify-between">
+          <div v-if="!isLeonardoVideoPricing" class="mt-3 flex items-center justify-between">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.channels.form.requestTiers', '按次计费层级') }}
             </label>
@@ -197,7 +200,7 @@
               + {{ t('admin.channels.form.addTier', '添加层级') }}
             </button>
           </div>
-          <div v-if="entry.intervals && entry.intervals.length > 0" class="pricing-interval-scroll mt-2 space-y-2">
+          <div v-if="!isLeonardoVideoPricing && entry.intervals && entry.intervals.length > 0" class="pricing-interval-scroll mt-2 space-y-2">
             <IntervalRow
               v-for="(iv, idx) in entry.intervals"
               :key="idx"
@@ -207,14 +210,14 @@
               @remove="removeInterval(idx)"
             />
           </div>
-          <div v-else class="mt-2 rounded border border-dashed border-gray-300 p-3 text-center text-xs text-gray-400 dark:border-dark-500">
+          <div v-else-if="!isLeonardoVideoPricing" class="mt-2 rounded border border-dashed border-gray-300 p-3 text-center text-xs text-gray-400 dark:border-dark-500">
             {{ t('admin.channels.form.noTiersYet', '暂无层级，点击添加配置按次计费价格') }}
           </div>
         </div>
 
         <!-- Image mode -->
         <div v-else-if="entry.billing_mode === 'image'">
-          <div v-if="isLeonardoPricing" class="mt-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">
+          <div v-if="isLeonardoImagePricing" class="mt-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">
             Leonardo 按服务端本地成本快照动态计费，客户价格固定为本地成本 × 7.1。此处显示 1024×1024、low、1 张的默认价格；实际扣费按请求的模型、尺寸、质量和数量计算。
           </div>
           <!-- Default image price (per-request, same as per_request mode) -->
@@ -224,11 +227,11 @@
           </label>
           <div class="mt-1 w-48">
             <input :value="entry.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
-              type="number" step="any" min="0" class="input text-sm" :readonly="isLeonardoPricing" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
+              type="number" step="any" min="0" class="input text-sm" :readonly="isLeonardoImagePricing" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
           </div>
 
           <!-- Image tiers -->
-          <div v-if="!isLeonardoPricing" class="mt-3 flex items-center justify-between">
+          <div v-if="!isLeonardoImagePricing" class="mt-3 flex items-center justify-between">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.channels.form.imageTiers', '图片计费层级（按次）') }}
             </label>
@@ -236,7 +239,7 @@
               + {{ t('admin.channels.form.addTier', '添加层级') }}
             </button>
           </div>
-          <div v-if="!isLeonardoPricing && entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
+          <div v-if="!isLeonardoImagePricing && entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
             <IntervalRow
               v-for="(iv, idx) in entry.intervals"
               :key="idx"
@@ -270,6 +273,7 @@ const props = defineProps<{
   entry: PricingFormEntry
   platform?: string
   modelOptions?: string[]
+  modelModalities?: Record<string, 'image' | 'video' | 'audio' | '3d'>
   showSummaryField?: boolean
 }>()
 
@@ -281,10 +285,13 @@ const emit = defineEmits<{
 // Collapse state: entries with existing models default to collapsed
 const collapsed = ref(props.entry.models.length > 0)
 
-const isLeonardoPricing = computed(() => props.platform === 'leonardo')
+const selectedModality = computed(() => props.modelModalities?.[props.entry.models[0] || ''])
+const isLeonardoImagePricing = computed(() => props.platform === 'leonardo' && selectedModality.value === 'image')
+const isLeonardoVideoPricing = computed(() => props.platform === 'leonardo' && selectedModality.value === 'video')
+const isLeonardoAutomaticPricing = computed(() => isLeonardoImagePricing.value || isLeonardoVideoPricing.value)
 
-const billingModeOptions = computed(() => isLeonardoPricing.value
-  ? [{ value: 'image', label: '本地成本 × 7.1（自动）' }]
+const billingModeOptions = computed(() => isLeonardoAutomaticPricing.value
+  ? [{ value: isLeonardoVideoPricing.value ? 'per_request' : 'image', label: '本地成本 × 7.1（自动）' }]
   : [
       { value: 'token', label: 'Token' },
       { value: 'per_request', label: t('admin.channels.billingMode.perRequest', '按次') },
@@ -343,8 +350,11 @@ function removeInterval(idx: number) {
 
 async function onModelsUpdate(newModels: string[]) {
   const oldModels = props.entry.models
-  const models = isLeonardoPricing.value && newModels.length > 1 ? [newModels[newModels.length - 1]] : newModels
-  emit('update', { ...props.entry, models, billing_mode: isLeonardoPricing.value ? 'image' : props.entry.billing_mode })
+  const isLeonardo = props.platform === 'leonardo'
+  const models = isLeonardo && newModels.length > 1 ? [newModels[newModels.length - 1]] : newModels
+  const modality = props.modelModalities?.[models[0] || '']
+  const billingMode = modality === 'video' ? 'per_request' : modality === 'image' ? 'image' : props.entry.billing_mode
+  emit('update', { ...props.entry, models, billing_mode: billingMode })
 
   // 只在新增模型且当前无价格时自动填充
   const addedModels = models.filter(m => !oldModels.includes(m))

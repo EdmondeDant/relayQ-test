@@ -151,6 +151,7 @@ export async function remove(id: number): Promise<void> {
 
 export interface ModelDefaultPricing {
   found: boolean
+	modality?: 'image' | 'video' | 'audio' | '3d'
 	billing_mode?: 'token' | 'per_request' | 'image'
   input_price?: number    // per-token price
   output_price?: number
@@ -169,6 +170,7 @@ export async function getModelDefaultPricing(model: string, platform?: string): 
 
 export interface SyncPricingModelsResult {
   models: string[]
+	modalities?: Record<string, 'image' | 'video' | 'audio' | '3d'>
 }
 
 /**

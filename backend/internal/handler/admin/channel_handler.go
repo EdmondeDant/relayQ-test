@@ -491,6 +491,29 @@ func (h *ChannelHandler) GetModelDefaultPricing(c *gin.Context) {
 		return
 	}
 	if platform == service.PlatformLeonardo {
+		verified, ok := leonardo.ResolveByRequestModelSlug(model)
+		if !ok {
+			response.Success(c, gin.H{"found": false})
+			return
+		}
+		if verified.Modality == leonardo.ModelModalityVideo {
+			estimate, customerPrice, err := service.EstimateLeonardoVideoCustomerPrice(c.Request.Context(), service.LeonardoDefaultVideoPriceRequest(model))
+			if err != nil {
+				response.Success(c, gin.H{"found": false, "modality": verified.Modality})
+				return
+			}
+			response.Success(c, gin.H{
+				"found":             true,
+				"modality":          verified.Modality,
+				"billing_mode":      "per_request",
+				"per_request_price": customerPrice.InexactFloat64(),
+				"upstream_cost":     estimate.EstimatedCostUSD.InexactFloat64(),
+				"pricing_version":   estimate.PricingVersion,
+				"pricing_source":    estimate.PricingSource,
+				"match_type":        estimate.MatchType,
+			})
+			return
+		}
 		estimate, customerPrice, err := service.EstimateLeonardoCustomerPrice(c.Request.Context(), service.LeonardoDefaultImagePriceRequest(model))
 		if err != nil {
 			response.Success(c, gin.H{"found": false})
@@ -498,6 +521,7 @@ func (h *ChannelHandler) GetModelDefaultPricing(c *gin.Context) {
 		}
 		response.Success(c, gin.H{
 			"found":             true,
+			"modality":          verified.Modality,
 			"billing_mode":      "image",
 			"per_request_price": customerPrice.InexactFloat64(),
 			"upstream_cost":     estimate.EstimatedCostUSD.InexactFloat64(),
@@ -546,10 +570,12 @@ func (h *ChannelHandler) SyncPricingModels(c *gin.Context) {
 	if platform == service.PlatformLeonardo {
 		verified := leonardo.ListVerifiedModels()
 		models := make([]string, 0, len(verified))
+		modalities := make(map[string]string, len(verified))
 		for _, model := range verified {
 			models = append(models, model.RequestModelSlug)
+			modalities[model.RequestModelSlug] = string(model.Modality)
 		}
-		response.Success(c, gin.H{"models": models})
+		response.Success(c, gin.H{"models": models, "modalities": modalities})
 		return
 	}
 
