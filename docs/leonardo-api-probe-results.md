@@ -655,3 +655,32 @@ Leonardo 当前登录会话显示 Free 套餐和 150 Fast Tokens，但 Subscript
 三个任务均取得可信 generation ID，仅轮询各自返回的 ID。终态均为 `succeeded`、`output_count=1`、HTTPS MP4、`video/mp4`、`nsfw=false`。三个 reservation 均为 `settled`，usage log 各唯一 1 条，`billing_mode=video`、`image_count=0`，用户余额 USD 97.78105550 → USD 94.91407550，差额 USD 2.86698，与三笔客户预留之和一致。
 
 三个创建响应的可验证实际成本仍为 `0 API_CREDIT`，RelayQ 保存的 `actual_upstream_cost_amount=0`。Leonardo 控制台不提供逐 generation 账单，因此 USD 0.1047、USD 0.1346、USD 0.1645 仅能声明为认证价格计算器的精确估价，不能声明为逐笔实际账单成本。
+
+### Seedance 2.0 与 Kling 系列目录复核
+
+> 执行时间：2026-08-14 Asia/Shanghai
+
+- 已联网对照 Seedance 和 Kling 原厂能力、Leonardo 官方模型指南，并对当前账号执行只读 `GET /api/rest/v2/models`，没有发送创建 POST。
+- Leonardo 官方文档已公开 Seedance 2.0、Seedance 2.0 Fast、Seedance 2.0 Mini，以及 Kling 2.1 Pro、2.5 Turbo、2.6、3.0、O1 和 O3。
+- 当前账号 Production 目录在目标系列中只返回 `Kling Video O3 Omni`；Seedance 2.0 全系列和其他 Kling 型号未返回，因此无法取得当前账号可见 UUID 与 Schema，继续保持 blocked，不加入 verified registry。
+
+| 模型 | Provider UUID | request model | Schema 摘要 | 状态 |
+|------|---------------|---------------|-------------|------|
+| Kling Video O3 Omni | `0d5109cf-d256-4720-86d3-d8e5ff5a3ce2` | `kling-video-o-3` | `duration=3..15`；720p/1080p/2160p；`motion_has_audio`；start/end/image/video reference | verified |
+| Seedance 2.0 / Fast / Mini | 当前目录未返回 | 官方文档分别为 `seedance-2.0`、`seedance-2.0-fast`、`seedance-2.0-mini` | 无当前账号 Production Schema | blocked |
+| 其他 Kling 型号 | 当前目录未返回 | 官方文档可查 | 无当前账号 Production Schema | blocked |
+
+- Kling O3 官方尺寸为 720p、1080p、2160p 下的 16:9、1:1、9:16；时长 3–15 秒。视频参考模式最长 10 秒，当前 RelayQ 首批只开放文本和首帧图片，不开放尚未端到端验证的尾帧、多图片和视频编辑。
+- 当前认证价格目录给出 Kling Video O3 Omni 3 秒最低价 USD 1.0046、15 秒 USD 5.0232。RelayQ 使用线性插值并按模型、时长和已验证尺寸 fail closed；客户价仍为本地成本 × 7.1。
+
+### Kling O3 最低成本真实探针
+
+> 执行时间：2026-08-15 Asia/Shanghai
+> 创建请求：直连 Leonardo 与 RelayQ 各严格 1 次有效 POST，自动重试 0；RelayQ 首次预检因账号模型映射缺失在上游选择前返回 503，没有预留资金、generation job 或上游副作用
+
+- 直连 Leonardo：generation ID `1f197fd2-30f6-6e90-a026-b7ffcf2cba29`，3 秒、1280×720、quantity 1、无音频；17 次 `PENDING` 后 `COMPLETE`，单个输出、`nsfw=false`、HTTPS `video/mp4`、`ftyp` 通过。
+- RelayQ：request ID `gen_rq_2d737819c97bc019ad55ab86767da8f9`，状态 `succeeded`，`output_count=1`，content 代理返回 HTTP 200、`video/mp4`、`ftyp` 通过。
+- 账务：认证价格估价 USD 1.0046，客户预留与结算 USD 7.13266；reservation=`settled`，usage log 唯一 1 条且总额 USD 7.13266，余额 USD 71.92084550 → USD 64.78818550，差额完全一致。
+- 上游实际成本：创建响应与 generation job 均为 `0 API_CREDIT`。USD 1.0046 只能声明为认证价格计算器的精确估价，不能声明为 Leonardo 逐笔实际账单成本。
+- 验收发现账号 `model_mapping` 仍停留在接入前的 12 个模型，导致服务在付费 POST 前返回 `LEONARDO_MEDIA_NO_AVAILABLE_ACCOUNT`；同步 `kling-video-o-3` 后恢复为 13 个已验证模型。
+- Windows 环境依赖本机 HTTPS 代理。媒体 content 原先使用仅直连的 SSRF 安全客户端，导致 CDN 下载 502；现改为在配置 `HTTPS_PROXY` 时复用“原始目标 IP 预校验 + 显式代理”的安全客户端，仍禁止危险目标和重定向，不放宽 SSRF 策略。

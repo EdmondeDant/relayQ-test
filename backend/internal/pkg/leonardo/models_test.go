@@ -7,8 +7,8 @@ import (
 
 func TestListVerifiedModels(t *testing.T) {
 	models := ListVerifiedModels()
-	if len(models) != 12 {
-		t.Fatalf("ListVerifiedModels() returned %d models, want 12", len(models))
+	if len(models) != 13 {
+		t.Fatalf("ListVerifiedModels() returned %d models, want 13", len(models))
 	}
 	want := VerifiedModel{
 		DisplayName:      "FLUX Schnell",
@@ -109,6 +109,7 @@ func TestListVerifiedVideoModels(t *testing.T) {
 		"motion_2.0-fast":       "0a7a3eb2-3905-480b-a89a-2f3ffff545e7",
 		"seedance-1.0-pro":      "728c9eac-b17d-47fe-b382-b9a28687fa85",
 		"wan-2.7":               "52884d8c-e2b9-4bb1-8ed5-927d390fe53a",
+		"kling-video-o-3":       "0d5109cf-d256-4720-86d3-d8e5ff5a3ce2",
 	}
 	if len(models) != len(want) {
 		t.Fatalf("ListVerifiedVideoModels() returned %#v", models)

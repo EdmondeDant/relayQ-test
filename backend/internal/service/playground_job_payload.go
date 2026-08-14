@@ -453,7 +453,7 @@ func (p playgroundJobPayload) buildVideoRequest(model string) (string, json.RawM
 		}
 		body := map[string]any{"model": model, "prompt": p.Prompt, "seconds": p.Duration, "size": size}
 		if p.Media.InputReference != nil && strings.TrimSpace(p.Media.InputReference.URL) != "" {
-			if model != "seedance-1.0-pro-fast" && model != "seedance-1.0-pro" && model != "wan-2.7" && model != "motion_2.0-fast" {
+			if model != "seedance-1.0-pro-fast" && model != "seedance-1.0-pro" && model != "wan-2.7" && model != "motion_2.0-fast" && model != "kling-video-o-3" {
 				return "", nil, fmt.Errorf("%w: first-frame image is not supported by this Leonardo video model", ErrPlaygroundInvalidInput)
 			}
 			body["input_reference"] = map[string]any{"image_url": strings.TrimSpace(p.Media.InputReference.URL)}

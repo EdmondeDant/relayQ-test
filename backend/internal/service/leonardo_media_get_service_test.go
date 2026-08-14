@@ -523,7 +523,7 @@ func TestLeonardoMediaGetServiceContentDownloadsValidatedImage(t *testing.T) {
 	job := leonardoMediaOwnedJob()
 	job.Status = GenerationJobStatusSucceeded
 	job.BillingStatus = GenerationJobBillingStatusSettled
-	job.ResultPayload = map[string]any{"images": []map[string]any{{"id": "image", "url": "https://cdn.example/image.png", "nsfw": false}}}
+	job.ResultPayload = map[string]any{"images": []map[string]any{{"id": "image", "url": "https://cdn.leonardo.ai/image.png", "nsfw": false}}}
 	repository := &leonardoMediaGetRepositoryStub{job: job}
 	getService := leonardoMediaGetService(repository, &leonardoMediaGetAccountLoaderStub{}, &orchestratorUpstreamMock{})
 	getService.content = &http.Client{Transport: leonardoMediaRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -548,7 +548,7 @@ func TestLeonardoMediaGetServiceContentDownloadsValidatedVideo(t *testing.T) {
 	job := leonardoMediaOwnedJob()
 	job.Modality = "video"
 	job.BillingStatus = GenerationJobBillingStatusSettled
-	job.ResultPayload = map[string]any{"videos": []map[string]any{{"id": "video", "url": "https://cdn.example/video.mp4", "mime": "video/mp4", "nsfw": false}}}
+	job.ResultPayload = map[string]any{"videos": []map[string]any{{"id": "video", "url": "https://cdn.leonardo.ai/video.mp4", "mime": "video/mp4", "nsfw": false}}}
 	repository := &leonardoMediaGetRepositoryStub{job: job}
 	getService := leonardoMediaGetService(repository, &leonardoMediaGetAccountLoaderStub{}, &orchestratorUpstreamMock{})
 	getService.content = &http.Client{Transport: leonardoMediaRoundTripper(func(r *http.Request) (*http.Response, error) {

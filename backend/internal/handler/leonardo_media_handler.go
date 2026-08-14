@@ -198,7 +198,7 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 	startFrameSource := ""
 	if req.InputReference != nil {
 		startFrameSource = strings.TrimSpace(req.InputReference.ImageURL)
-		if startFrameSource == "" || (req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast") {
+		if startFrameSource == "" || (req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" && req.Model != "kling-video-o-3") {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 			return
 		}
@@ -812,7 +812,7 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 	}
 	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances}
 	if req.Modality == "video" && strings.TrimSpace(req.Parameters.StartFrameSource) != "" {
-		if req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" {
+		if req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" && req.Model != "kling-video-o-3" {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 			return
 		}

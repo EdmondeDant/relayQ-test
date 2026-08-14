@@ -70,6 +70,9 @@ func TestLeonardoOpenAIVideoValidatesOfficialSpecifications(t *testing.T) {
 		{`{"model":"seedance-1.0-pro","prompt":"cat","seconds":10,"size":"1920x1088"}`, true},
 		{`{"model":"wan-2.7","prompt":"cat","seconds":3,"size":"1280x720"}`, true},
 		{`{"model":"wan-2.7","prompt":"cat","seconds":10,"size":"1080x1920"}`, true},
+		{`{"model":"kling-video-o-3","prompt":"cat","seconds":3,"size":"1280x720"}`, true},
+		{`{"model":"kling-video-o-3","prompt":"cat","seconds":15,"size":"2160x3840"}`, true},
+		{`{"model":"kling-video-o-3","prompt":"cat","seconds":16,"size":"1280x720"}`, false},
 		{`{"model":"wan-2.7","prompt":"cat","seconds":11,"size":"1280x720"}`, false},
 		{`{"model":"motion_2.0-fast","prompt":"cat","seconds":4,"size":"832x480"}`, false},
 	}
@@ -129,6 +132,7 @@ func TestLeonardoRawVideoValidatesModelParameters(t *testing.T) {
 		{`{"model":"seedance-1.0-pro-fast","public":false,"parameters":{"prompt":"cat","width":1248,"height":704,"quantity":1,"duration":6,"mode":"RESOLUTION_720","prompt_enhance":"OFF"}}`, true},
 		{`{"model":"motion_2.0-fast","public":false,"parameters":{"prompt":"cat","width":1280,"height":720,"quantity":1,"mode":"RESOLUTION_720"}}`, true},
 		{`{"model":"wan-2.7","public":false,"parameters":{"prompt":"cat","width":1920,"height":1080,"quantity":1,"duration":5,"resolution":"1080p"}}`, true},
+		{`{"model":"kling-video-o-3","public":false,"parameters":{"prompt":"cat","width":1280,"height":720,"quantity":1,"duration":3,"mode":"RESOLUTION_720"}}`, true},
 		{`{"model":"seedance-1.0-pro","public":false,"parameters":{"prompt":"cat","width":1248,"height":704,"quantity":1,"duration":6,"mode":"RESOLUTION_480","prompt_enhance":"OFF"}}`, false},
 		{`{"model":"wan-2.7","public":false,"parameters":{"prompt":"cat","width":1920,"height":1080,"quantity":1,"duration":5,"mode":"RESOLUTION_1080"}}`, false},
 	}

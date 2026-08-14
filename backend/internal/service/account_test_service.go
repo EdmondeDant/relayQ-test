@@ -380,8 +380,8 @@ func (s *AccountTestService) testLeonardoPaidGeneration(c *gin.Context, client *
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
 	parameters := map[string]any{"prompt": prompt, "width": 896, "height": 896, "quantity": 1}
 	if model.Modality == leonardo.ModelModalityVideo {
-		defaults := map[string][3]int{"seedance-1.0-pro-fast": {4, 864, 480}, "motion_2.0-fast": {0, 832, 480}, "seedance-1.0-pro": {4, 864, 480}, "wan-2.7": {2, 1280, 720}}[modelID]
-		parameters, _ = LeonardoVideoGenerationParameters(modelID, prompt, defaults[0], defaults[1], defaults[2], 1)
+		defaults := LeonardoDefaultVideoPriceRequest(modelID)
+		parameters, _ = LeonardoVideoGenerationParameters(modelID, prompt, defaults.Duration, defaults.Width, defaults.Height, defaults.Quantity)
 	} else if model.Modality != leonardo.ModelModalityImage {
 		return s.sendErrorAndEnd(c, "Leonardo paid test model modality is not supported")
 	} else if modelID == "kino-xl" || modelID == "concept-art" || modelID == "graphic-design" || modelID == "illustrative-albedo" {

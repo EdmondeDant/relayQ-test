@@ -57,6 +57,8 @@ func LeonardoDefaultVideoPriceRequest(model string) LeonardoVideoPriceRequest {
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Width: 832, Height: 480, Quantity: 1}
 	case "wan-2.7":
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 2, Width: 1280, Height: 720, Quantity: 1}
+	case "kling-video-o-3":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 3, Width: 1280, Height: 720, Quantity: 1}
 	default:
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Quantity: 1}
 	}

@@ -87,6 +87,7 @@ var verifiedModels = []VerifiedModel{
 	{DisplayName: "Motion 2.0 Fast", ProviderModelID: "0a7a3eb2-3905-480b-a89a-2f3ffff545e7", RequestModelSlug: "motion_2.0-fast", Modality: ModelModalityVideo},
 	{DisplayName: "Seedance 1.0 Pro", ProviderModelID: "728c9eac-b17d-47fe-b382-b9a28687fa85", RequestModelSlug: "seedance-1.0-pro", Modality: ModelModalityVideo},
 	{DisplayName: "Wan 2.7", ProviderModelID: "52884d8c-e2b9-4bb1-8ed5-927d390fe53a", RequestModelSlug: "wan-2.7", Modality: ModelModalityVideo},
+	{DisplayName: "Kling Video O3 Omni", ProviderModelID: "0d5109cf-d256-4720-86d3-d8e5ff5a3ce2", RequestModelSlug: "kling-video-o-3", Modality: ModelModalityVideo},
 }
 
 func ValidateSyncedModel(model Model) (VerifiedModel, bool) {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
 )
 
 var (
@@ -125,8 +126,29 @@ type LeonardoMediaGetService struct {
 
 func NewLeonardoMediaGetService(repository GenerationJobPollRepository, poller *LeonardoGenerationPollOrchestrator) *LeonardoMediaGetService {
 	client := newSSRFSafeHTTPClient(30 * time.Second)
+	proxyURL := strings.TrimSpace(os.Getenv("HTTPS_PROXY"))
+	if proxyURL == "" {
+		proxyURL = strings.TrimSpace(os.Getenv("https_proxy"))
+	}
+	if proxyURL != "" {
+		proxyClient, err := httpclient.GetClient(httpclient.Options{ProxyURL: proxyURL, Timeout: 30 * time.Second, ResponseHeaderTimeout: leonardoCDNContentTimeout, ValidateResolvedIP: true})
+		if err != nil {
+			client.Transport = leonardoMediaRoundTripperError{err: err}
+		} else {
+			local := *proxyClient
+			client = &local
+		}
+	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &LeonardoMediaGetService{repository: repository, poller: poller, content: client}
+}
+
+type leonardoMediaRoundTripperError struct {
+	err error
+}
+
+func (t leonardoMediaRoundTripperError) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, t.err
 }
 
 func ValidLeonardoMediaPublicID(publicID string) bool {
@@ -217,6 +239,10 @@ func (s *LeonardoMediaGetService) ContentBase64(ctx context.Context, input Leona
 
 func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL, modality string) (*LeonardoMediaContent, error) {
 	if s == nil || s.content == nil || apicompat.IsPotentiallyUnsafeRemoteMediaURL(rawURL) || !strings.HasPrefix(rawURL, "https://") {
+		return nil, ErrLeonardoMediaContentFailed
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || !strings.EqualFold(parsed.Hostname(), "cdn.leonardo.ai") {
 		return nil, ErrLeonardoMediaContentFailed
 	}
 	// Always enforce a short download timeout even if the parent context is long-lived.

@@ -471,6 +471,7 @@ const videoRatioOptions = [{ value: '16:9', label: '横屏 16:9' }, { value: '9:
 const videoRatioSelectOptions = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
 	if (model === 'minimax-h3') return [{ value: '16:9', label: '上游固定画幅' }]
+	if (model === 'kling-video-o-3') return videoRatioOptions
   if (model === 'motion_2.0-fast') return [{ value: '16:9', label: '横屏 16:9' }, { value: '9:16', label: '竖屏 9:16' }, { value: '2:3', label: '竖屏 2:3' }, { value: '4:5', label: '竖屏 4:5' }]
   if (model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro') return [...videoRatioOptions, { value: '4:3', label: '横屏 4:3' }, { value: '3:4', label: '竖屏 3:4' }, { value: '21:9', label: '超宽屏 21:9' }]
   return videoRatioOptions
@@ -479,6 +480,7 @@ const videoDurationOptions = computed(() => {
   const model = selectedVideoModel.value
   if (model === 'motion_2.0-fast') return [{ value: '0', label: '固定时长' }]
 	if (model === 'minimax-h3') return [{ value: '5', label: '5 秒' }]
+	if (model === 'kling-video-o-3') return Array.from({ length: 13 }, (_, index) => ({ value: String(index + 3), label: `${index + 3} 秒` }))
   if (model === 'wan-2.7') return Array.from({ length: 9 }, (_, index) => ({ value: String(index + 2), label: `${index + 2} 秒` }))
   if (model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro') return [4, 6, 8, 10].map(value => ({ value: String(value), label: `${value} 秒` }))
 	if (String(model).startsWith('grok-imagine-video')) return [5, 10, 15].map(value => ({ value: String(value), label: `${value} 秒` }))
@@ -489,6 +491,7 @@ const videoResolutionSelectOptions = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
   if (model === 'motion_2.0-fast') return videoResolutionOptions.filter((option) => option.value !== '1080p')
   if (model === 'wan-2.7') return videoResolutionOptions.filter((option) => option.value !== '480p')
+	if (model === 'kling-video-o-3') return [...videoResolutionOptions.filter((option) => option.value !== '480p'), { value: '2160p', label: '2160p 4K' }]
   if (model.startsWith('grok-imagine-video')) {
     return videoResolutionOptions.filter((option) => option.value !== '1080p')
   }
@@ -496,7 +499,7 @@ const videoResolutionSelectOptions = computed(() => {
 })
 const videoSupportsFirstFrame = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
-  return model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro' || model === 'wan-2.7' || model === 'motion_2.0-fast' || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro' || model === 'minimax-h3'
+  return model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro' || model === 'wan-2.7' || model === 'motion_2.0-fast' || model === 'kling-video-o-3' || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro' || model === 'minimax-h3'
 })
 const copywritingPlatformOptions = [{ value: '电商详情页', label: '电商详情页' }, { value: '小红书', label: '小红书' }, { value: '抖音', label: '抖音' }, { value: '亚马逊', label: '亚马逊' }]
 const languageOptions = [
@@ -555,6 +558,9 @@ watch(selectedVideoModel, (model) => {
 	} else if (normalized === 'seedance-1.0-pro-fast' || normalized === 'seedance-1.0-pro') {
 		videoDuration.value = '4'
 		videoResolution.value = '480p'
+	} else if (normalized === 'kling-video-o-3') {
+		videoDuration.value = '3'
+		videoResolution.value = '720p'
 	}
   if (!videoSupportsFirstFrame.value) videoImage.value = ''
   if (normalized.startsWith('grok-imagine-video') && videoResolution.value === '1080p') {

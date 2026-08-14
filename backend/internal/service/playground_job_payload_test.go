@@ -91,6 +91,7 @@ func TestBuildVideoRequestAdaptsLeonardoOpenAIContract(t *testing.T) {
 		{"seedance-1.0-pro-fast", "720p", "1:1", 6, 6, "960x960"},
 		{"seedance-1.0-pro", "1080p", "16:9", 10, 10, "1920x1088"},
 		{"wan-2.7", "1080p", "9:16", 10, 10, "1080x1920"},
+		{"kling-video-o-3", "2160p", "1:1", 15, 15, "2880x2880"},
 	}
 	for _, test := range tests {
 		payload := playgroundJobPayload{Prompt: "video prompt", Duration: int(test.duration), Resolution: test.resolution, AspectRatio: test.ratio, Metadata: map[string]any{"platform": "leonardo"}}
@@ -138,6 +139,17 @@ func TestBuildVideoRequestPassesMotionFirstFrame(t *testing.T) {
 		Media:    playgroundJobMedia{InputReference: &playgroundJobMediaRef{URL: "data:image/png;base64,AA=="}},
 	}
 	if _, body, err := payload.buildVideoRequest("motion_2.0-fast"); err != nil || !strings.Contains(string(body), "input_reference") {
+		t.Fatalf("buildVideoRequest() body = %s, err = %v", body, err)
+	}
+}
+
+func TestBuildVideoRequestPassesKlingO3FirstFrame(t *testing.T) {
+	payload := playgroundJobPayload{
+		Prompt: "video prompt", Duration: 3, Resolution: "720p", AspectRatio: "16:9",
+		Metadata: map[string]any{"platform": "leonardo"},
+		Media:    playgroundJobMedia{InputReference: &playgroundJobMediaRef{URL: "data:image/png;base64,AA=="}},
+	}
+	if _, body, err := payload.buildVideoRequest("kling-video-o-3"); err != nil || !strings.Contains(string(body), "input_reference") {
 		t.Fatalf("buildVideoRequest() body = %s, err = %v", body, err)
 	}
 }

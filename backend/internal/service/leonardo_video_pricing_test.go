@@ -58,6 +58,8 @@ func TestLeonardoVideoPriceResolverOfficialDimensions(t *testing.T) {
 		{"motion_2.0-fast", 0, 1280, 720, "0.1047"},
 		{"wan-2.7", 3, 1280, 720, "0.246725"},
 		{"wan-2.7", 10, 1080, 1920, "0.8223"},
+		{"kling-video-o-3", 3, 1280, 720, "1.0046"},
+		{"kling-video-o-3", 15, 3840, 2160, "5.0231999999999996"},
 	}
 	for _, test := range tests {
 		estimate, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: test.model, Duration: test.duration, Width: test.width, Height: test.height, Quantity: 1})
@@ -79,6 +81,7 @@ func TestLeonardoVideoSizeUsesOfficialMatrix(t *testing.T) {
 		{"seedance-1.0-pro-fast", "1080p", "21:9", "2176x928"},
 		{"motion_2.0-fast", "720p", "4:5", "864x1024"},
 		{"wan-2.7", "1080p", "1:1", "1440x1440"},
+		{"kling-video-o-3", "2160p", "9:16", "2160x3840"},
 	}
 	for _, test := range tests {
 		size, err := LeonardoVideoSize(test.model, test.resolution, test.ratio)
@@ -98,6 +101,7 @@ func TestLeonardoVideoPriceResolverNewModelMinimums(t *testing.T) {
 		{"motion_2.0-fast", 0, 832, 480, "0.1047"},
 		{"seedance-1.0-pro", 4, 864, 480, "0.1346"},
 		{"wan-2.7", 2, 1280, 720, "0.1645"},
+		{"kling-video-o-3", 3, 1280, 720, "1.0046"},
 	}
 	for _, test := range tests {
 		estimate, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: test.model, Duration: test.duration, Width: test.width, Height: test.height, Quantity: 1})
@@ -125,4 +129,10 @@ func TestLeonardoVideoGenerationParametersAreModelSpecific(t *testing.T) {
 	wan1080, err := LeonardoVideoGenerationParameters("wan-2.7", "prompt", 10, 1920, 1080, 1)
 	require.NoError(t, err)
 	require.Equal(t, "1080p", wan1080["resolution"])
+
+	kling, err := LeonardoVideoGenerationParameters("kling-video-o-3", "prompt", 3, 1280, 720, 1)
+	require.NoError(t, err)
+	require.Equal(t, 3, kling["duration"])
+	require.Equal(t, "RESOLUTION_720", kling["mode"])
+	require.NotContains(t, kling, "prompt_enhance")
 }
