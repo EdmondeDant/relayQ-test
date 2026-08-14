@@ -6,11 +6,12 @@ import (
 )
 
 type MediaCanonicalRequest struct {
-	Operation string
-	Model     string
-	Modality  string
-	Body      []byte
-	Fields    map[string]any
+	Operation   string
+	Model       string
+	Modality    string
+	ContentType string
+	Body        []byte
+	Fields      map[string]any
 }
 
 type MediaSubmissionOutcome struct {

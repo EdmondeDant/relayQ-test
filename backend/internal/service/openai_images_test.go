@@ -23,6 +23,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var testPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+
 type failingOpenAIImageWriter struct {
 	gin.ResponseWriter
 	failAfter int
@@ -126,7 +128,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.NoError(t, writer.WriteField("size", "1536x1024"))
 	part, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
-	_, err = part.Write([]byte("fake-image-bytes"))
+	_, err = part.Write(testPNGBytes)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
@@ -326,7 +328,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEditWithMaskAndNa
 	imageHeader.Set("Content-Type", "image/png")
 	imagePart, err := writer.CreatePart(imageHeader)
 	require.NoError(t, err)
-	_, err = imagePart.Write([]byte("source-image-bytes"))
+	_, err = imagePart.Write(testPNGBytes)
 	require.NoError(t, err)
 
 	maskHeader := make(textproto.MIMEHeader)
@@ -334,7 +336,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEditWithMaskAndNa
 	maskHeader.Set("Content-Type", "image/png")
 	maskPart, err := writer.CreatePart(maskHeader)
 	require.NoError(t, err)
-	_, err = maskPart.Write([]byte("mask-image-bytes"))
+	_, err = maskPart.Write(testPNGBytes)
 	require.NoError(t, err)
 
 	require.NoError(t, writer.Close())
@@ -1096,7 +1098,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyEditUsesConfiguredV1BaseURL(t *
 	require.NoError(t, writer.WriteField("prompt", "replace background"))
 	imagePart, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
-	_, err = imagePart.Write([]byte("png-image-content"))
+	_, err = imagePart.Write(testPNGBytes)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
@@ -1168,12 +1170,12 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyEditsMultipartUsesResponsesAPI(
 
 	imagePart, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
-	_, err = imagePart.Write([]byte("png-image-content"))
+	_, err = imagePart.Write(testPNGBytes)
 	require.NoError(t, err)
 
 	maskPart, err := writer.CreateFormFile("mask", "mask.png")
 	require.NoError(t, err)
-	_, err = maskPart.Write([]byte("png-mask-content"))
+	_, err = maskPart.Write(testPNGBytes)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
@@ -1450,7 +1452,7 @@ func TestOpenAIGatewayServiceForwardImages_OAuthEditsMultipartUsesResponsesAPI(t
 	imageHeader.Set("Content-Type", "image/png")
 	imagePart, err := writer.CreatePart(imageHeader)
 	require.NoError(t, err)
-	_, err = imagePart.Write([]byte("png-image-content"))
+	_, err = imagePart.Write(testPNGBytes)
 	require.NoError(t, err)
 
 	maskHeader := make(textproto.MIMEHeader)
@@ -1458,7 +1460,7 @@ func TestOpenAIGatewayServiceForwardImages_OAuthEditsMultipartUsesResponsesAPI(t
 	maskHeader.Set("Content-Type", "image/png")
 	maskPart, err := writer.CreatePart(maskHeader)
 	require.NoError(t, err)
-	_, err = maskPart.Write([]byte("png-mask-content"))
+	_, err = maskPart.Write(testPNGBytes)
 	require.NoError(t, err)
 
 	require.NoError(t, writer.Close())

@@ -352,16 +352,30 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			continue
 		}
 
-		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+		data, err := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize+1))
 		_ = part.Close()
 		if err != nil {
 			return fmt.Errorf("read multipart field %s: %w", name, err)
+		}
+		if int64(len(data)) > openAIImageMaxUploadPartSize {
+			return fmt.Errorf("multipart field %s exceeds upload size limit", name)
 		}
 
 		fileName := strings.TrimSpace(part.FileName())
 		if fileName != "" {
 			partContentType := strings.TrimSpace(part.Header.Get("Content-Type"))
+			detectedType := strings.ToLower(strings.TrimSpace(http.DetectContentType(data)))
+			if detectedType != "image/jpeg" && detectedType != "image/png" && detectedType != "image/webp" {
+				return fmt.Errorf("multipart field %s must be a JPEG, PNG, or WebP image", name)
+			}
+			if partContentType != "" && !strings.EqualFold(partContentType, "application/octet-stream") && !strings.EqualFold(partContentType, detectedType) {
+				return fmt.Errorf("multipart field %s content-type does not match file data", name)
+			}
+			partContentType = detectedType
 			if name == "mask" && len(data) > 0 {
+				if req.MaskUpload != nil {
+					return fmt.Errorf("mask file must not be repeated")
+				}
 				req.HasMask = true
 				width, height := parseOpenAIImageDimensions(part.Header)
 				maskUpload := OpenAIImagesUpload{
@@ -384,6 +398,8 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 					Width:       width,
 					Height:      height,
 				})
+			} else if name != "mask" {
+				return fmt.Errorf("unsupported multipart file field %s", name)
 			}
 			continue
 		}

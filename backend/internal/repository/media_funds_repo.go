@@ -6,12 +6,21 @@ import (
 	"errors"
 	"fmt"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
-type mediaFundsRepository struct{ db *sql.DB }
+type mediaFundsRepository struct {
+	client *dbent.Client
+	db     *sql.DB
+}
+
+type mediaFundsExecutor interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
 
 type mediaFundsRow struct {
 	reference    string
@@ -23,33 +32,48 @@ type mediaFundsRow struct {
 	status       string
 }
 
-func NewMediaFundsRepository(db *sql.DB) service.MediaFundsRepository {
-	return &mediaFundsRepository{db: db}
+func NewMediaFundsRepository(client *dbent.Client, db *sql.DB) service.MediaFundsRepository {
+	return &mediaFundsRepository{client: client, db: db}
 }
 
 func (r *mediaFundsRepository) Reserve(ctx context.Context, request service.MediaFundsReserveRequest) (*service.MediaFundsReservation, error) {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		exec := sqlExecutorFromEntClient(tx.Client())
+		if exec == nil {
+			return nil, errors.New("media funds transaction executor is unavailable")
+		}
+		return reserveMediaFunds(ctx, exec, request)
+	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err = lockMediaFunds(ctx, tx, request.UserID, request.PublicID); err != nil {
+	reservation, err := reserveMediaFunds(ctx, tx, request)
+	if err != nil {
 		return nil, err
 	}
-	row, err := getMediaFunds(ctx, tx, request.UserID, request.PublicID)
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return reservation, nil
+}
+
+func reserveMediaFunds(ctx context.Context, exec mediaFundsExecutor, request service.MediaFundsReserveRequest) (*service.MediaFundsReservation, error) {
+	if err := lockMediaFunds(ctx, exec, request.UserID, request.PublicID); err != nil {
+		return nil, err
+	}
+	row, err := getMediaFunds(ctx, exec, request.UserID, request.PublicID)
 	if err == nil {
 		if row.productID != request.ProductID || !row.amount.Equal(request.Amount) || row.priceVersion != request.PriceVersion || row.status != "reserved" {
 			return nil, service.ErrMediaReservationConflict
-		}
-		if err = tx.Commit(); err != nil {
-			return nil, err
 		}
 		return mediaFundsResult(row, true), nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE users SET balance=balance-$1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL AND status=$3 AND balance >= $1`, request.Amount, request.UserID, service.StatusActive)
+	result, err := exec.ExecContext(ctx, `UPDATE users SET balance=balance-$1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL AND status=$3 AND balance >= $1`, request.Amount, request.UserID, service.StatusActive)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +85,7 @@ func (r *mediaFundsRepository) Reserve(ctx context.Context, request service.Medi
 		return nil, service.ErrInsufficientBalance
 	}
 	row = &mediaFundsRow{reference: "media_hold_" + uuid.NewString(), userID: request.UserID, publicID: request.PublicID, productID: request.ProductID, amount: request.Amount, priceVersion: request.PriceVersion, status: "reserved"}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO media_funds_reservations(reference,user_id,public_id,product_id,amount,price_version,status) VALUES($1,$2,$3,$4,$5,$6,'reserved')`, row.reference, row.userID, row.publicID, row.productID, row.amount, row.priceVersion); err != nil {
-		return nil, err
-	}
-	if err = tx.Commit(); err != nil {
+	if _, err = exec.ExecContext(ctx, `INSERT INTO media_funds_reservations(reference,user_id,public_id,product_id,amount,price_version,status) VALUES($1,$2,$3,$4,$5,$6,'reserved')`, row.reference, row.userID, row.publicID, row.productID, row.amount, row.priceVersion); err != nil {
 		return nil, err
 	}
 	return mediaFundsResult(row, false), nil
@@ -132,15 +153,28 @@ func (r *mediaFundsRepository) transition(ctx context.Context, request service.M
 	return tx.Commit()
 }
 
-func lockMediaFunds(ctx context.Context, tx *sql.Tx, userID int64, publicID string) error {
-	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, fmt.Sprintf("media_funds:%d:%s", userID, publicID))
+func lockMediaFunds(ctx context.Context, exec mediaFundsExecutor, userID int64, publicID string) error {
+	_, err := exec.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, fmt.Sprintf("media_funds:%d:%s", userID, publicID))
 	return err
 }
 
-func getMediaFunds(ctx context.Context, tx *sql.Tx, userID int64, publicID string) (*mediaFundsRow, error) {
+func getMediaFunds(ctx context.Context, exec mediaFundsExecutor, userID int64, publicID string) (*mediaFundsRow, error) {
 	row := &mediaFundsRow{}
-	err := tx.QueryRowContext(ctx, `SELECT reference,user_id,public_id,product_id,amount,price_version,status FROM media_funds_reservations WHERE user_id=$1 AND public_id=$2 FOR UPDATE`, userID, publicID).Scan(&row.reference, &row.userID, &row.publicID, &row.productID, &row.amount, &row.priceVersion, &row.status)
-	return row, err
+	rows, err := exec.QueryContext(ctx, `SELECT reference,user_id,public_id,product_id,amount,price_version,status FROM media_funds_reservations WHERE user_id=$1 AND public_id=$2 FOR UPDATE`, userID, publicID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, sql.ErrNoRows
+	}
+	if err = rows.Scan(&row.reference, &row.userID, &row.publicID, &row.productID, &row.amount, &row.priceVersion, &row.status); err != nil {
+		return nil, err
+	}
+	return row, rows.Err()
 }
 
 func mediaFundsResult(row *mediaFundsRow, alreadyExists bool) *service.MediaFundsReservation {

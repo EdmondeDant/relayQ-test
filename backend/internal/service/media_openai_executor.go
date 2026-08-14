@@ -29,11 +29,17 @@ func (e *DefaultMediaOpenAIExecutor) SubmitMedia(ctx context.Context, job *Gener
 	if err != nil {
 		return MediaSubmissionOutcome{State: MediaSubmissionNotWritten}, err
 	}
-	body, err := mediaRequestBody(request.Body, offer.UpstreamModel)
-	if err != nil {
-		return MediaSubmissionOutcome{State: MediaSubmissionNotWritten}, err
+	body := request.Body
+	if !strings.Contains(strings.ToLower(request.ContentType), "multipart/form-data") {
+		body, err = mediaRequestBody(request.Body, offer.UpstreamModel)
+		if err != nil {
+			return MediaSubmissionOutcome{State: MediaSubmissionNotWritten}, err
+		}
 	}
 	c, recorder := mediaGinContext(ctx, http.MethodPost, mediaOperationPath(request.Modality, request.Operation), body)
+	if request.ContentType != "" {
+		c.Request.Header.Set("Content-Type", request.ContentType)
+	}
 	if request.Modality == "image" {
 		parsed, parseErr := e.gateway.ParseOpenAIImagesRequest(c, body)
 		if parseErr != nil {

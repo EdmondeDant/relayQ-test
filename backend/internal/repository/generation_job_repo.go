@@ -23,7 +23,7 @@ func NewGenerationJobRepository(client *dbent.Client, _ *sql.DB) service.Generat
 
 func (r *generationJobRepository) Create(ctx context.Context, job *service.GenerationJob) error {
 	service.NormalizeGenerationJob(job)
-	created, err := r.client.GenerationJob.Create().
+	created, err := clientFromContext(ctx, r.client).GenerationJob.Create().
 		SetPublicID(job.PublicID).
 		SetProvider(job.Provider).
 		SetModality(job.Modality).

@@ -19,10 +19,14 @@ import (
 type MediaHandler struct {
 	catalog      *service.MediaCatalogService
 	orchestrator *service.MediaOrchestrator
+	moderation   *service.ContentModerationService
+	billing      *service.BillingCacheService
+	concurrency  *service.ConcurrencyService
+	gateway      *service.OpenAIGatewayService
 }
 
-func NewMediaHandler(catalog *service.MediaCatalogService, orchestrator *service.MediaOrchestrator) *MediaHandler {
-	return &MediaHandler{catalog: catalog, orchestrator: orchestrator}
+func NewMediaHandler(catalog *service.MediaCatalogService, orchestrator *service.MediaOrchestrator, moderation *service.ContentModerationService, billing *service.BillingCacheService, concurrency *service.ConcurrencyService, gateway *service.OpenAIGatewayService) *MediaHandler {
+	return &MediaHandler{catalog: catalog, orchestrator: orchestrator, moderation: moderation, billing: billing, concurrency: concurrency, gateway: gateway}
 }
 
 func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
@@ -36,11 +40,21 @@ func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
 		return true
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
-	if !strings.Contains(strings.ToLower(c.GetHeader("Content-Type")), "application/json") {
-		return false
-	}
+	contentType := strings.ToLower(c.GetHeader("Content-Type"))
 	fields := map[string]any{}
-	if json.Unmarshal(body, &fields) != nil {
+	if strings.Contains(contentType, "multipart/form-data") {
+		if modality != "image" || operation != "edits" || h.gateway == nil {
+			return false
+		}
+		parsed, parseErr := h.gateway.ParseOpenAIImagesRequest(c, body)
+		if parseErr != nil {
+			mediaError(c, http.StatusBadRequest, "invalid_request_error", parseErr.Error())
+			return true
+		}
+		fields = mediaMultipartFields(parsed)
+	} else if !strings.Contains(contentType, "application/json") {
+		return false
+	} else if json.Unmarshal(body, &fields) != nil {
 		mediaError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return true
 	}
@@ -58,6 +72,37 @@ func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
 		}
 		mediaError(c, http.StatusInternalServerError, "api_error", "Failed to resolve media product")
 		return true
+	}
+	if decision := runContentModeration(c, nil, h.moderation, apiKey, subject, service.ContentModerationProtocolOpenAIImages, model, body); decision != nil && decision.Blocked {
+		mediaError(c, contentModerationStatus(decision), contentModerationErrorCode(decision), decision.Message)
+		return true
+	}
+	if h.billing != nil && apiKey.User != nil {
+		subscription, _ := middleware2.GetSubscriptionFromContext(c)
+		if billingErr := h.billing.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); billingErr != nil {
+			status, code, message, retryAfter := billingErrorDetails(billingErr)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			mediaError(c, status, code, message)
+			return true
+		}
+	}
+	var releaseUser func()
+	if h.concurrency != nil && subject.Concurrency > 0 {
+		acquired, acquireErr := h.concurrency.AcquireUserSlot(c.Request.Context(), subject.UserID, subject.Concurrency)
+		if acquireErr != nil {
+			mediaError(c, http.StatusServiceUnavailable, "api_error", "Failed to acquire user concurrency slot")
+			return true
+		}
+		if !acquired.Acquired {
+			mediaError(c, http.StatusTooManyRequests, "rate_limit_error", "User concurrency limit reached")
+			return true
+		}
+		releaseUser = acquired.ReleaseFunc
+	}
+	if releaseUser != nil {
+		defer releaseUser()
 	}
 	canonicalBody, err := json.Marshal(fields)
 	if err != nil {
@@ -79,7 +124,7 @@ func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
 	}
 	sum := sha256.Sum256([]byte(strconv.FormatInt(subject.UserID, 10) + "\n" + strconv.FormatInt(apiKey.ID, 10) + "\n" + modality + "\n" + operation + "\n" + idempotencyKey))
 	publicID := "media_rq_" + hex.EncodeToString(sum[:16])
-	job, outcome, err := h.orchestrator.Submit(c.Request.Context(), service.MediaSubmitInput{PublicID: publicID, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: groupID, RequestHash: requestHash, Request: service.MediaCanonicalRequest{Operation: operation, Model: model, Modality: modality, Body: body, Fields: fields}})
+	job, outcome, err := h.orchestrator.Submit(c.Request.Context(), service.MediaSubmitInput{PublicID: publicID, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: groupID, RequestHash: requestHash, Request: service.MediaCanonicalRequest{Operation: operation, Model: model, Modality: modality, ContentType: c.GetHeader("Content-Type"), Body: body, Fields: fields}})
 	if err != nil {
 		code, status := "api_error", http.StatusBadGateway
 		if errors.Is(err, service.ErrNoTrustedMediaOffer) {
@@ -88,6 +133,14 @@ func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
 			code = "media_offer_exhausted"
 		} else if errors.Is(err, service.ErrMediaIdempotencyConflict) {
 			code, status = "idempotency_conflict", http.StatusConflict
+		} else if errors.Is(err, service.ErrInsufficientBalance) {
+			code, status = "insufficient_balance", http.StatusPaymentRequired
+		} else if errors.Is(err, service.ErrMediaReservationConflict) {
+			code, status = "idempotency_conflict", http.StatusConflict
+		} else if errors.Is(err, service.ErrMediaCatalogProductNotFound) {
+			code, status = "media_product_unavailable", http.StatusNotFound
+		} else if errors.Is(err, service.ErrMediaAccountUnavailable) {
+			code, status = "no_available_media_account", http.StatusServiceUnavailable
 		}
 		mediaError(c, status, code, err.Error())
 		return true
@@ -98,6 +151,23 @@ func (h *MediaHandler) Submit(c *gin.Context, modality, operation string) bool {
 	}
 	c.JSON(http.StatusAccepted, gin.H{"id": job.PublicID, "object": "media.generation", "model": job.Model, "status": job.Status, "created_at": job.CreatedAt.Unix()})
 	return true
+}
+
+func mediaMultipartFields(req *service.OpenAIImagesRequest) map[string]any {
+	fields := map[string]any{"model": req.Model, "prompt": req.Prompt, "n": req.N}
+	for key, value := range map[string]string{"size": req.Size, "quality": req.Quality, "response_format": req.ResponseFormat, "output_format": req.OutputFormat} {
+		if strings.TrimSpace(value) != "" {
+			fields[key] = value
+		}
+	}
+	images := make([]string, 0, len(req.Uploads))
+	for _, upload := range req.Uploads {
+		sum := sha256.Sum256(upload.Data)
+		images = append(images, hex.EncodeToString(sum[:]))
+	}
+	fields["image_hashes"] = images
+	fields["has_mask"] = req.HasMask
+	return fields
 }
 
 func (h *MediaHandler) Lookup(c *gin.Context, content bool) bool {

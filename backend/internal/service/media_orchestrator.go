@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/shopspring/decimal"
 )
 
@@ -28,6 +29,8 @@ type MediaOrchestrator struct {
 	funds    *MediaFundsService
 	attempts MediaJobAttemptRepository
 	usage    *MediaUsageAuditService
+	client   *dbent.Client
+	leaser   *MediaAccountLeaser
 	adapters map[string]MediaProviderAdapter
 }
 
@@ -51,9 +54,10 @@ func NewMediaOrchestrator(catalog *MediaCatalogService, jobs GenerationJobReposi
 	return result
 }
 
-func ProvideMediaOrchestrator(catalog *MediaCatalogService, jobs GenerationJobRepository, accounts AccountRepository, funds *MediaFundsService, attempts MediaJobAttemptRepository, usage *MediaUsageAuditService, openAI *MediaOpenAIAdapter, leonardo *MediaLeonardoAdapter) *MediaOrchestrator {
+func ProvideMediaOrchestrator(catalog *MediaCatalogService, jobs GenerationJobRepository, accounts AccountRepository, funds *MediaFundsService, attempts MediaJobAttemptRepository, usage *MediaUsageAuditService, client *dbent.Client, concurrency *ConcurrencyService, openAI *MediaOpenAIAdapter, leonardo *MediaLeonardoAdapter) *MediaOrchestrator {
 	result := NewMediaOrchestrator(catalog, jobs, accounts, openAI, leonardo)
-	result.funds, result.attempts, result.usage = funds, attempts, usage
+	result.funds, result.attempts, result.usage, result.client = funds, attempts, usage, client
+	result.leaser = NewMediaAccountLeaser(accounts, concurrency)
 	return result
 }
 
@@ -142,21 +146,34 @@ func (s *MediaOrchestrator) Submit(ctx context.Context, input MediaSubmitInput) 
 	operation := input.Request.Operation
 	productID := selection.Product.ID
 	priceVersion := selection.Price.Version
-	reservation, err := s.funds.Reserve(ctx, MediaFundsReserveRequest{UserID: input.UserID, PublicID: input.PublicID, ProductID: productID, Amount: selection.Charge, PriceVersion: priceVersion})
+	reserveRequest := MediaFundsReserveRequest{UserID: input.UserID, PublicID: input.PublicID, ProductID: productID, Amount: selection.Charge, PriceVersion: priceVersion}
+	firstRoute, firstCandidate := routes[0], selection.RankedEligible[0]
+	firstAccounts, err := s.accounts.ListSchedulableByGroupIDAndPlatform(ctx, firstRoute.Offer.SourceGroupID, firstRoute.Offer.Provider)
 	if err != nil {
 		return nil, MediaSubmissionOutcome{}, err
 	}
-	job := &GenerationJob{PublicID: strings.TrimSpace(input.PublicID), Modality: input.Request.Modality, Model: input.Request.Model, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &groupID, ProductID: &productID, Operation: &operation, CustomerPriceVersion: &priceVersion, Status: GenerationJobStatusSubmitting, RequestHash: requestHash, RequestPayload: input.Request.Fields, ResultPayload: map[string]any{}, CustomerCost: &reservation.Amount, BillingStatus: GenerationJobBillingStatusReserved, BillingReference: &reservation.Reference, CreatedAt: now, UpdatedAt: now}
+	firstAccountID := firstMediaAccountID(firstAccounts, firstRoute.Offer.UpstreamModel)
+	offerID, sourceGroupID := firstRoute.Offer.ID, firstRoute.Offer.SourceGroupID
+	trustedCost := decimal.NewFromFloat(firstCandidate.TrustedCost)
+	costUnit, matchType := firstCandidate.Offer.Cost.Currency, firstCandidate.Offer.Cost.Basis
+	job := &GenerationJob{PublicID: strings.TrimSpace(input.PublicID), Provider: firstRoute.Offer.Provider, Modality: input.Request.Modality, Model: input.Request.Model, UpstreamModel: firstRoute.Offer.UpstreamModel, UserID: input.UserID, APIKeyID: input.APIKeyID, GroupID: &groupID, ProductID: &productID, OfferID: &offerID, SourceGroupID: &sourceGroupID, Operation: &operation, CustomerPriceVersion: &priceVersion, AccountID: firstAccountID, Status: GenerationJobStatusSubmitting, RequestHash: requestHash, RequestPayload: input.Request.Fields, ResultPayload: map[string]any{}, EstimatedUpstreamCostAmount: &trustedCost, EstimatedUpstreamCostUnit: &costUnit, PricingSnapshotVersion: &firstRoute.Offer.CostVersion, PricingSource: &firstRoute.Offer.CostSource, PricingMatchType: &matchType, BillingStatus: GenerationJobBillingStatusReserved, CreatedAt: now, UpdatedAt: now}
+	_, err = s.reserveAndCreateJob(ctx, reserveRequest, job)
+	if err != nil {
+		if existing, found, lookupErr := s.LookupOwnedJob(ctx, input.PublicID, input.UserID, input.APIKeyID); lookupErr == nil && found {
+			if subtle.ConstantTimeCompare([]byte(existing.RequestHash), []byte(requestHash)) != 1 {
+				return nil, MediaSubmissionOutcome{}, ErrMediaIdempotencyConflict
+			}
+			return existing, MediaSubmissionOutcome{State: MediaSubmissionSubmitted, UpstreamID: mediaStringValue(existing.UpstreamGenerationID), AccountID: existing.AccountID, Status: string(existing.Status), Result: existing.ResultPayload}, nil
+		}
+		return nil, MediaSubmissionOutcome{}, err
+	}
 	for index, route := range routes {
 		candidate := selection.RankedEligible[index]
-		accounts, listErr := s.accounts.ListSchedulableByGroupIDAndPlatform(ctx, route.Offer.SourceGroupID, route.Offer.Provider)
-		if listErr != nil {
+		lease, leaseErr := s.acquireMediaAccount(ctx, route.Offer)
+		if leaseErr != nil {
 			continue
 		}
-		accountID := firstMediaAccountID(accounts, route.Offer.UpstreamModel)
-		if accountID == 0 {
-			continue
-		}
+		accountID := lease.Account.ID
 		offerID, sourceGroupID := route.Offer.ID, route.Offer.SourceGroupID
 		job.Provider, job.UpstreamModel, job.AccountID = route.Offer.Provider, route.Offer.UpstreamModel, accountID
 		job.OfferID, job.SourceGroupID = &offerID, &sourceGroupID
@@ -166,15 +183,8 @@ func (s *MediaOrchestrator) Submit(ctx context.Context, input MediaSubmitInput) 
 		job.PricingSnapshotVersion, job.PricingSource = &route.Offer.CostVersion, &route.Offer.CostSource
 		matchType := candidate.Offer.Cost.Basis
 		job.PricingMatchType = &matchType
-		if job.ID == 0 {
-			if err = s.jobs.Create(ctx, job); err != nil {
-				if !reservation.AlreadyExists {
-					_ = s.release(ctx, job)
-				}
-				return nil, MediaSubmissionOutcome{}, err
-			}
-		}
 		outcome, submitErr := s.adapters[route.Offer.Provider].Submit(ctx, job, input.Request, route.Offer)
+		lease.Release()
 		if outcome.AccountID == 0 {
 			outcome.AccountID = accountID
 		}
@@ -238,6 +248,57 @@ func (s *MediaOrchestrator) Submit(ctx context.Context, input MediaSubmitInput) 
 		_ = s.release(ctx, job)
 	}
 	return job, MediaSubmissionOutcome{State: MediaSubmissionNotWritten}, ErrMediaOfferExhausted
+}
+
+func (s *MediaOrchestrator) acquireMediaAccount(ctx context.Context, offer MediaCatalogOffer) (*MediaAccountLease, error) {
+	if s.leaser != nil {
+		return s.leaser.Acquire(ctx, offer.SourceGroupID, offer.Provider, offer.UpstreamModel, nil)
+	}
+	accounts, err := s.accounts.ListSchedulableByGroupIDAndPlatform(ctx, offer.SourceGroupID, offer.Provider)
+	if err != nil {
+		return nil, err
+	}
+	for i := range accounts {
+		if accounts[i].IsSchedulable() && accounts[i].IsModelSupported(offer.UpstreamModel) {
+			return &MediaAccountLease{Account: &accounts[i]}, nil
+		}
+	}
+	return nil, ErrMediaAccountUnavailable
+}
+
+func (s *MediaOrchestrator) reserveAndCreateJob(ctx context.Context, request MediaFundsReserveRequest, job *GenerationJob) (*MediaFundsReservation, error) {
+	if s.client == nil {
+		reservation, err := s.funds.Reserve(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		job.CustomerCost, job.BillingReference = &reservation.Amount, &reservation.Reference
+		if err = s.jobs.Create(ctx, job); err != nil {
+			if !reservation.AlreadyExists {
+				_ = s.funds.Release(ctx, MediaFundsTransitionRequest{UserID: request.UserID, PublicID: request.PublicID, Reference: reservation.Reference, Amount: reservation.Amount})
+			}
+			return nil, err
+		}
+		return reservation, nil
+	}
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	reservation, err := s.funds.Reserve(txCtx, request)
+	if err != nil {
+		return nil, err
+	}
+	job.CustomerCost, job.BillingReference = &reservation.Amount, &reservation.Reference
+	if err = s.jobs.Create(txCtx, job); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return reservation, nil
 }
 
 func (s *MediaOrchestrator) Poll(ctx context.Context, job *GenerationJob) (map[string]any, error) {
