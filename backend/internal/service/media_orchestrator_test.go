@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/require"
 )
 
 type mediaJobLookupRepository struct {
@@ -60,6 +61,7 @@ type mediaRuntimeAdapter struct {
 	calls    int
 	outcomes []MediaSubmissionOutcome
 	errors   []error
+	poll     map[string]any
 }
 
 func (a *mediaRuntimeAdapter) Provider() string { return PlatformOpenAI }
@@ -71,7 +73,7 @@ func (a *mediaRuntimeAdapter) Submit(context.Context, *GenerationJob, MediaCanon
 	return MediaSubmissionOutcome{State: MediaSubmissionSubmitted, UpstreamID: "up_1", AccountID: 71, Status: "queued"}, nil
 }
 func (a *mediaRuntimeAdapter) Poll(context.Context, *GenerationJob) (map[string]any, error) {
-	return nil, nil
+	return a.poll, nil
 }
 func (a *mediaRuntimeAdapter) Content(context.Context, *GenerationJob, int) (*MediaContent, error) {
 	return nil, nil
@@ -200,6 +202,30 @@ func TestMediaOrchestratorUnknownNeverFailoversAndExhaustionReleases(t *testing.
 }
 func (r *mediaAttemptRepoStub) ListByJobID(context.Context, int64) ([]MediaJobAttempt, error) {
 	return r.attempts, nil
+}
+
+type mediaUsageAuditErrorRepo struct{ err error }
+
+func (r mediaUsageAuditErrorRepo) CreateMediaUsageAudit(context.Context, *UsageLog) (bool, error) {
+	return false, r.err
+}
+
+func TestMediaOrchestratorPollPersistsTerminalManualReviewAfterAuditFailure(t *testing.T) {
+	productID, offerID, sourceGroupID, groupID := int64(9), int64(12), int64(5), int64(3)
+	amount := decimal.RequireFromString("0.10")
+	reference := "hold-1"
+	unit, source, version := "USD", "probe", "cost-v1"
+	repo := &mediaJobLookupRepository{job: &GenerationJob{PublicID: "media_rq_poll", UserID: 1, APIKeyID: 2, GroupID: &groupID, ProductID: &productID, OfferID: &offerID, SourceGroupID: &sourceGroupID, Provider: PlatformOpenAI, Modality: "image", Model: "public-image", UpstreamModel: "upstream-image", AccountID: 71, Status: GenerationJobStatusRunning, BillingStatus: GenerationJobBillingStatusSubmitted, CustomerCost: &amount, BillingReference: &reference, EstimatedUpstreamCostAmount: &amount, EstimatedUpstreamCostUnit: &unit, PricingSource: &source, PricingSnapshotVersion: &version, RequestPayload: map[string]any{"size": "2048x1152"}}}
+	adapter := &mediaRuntimeAdapter{poll: map[string]any{"status": "completed", "data": []any{map[string]any{"url": "https://example.com/image.jpg"}}}}
+	orchestrator := NewMediaOrchestrator(nil, repo, nil, adapter)
+	orchestrator.funds = NewMediaFundsService(&mediaRuntimeFundsRepo{})
+	orchestrator.usage = NewMediaUsageAuditService(mediaUsageAuditErrorRepo{err: errors.New("audit unavailable")})
+
+	result, err := orchestrator.Poll(context.Background(), repo.job)
+	require.Error(t, err)
+	require.Equal(t, "completed", result["status"])
+	require.Equal(t, GenerationJobStatusSucceeded, repo.job.Status)
+	require.Equal(t, GenerationJobBillingStatusManualReview, repo.job.BillingStatus)
 }
 
 func TestMediaOrchestratorLookupOwnedJobRequiresUnifiedOwnership(t *testing.T) {

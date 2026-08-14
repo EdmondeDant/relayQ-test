@@ -66,4 +66,18 @@ func TestMediaUsageAuditServiceMapsDraft(t *testing.T) {
 	require.Equal(t, "leonardo", *repo.log.UpstreamPlatform)
 	require.Equal(t, "price-v1", *repo.log.CustomerPriceVersion)
 	require.Equal(t, string(BillingModePerRequest), *repo.log.BillingMode)
+	require.Nil(t, repo.log.ImageSize)
+}
+
+func TestMediaUsageAuditServiceSetsImageBillingSize(t *testing.T) {
+	accountID := int64(8)
+	repo := &mediaUsageAuditRepoStub{}
+	svc := NewMediaUsageAuditService(repo)
+	inserted, err := svc.Write(context.Background(), UsageLogDraft{RequestID: "req-image", APIKeyID: 2, UserID: 1, AccountID: &accountID, RequestedModel: "flux-schnell", UpstreamModel: "flux-schnell", MediaType: "image", ImageCount: 1, ImageSize: ResolveImageBillingSize("2048x1152", nil), ActualCost: 0.001, ProductID: 4, OfferID: 5, UpstreamPlatform: "leonardo", SourceGroupID: 6, TrustedCost: 0.0005, TrustedCostUnit: "USD", TrustedCostSource: "vendor", TrustedCostVersion: "cost-v1", CustomerPriceVersion: "price-v1"})
+	require.NoError(t, err)
+	require.True(t, inserted)
+	require.Equal(t, "2K", *repo.log.ImageSize)
+	require.Equal(t, "2048x1152", *repo.log.ImageInputSize)
+	require.Equal(t, ImageSizeSourceInput, *repo.log.ImageSizeSource)
+	require.Equal(t, string(BillingModeImage), *repo.log.BillingMode)
 }

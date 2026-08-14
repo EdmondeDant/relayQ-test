@@ -507,10 +507,28 @@ func ProvideAPIKeyService(
 	cache APIKeyCache,
 	cfg *config.Config,
 	billingCacheService *BillingCacheService,
+	canvasRouting *CanvasRoutingService,
 ) *APIKeyService {
 	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
+	svc.SetCanvasRoutingService(canvasRouting)
 	return svc
+}
+
+func ProvideCanvasRoutingService(
+	users UserRepository,
+	groups GroupRepository,
+	subs UserSubscriptionRepository,
+	accounts AccountRepository,
+	billing *BillingService,
+	media *MediaCatalogService,
+	jobs GenerationJobRepository,
+	resources CanvasResourceRouteRepository,
+) *CanvasRoutingService {
+	routing := NewCanvasRoutingService(users, groups, subs, accounts, billing, media)
+	routing.SetGenerationJobRepository(jobs)
+	routing.SetResourceRouteRepository(resources)
+	return routing
 }
 
 func ProvideLeonardoImageQuoteGuard(users UserRepository) *LeonardoImageQuoteGuard {
@@ -667,7 +685,7 @@ var ProviderSet = wire.NewSet(
 	NewGroupCapacityService,
 	NewChannelService,
 	NewModelPricingResolver,
-	NewCanvasRoutingService,
+	ProvideCanvasRoutingService,
 	NewMediaCatalogService,
 	NewMediaFundsService,
 	NewMediaUsageAuditService,

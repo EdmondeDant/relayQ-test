@@ -30,6 +30,7 @@ func TestDefaultMediaLeonardoExecutorSubmitImageAndVideo(t *testing.T) {
 		parameters map[string]any
 	}{
 		{name: "image", model: "flux-schnell", request: MediaCanonicalRequest{Operation: "generations", Modality: "image", Fields: map[string]any{"prompt": "cat", "size": "896x896", "n": float64(1)}}, parameters: map[string]any{"width": float64(896), "height": float64(896), "quantity": float64(1)}},
+		{name: "image default size", model: "flux-schnell", request: MediaCanonicalRequest{Operation: "generations", Modality: "image", Fields: map[string]any{"prompt": "cat", "n": float64(1)}}, parameters: map[string]any{"width": float64(896), "height": float64(896), "quantity": float64(1)}},
 		{name: "video", model: "seedance-1.0-pro-fast", request: MediaCanonicalRequest{Operation: "generations", Modality: "video", Fields: map[string]any{"prompt": "cat", "size": "864x480", "duration": float64(4), "n": float64(1)}}, parameters: map[string]any{"duration": float64(4), "quantity": float64(1)}},
 	}
 	for _, test := range tests {

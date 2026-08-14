@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -412,8 +413,28 @@ func (s *MediaOrchestrator) settleAndAudit(ctx context.Context, job *GenerationJ
 		trustedCost = job.EstimatedUpstreamCostAmount.InexactFloat64()
 	}
 	accountID := job.AccountID
-	_, err := s.usage.Write(ctx, UsageLogDraft{RequestID: job.PublicID, APIKeyID: job.APIKeyID, UserID: job.UserID, CustomerGroupID: job.GroupID, AccountID: &accountID, RequestedModel: job.Model, UpstreamModel: job.UpstreamModel, MediaType: job.Modality, ImageCount: max(job.OutputCount, 1), ActualCost: job.CustomerCost.InexactFloat64(), ProductID: pointerInt64(job.ProductID), OfferID: pointerInt64(job.OfferID), UpstreamPlatform: job.Provider, SourceGroupID: pointerInt64(job.SourceGroupID), TrustedCost: trustedCost, TrustedCostUnit: mediaStringValue(job.EstimatedUpstreamCostUnit), TrustedCostSource: mediaStringValue(job.PricingSource), TrustedCostVersion: mediaStringValue(job.PricingSnapshotVersion), CustomerPriceVersion: mediaStringValue(job.CustomerPriceVersion)})
+	imageSize := ImageBillingSizeResolution{}
+	imageCount := 0
+	if job.Modality == string(MediaModalityImage) {
+		imageSize = ResolveImageBillingSize(mediaUsageInputSize(job), nil)
+		imageCount = max(job.OutputCount, 1)
+	}
+	_, err := s.usage.Write(ctx, UsageLogDraft{RequestID: job.PublicID, APIKeyID: job.APIKeyID, UserID: job.UserID, CustomerGroupID: job.GroupID, AccountID: &accountID, RequestedModel: job.Model, UpstreamModel: job.UpstreamModel, MediaType: job.Modality, ImageCount: imageCount, ImageSize: imageSize, ActualCost: job.CustomerCost.InexactFloat64(), ProductID: pointerInt64(job.ProductID), OfferID: pointerInt64(job.OfferID), UpstreamPlatform: job.Provider, SourceGroupID: pointerInt64(job.SourceGroupID), TrustedCost: trustedCost, TrustedCostUnit: mediaStringValue(job.EstimatedUpstreamCostUnit), TrustedCostSource: mediaStringValue(job.PricingSource), TrustedCostVersion: mediaStringValue(job.PricingSnapshotVersion), CustomerPriceVersion: mediaStringValue(job.CustomerPriceVersion)})
 	return err
+}
+
+func mediaUsageInputSize(job *GenerationJob) string {
+	if job == nil {
+		return ""
+	}
+	if width, height := mediaUnifiedDimensions(job.RequestPayload); width > 0 && height > 0 {
+		return strconv.Itoa(width) + "x" + strconv.Itoa(height)
+	}
+	if job.Modality == string(MediaModalityImage) && job.Provider == PlatformLeonardo {
+		width, height := leonardoUnifiedImageDefaultDimensions(job.UpstreamModel)
+		return strconv.Itoa(width) + "x" + strconv.Itoa(height)
+	}
+	return ""
 }
 
 func (s *MediaOrchestrator) release(ctx context.Context, job *GenerationJob) error {

@@ -139,6 +139,7 @@ type UsageLogDraft struct {
 	UpstreamModel        string
 	MediaType            string
 	ImageCount           int
+	ImageSize            ImageBillingSizeResolution
 	ActualCost           float64
 	ProductID            int64
 	OfferID              int64
@@ -168,10 +169,16 @@ func (s *MediaUsageAuditService) Write(ctx context.Context, draft UsageLogDraft)
 	mediaProductID, mediaOfferID, sourceGroupID := draft.ProductID, draft.OfferID, draft.SourceGroupID
 	upstreamPlatform, trustedUnit, trustedSource, trustedVersion, priceVersion := draft.UpstreamPlatform, draft.TrustedCostUnit, draft.TrustedCostSource, draft.TrustedCostVersion, draft.CustomerPriceVersion
 	upstreamModel, mediaType, billingMode := draft.UpstreamModel, draft.MediaType, string(BillingModeImage)
+	var imageSize, imageInputSize, imageOutputSize, imageSizeSource *string
 	if mediaType == string(MediaModalityVideo) {
 		billingMode = string(BillingModePerRequest)
+	} else {
+		imageSize = optionalTrimmedStringPtr(draft.ImageSize.BillingSize)
+		imageInputSize = optionalTrimmedStringPtr(draft.ImageSize.InputSize)
+		imageOutputSize = optionalTrimmedStringPtr(draft.ImageSize.OutputSize)
+		imageSizeSource = optionalTrimmedStringPtr(draft.ImageSize.Source)
 	}
-	log := &UsageLog{UserID: draft.UserID, APIKeyID: draft.APIKeyID, AccountID: *draft.AccountID, RequestID: draft.RequestID, Model: draft.RequestedModel, RequestedModel: draft.RequestedModel, UpstreamModel: &upstreamModel, GroupID: draft.CustomerGroupID, ActualCost: draft.ActualCost, TotalCost: draft.ActualCost, ImageCount: draft.ImageCount, MediaType: &mediaType, BillingMode: &billingMode, MediaProductID: &mediaProductID, MediaOfferID: &mediaOfferID, UpstreamPlatform: &upstreamPlatform, SourceGroupID: &sourceGroupID, TrustedCostAmount: &draft.TrustedCost, TrustedCostUnit: &trustedUnit, TrustedCostSource: &trustedSource, TrustedCostVersion: &trustedVersion, CustomerPriceVersion: &priceVersion}
+	log := &UsageLog{UserID: draft.UserID, APIKeyID: draft.APIKeyID, AccountID: *draft.AccountID, RequestID: draft.RequestID, Model: draft.RequestedModel, RequestedModel: draft.RequestedModel, UpstreamModel: &upstreamModel, GroupID: draft.CustomerGroupID, ActualCost: draft.ActualCost, TotalCost: draft.ActualCost, ImageCount: draft.ImageCount, ImageSize: imageSize, ImageInputSize: imageInputSize, ImageOutputSize: imageOutputSize, ImageSizeSource: imageSizeSource, ImageSizeBreakdown: draft.ImageSize.Breakdown, MediaType: &mediaType, BillingMode: &billingMode, MediaProductID: &mediaProductID, MediaOfferID: &mediaOfferID, UpstreamPlatform: &upstreamPlatform, SourceGroupID: &sourceGroupID, TrustedCostAmount: &draft.TrustedCost, TrustedCostUnit: &trustedUnit, TrustedCostSource: &trustedSource, TrustedCostVersion: &trustedVersion, CustomerPriceVersion: &priceVersion}
 	return s.repo.CreateMediaUsageAudit(ctx, log)
 }
 

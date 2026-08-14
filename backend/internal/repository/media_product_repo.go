@@ -141,6 +141,23 @@ func (r *mediaProductRepository) ListRuntimeModels(ctx context.Context, groupID 
 	return models, rows.Err()
 }
 
+func (r *mediaProductRepository) ListRuntimeModelModalities(ctx context.Context, groupID int64, now time.Time) ([]service.MediaRuntimeModel, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT p.public_model, p.modality FROM media_products p JOIN media_product_group_bindings b ON b.product_id=p.id WHERE b.group_id=$1 AND p.enabled=TRUE AND EXISTS (SELECT 1 FROM media_product_prices pp WHERE pp.product_id=p.id AND pp.enabled=TRUE) AND EXISTS (SELECT 1 FROM media_offers o JOIN groups g ON g.id=o.source_group_id AND g.deleted_at IS NULL AND g.status=$2 WHERE o.product_id=p.id AND o.enabled=TRUE AND o.expires_at>$3) ORDER BY p.public_model, p.modality`, groupID, service.StatusActive, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	models := []service.MediaRuntimeModel{}
+	for rows.Next() {
+		var model service.MediaRuntimeModel
+		if err := rows.Scan(&model.Model, &model.Modality); err != nil {
+			return nil, err
+		}
+		models = append(models, model)
+	}
+	return models, rows.Err()
+}
+
 func (r *mediaProductRepository) Create(ctx context.Context, product *service.MediaCatalogProduct) error {
 	return r.save(ctx, product, true)
 }
@@ -259,11 +276,17 @@ func (r *mediaProductRepository) loadDetails(ctx context.Context, q queryer, pro
 	defer rows.Close()
 	for rows.Next() {
 		var o service.MediaCatalogOffer
-		var operationsJSON []byte
-		if err := rows.Scan(&o.ID, &o.Provider, &o.SourceGroupID, &o.UpstreamModel, &o.Enabled, &o.Priority, &operationsJSON, &o.Capabilities, &o.CostRules, &o.CostSource, &o.CostVersion, &o.VerifiedAt, &o.ExpiresAt); err != nil {
+		var operationsJSON, capabilitiesJSON, costRulesJSON []byte
+		if err := rows.Scan(&o.ID, &o.Provider, &o.SourceGroupID, &o.UpstreamModel, &o.Enabled, &o.Priority, &operationsJSON, &capabilitiesJSON, &costRulesJSON, &o.CostSource, &o.CostVersion, &o.VerifiedAt, &o.ExpiresAt); err != nil {
 			return err
 		}
 		if err := json.Unmarshal(operationsJSON, &o.Operations); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(capabilitiesJSON, &o.Capabilities); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(costRulesJSON, &o.CostRules); err != nil {
 			return err
 		}
 		product.Offers = append(product.Offers, o)

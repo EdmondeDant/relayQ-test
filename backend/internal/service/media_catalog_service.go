@@ -16,6 +16,11 @@ type MediaCatalogService struct {
 	now  func() time.Time
 }
 
+type MediaRuntimeModel struct {
+	Model    string
+	Modality string
+}
+
 func NewMediaCatalogService(repo MediaProductRepository) *MediaCatalogService {
 	return &MediaCatalogService{repo: repo, now: time.Now}
 }
@@ -51,6 +56,19 @@ func (s *MediaCatalogService) ListRuntimeModels(ctx context.Context, groupID int
 		return nil, infraerrors.BadRequest("INVALID_MEDIA_RUNTIME_QUERY", "group is required")
 	}
 	return s.repo.ListRuntimeModels(ctx, groupID, s.now().UTC())
+}
+
+func (s *MediaCatalogService) ListRuntimeModelModalities(ctx context.Context, groupID int64) ([]MediaRuntimeModel, error) {
+	if s == nil || s.repo == nil || groupID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_MEDIA_RUNTIME_QUERY", "group is required")
+	}
+	repo, ok := s.repo.(interface {
+		ListRuntimeModelModalities(context.Context, int64, time.Time) ([]MediaRuntimeModel, error)
+	})
+	if !ok {
+		return nil, infraerrors.InternalServer("MEDIA_RUNTIME_MODALITY_UNAVAILABLE", "media runtime modality lookup is unavailable")
+	}
+	return repo.ListRuntimeModelModalities(ctx, groupID, s.now().UTC())
 }
 
 func (s *MediaCatalogService) Create(ctx context.Context, product *MediaCatalogProduct) (*MediaCatalogProduct, error) {

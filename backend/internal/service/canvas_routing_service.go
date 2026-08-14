@@ -70,10 +70,11 @@ type CanvasRoutingService struct {
 	channels  *ChannelService
 	jobs      GenerationJobRepository
 	resources CanvasResourceRouteRepository
+	media     *MediaCatalogService
 }
 
-func NewCanvasRoutingService(users UserRepository, groups GroupRepository, subs UserSubscriptionRepository, accounts AccountRepository, billing *BillingService) *CanvasRoutingService {
-	return &CanvasRoutingService{users: users, groups: groups, subs: subs, accounts: accounts, billing: billing}
+func NewCanvasRoutingService(users UserRepository, groups GroupRepository, subs UserSubscriptionRepository, accounts AccountRepository, billing *BillingService, media *MediaCatalogService) *CanvasRoutingService {
+	return &CanvasRoutingService{users: users, groups: groups, subs: subs, accounts: accounts, billing: billing, media: media}
 }
 
 func (s *CanvasRoutingService) SetGenerationJobRepository(jobs GenerationJobRepository) {
@@ -125,6 +126,26 @@ func (s *CanvasRoutingService) Resolve(ctx context.Context, req CanvasRouteReque
 	}
 	if req.ResourceID != "" {
 		return nil, ErrCanvasRouteNotFound
+	}
+	if req.Model != "" && s.media != nil {
+		mediaCandidates := make([]Group, 0)
+		for i := range groups {
+			if groups[i].Platform != PlatformOpenAI || !canvasPlatformSupportsEndpoint(groups[i].Platform, req.Endpoint) {
+				continue
+			}
+			modality := "image"
+			if strings.Contains(strings.ToLower(req.Endpoint), "/videos") {
+				modality = "video"
+			}
+			if _, mediaErr := s.media.GetRuntime(ctx, groups[i].ID, req.Model, modality); mediaErr == nil {
+				mediaCandidates = append(mediaCandidates, groups[i])
+			}
+		}
+		if len(mediaCandidates) > 0 {
+			sort.SliceStable(mediaCandidates, func(i, j int) bool { return mediaCandidates[i].SortOrder < mediaCandidates[j].SortOrder })
+			group := mediaCandidates[0]
+			return &CanvasRoute{Group: &group, Platform: group.Platform, Model: req.Model, Protocol: canvasProtocol(group.Platform, req.Endpoint)}, nil
+		}
 	}
 	candidates := make([]Group, 0, len(groups))
 	hadModel := false
@@ -181,7 +202,27 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 		return nil, err
 	}
 	models := map[string]CanvasModel{}
+	trustedMediaModels := map[string]struct{}{}
 	for i := range groups {
+		if groups[i].Platform == PlatformOpenAI && s.media != nil {
+			runtimeModels, mediaErr := s.media.ListRuntimeModelModalities(ctx, groups[i].ID)
+			if mediaErr != nil {
+				return nil, mediaErr
+			}
+			for _, model := range runtimeModels {
+				item := canvasModelForPlatform(model.Model, PlatformOpenAI)
+				item.Modality = model.Modality
+				if model.Modality == "video" {
+					item.Protocol = "openai-async"
+					item.Endpoints = []string{"/v1/videos"}
+				} else {
+					item.Protocol = "openai"
+					item.Endpoints = []string{"/v1/images/generations", "/v1/images/edits"}
+				}
+				models[item.Platform+"\x00"+item.ID+"\x00"+item.Modality] = item
+				trustedMediaModels[item.Platform+"\x00"+item.ID] = struct{}{}
+			}
+		}
 		accounts, listErr := s.accounts.ListSchedulableByGroupID(ctx, groups[i].ID)
 		if listErr != nil {
 			return nil, listErr
@@ -207,6 +248,9 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 			}
 		}
 		for model := range groupModels {
+			if _, ok := trustedMediaModels[groups[i].Platform+"\x00"+model]; ok {
+				continue
+			}
 			if strings.ContainsAny(model, "*?") || !s.pricingAvailable(ctx, groups[i].ID, groups[i].Platform, model) || s.channels != nil && s.channels.IsModelRestricted(ctx, groups[i].ID, model) {
 				continue
 			}
@@ -214,7 +258,7 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 			if item.Modality == "image" && !groups[i].AllowImageGeneration {
 				continue
 			}
-			models[item.Platform+"\x00"+item.ID] = item
+			models[item.Platform+"\x00"+item.ID+"\x00"+item.Modality] = item
 		}
 	}
 	out := make([]CanvasModel, 0, len(models))
@@ -223,6 +267,9 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Platform == out[j].Platform {
+			if out[i].ID == out[j].ID {
+				return out[i].Modality < out[j].Modality
+			}
 			return out[i].ID < out[j].ID
 		}
 		return out[i].Platform < out[j].Platform

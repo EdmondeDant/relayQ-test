@@ -66,6 +66,9 @@ func leonardoUnifiedMediaBody(request MediaCanonicalRequest, model string) ([]by
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
 	width, height := mediaUnifiedDimensions(request.Fields)
+	if request.Modality == "image" && width == 0 && height == 0 {
+		width, height = leonardoUnifiedImageDefaultDimensions(model)
+	}
 	var parameters map[string]any
 	if request.Modality == "video" {
 		duration := int(mediaFloatField(request.Fields, "duration", "duration_seconds", "seconds"))
@@ -95,6 +98,15 @@ func leonardoUnifiedMediaBody(request MediaCanonicalRequest, model string) ([]by
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
 	return json.Marshal(leonardo.CreateGenerationRequest{Model: model, Public: public, Parameters: parameters})
+}
+
+func leonardoUnifiedImageDefaultDimensions(model string) (int, int) {
+	switch model {
+	case "graphic-design":
+		return 888, 888
+	default:
+		return 896, 896
+	}
 }
 
 func mediaUnifiedDimensions(fields map[string]any) (int, int) {

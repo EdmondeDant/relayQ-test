@@ -20,7 +20,7 @@ func (r *mediaUsageAuditRepository) CreateMediaUsageAudit(ctx context.Context, l
 		return false, nil
 	}
 	requestedModel := strings.TrimSpace(log.RequestedModel)
-	created, err := r.client.UsageLog.Create().
+	create := r.client.UsageLog.Create().
 		SetUserID(log.UserID).
 		SetAPIKeyID(log.APIKeyID).
 		SetAccountID(log.AccountID).
@@ -41,7 +41,15 @@ func (r *mediaUsageAuditRepository) CreateMediaUsageAudit(ctx context.Context, l
 		SetActualCost(log.ActualCost).
 		SetTotalCost(log.TotalCost).
 		SetImageCount(log.ImageCount).
-		SetNillableBillingMode(log.BillingMode).
+		SetNillableImageSize(log.ImageSize).
+		SetNillableImageInputSize(log.ImageInputSize).
+		SetNillableImageOutputSize(log.ImageOutputSize).
+		SetNillableImageSizeSource(log.ImageSizeSource).
+		SetNillableBillingMode(log.BillingMode)
+	if log.ImageSizeBreakdown != nil {
+		create.SetImageSizeBreakdown(log.ImageSizeBreakdown)
+	}
+	created, err := create.
 		OnConflictColumns(usagelog.FieldRequestID, usagelog.FieldAPIKeyID).
 		DoNothing().
 		ID(ctx)
