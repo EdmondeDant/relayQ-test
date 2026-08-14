@@ -100,6 +100,54 @@ func (_u *APIKeyUpdate) SetNillableName(v *string) *APIKeyUpdate {
 	return _u
 }
 
+// SetClientApp sets the "client_app" field.
+func (_u *APIKeyUpdate) SetClientApp(v string) *APIKeyUpdate {
+	_u.mutation.SetClientApp(v)
+	return _u
+}
+
+// SetNillableClientApp sets the "client_app" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableClientApp(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetClientApp(*v)
+	}
+	return _u
+}
+
+// SetManaged sets the "managed" field.
+func (_u *APIKeyUpdate) SetManaged(v bool) *APIKeyUpdate {
+	_u.mutation.SetManaged(v)
+	return _u
+}
+
+// SetNillableManaged sets the "managed" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableManaged(v *bool) *APIKeyUpdate {
+	if v != nil {
+		_u.SetManaged(*v)
+	}
+	return _u
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (_u *APIKeyUpdate) SetManagedPurpose(v string) *APIKeyUpdate {
+	_u.mutation.SetManagedPurpose(v)
+	return _u
+}
+
+// SetNillableManagedPurpose sets the "managed_purpose" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableManagedPurpose(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetManagedPurpose(*v)
+	}
+	return _u
+}
+
+// ClearManagedPurpose clears the value of the "managed_purpose" field.
+func (_u *APIKeyUpdate) ClearManagedPurpose() *APIKeyUpdate {
+	_u.mutation.ClearManagedPurpose()
+	return _u
+}
+
 // SetGroupID sets the "group_id" field.
 func (_u *APIKeyUpdate) SetGroupID(v int64) *APIKeyUpdate {
 	_u.mutation.SetGroupID(v)
@@ -555,6 +603,16 @@ func (_u *APIKeyUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ClientApp(); ok {
+		if err := apikey.ClientAppValidator(v); err != nil {
+			return &ValidationError{Name: "client_app", err: fmt.Errorf(`ent: validator failed for field "APIKey.client_app": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ManagedPurpose(); ok {
+		if err := apikey.ManagedPurposeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_purpose", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_purpose": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -592,6 +650,18 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ClientApp(); ok {
+		_spec.SetField(apikey.FieldClientApp, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Managed(); ok {
+		_spec.SetField(apikey.FieldManaged, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ManagedPurpose(); ok {
+		_spec.SetField(apikey.FieldManagedPurpose, field.TypeString, value)
+	}
+	if _u.mutation.ManagedPurposeCleared() {
+		_spec.ClearField(apikey.FieldManagedPurpose, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -884,6 +954,54 @@ func (_u *APIKeyUpdateOne) SetNillableName(v *string) *APIKeyUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
+	return _u
+}
+
+// SetClientApp sets the "client_app" field.
+func (_u *APIKeyUpdateOne) SetClientApp(v string) *APIKeyUpdateOne {
+	_u.mutation.SetClientApp(v)
+	return _u
+}
+
+// SetNillableClientApp sets the "client_app" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableClientApp(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetClientApp(*v)
+	}
+	return _u
+}
+
+// SetManaged sets the "managed" field.
+func (_u *APIKeyUpdateOne) SetManaged(v bool) *APIKeyUpdateOne {
+	_u.mutation.SetManaged(v)
+	return _u
+}
+
+// SetNillableManaged sets the "managed" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableManaged(v *bool) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetManaged(*v)
+	}
+	return _u
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (_u *APIKeyUpdateOne) SetManagedPurpose(v string) *APIKeyUpdateOne {
+	_u.mutation.SetManagedPurpose(v)
+	return _u
+}
+
+// SetNillableManagedPurpose sets the "managed_purpose" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableManagedPurpose(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetManagedPurpose(*v)
+	}
+	return _u
+}
+
+// ClearManagedPurpose clears the value of the "managed_purpose" field.
+func (_u *APIKeyUpdateOne) ClearManagedPurpose() *APIKeyUpdateOne {
+	_u.mutation.ClearManagedPurpose()
 	return _u
 }
 
@@ -1355,6 +1473,16 @@ func (_u *APIKeyUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ClientApp(); ok {
+		if err := apikey.ClientAppValidator(v); err != nil {
+			return &ValidationError{Name: "client_app", err: fmt.Errorf(`ent: validator failed for field "APIKey.client_app": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ManagedPurpose(); ok {
+		if err := apikey.ManagedPurposeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_purpose", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_purpose": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -1409,6 +1537,18 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ClientApp(); ok {
+		_spec.SetField(apikey.FieldClientApp, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Managed(); ok {
+		_spec.SetField(apikey.FieldManaged, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ManagedPurpose(); ok {
+		_spec.SetField(apikey.FieldManagedPurpose, field.TypeString, value)
+	}
+	if _u.mutation.ManagedPurposeCleared() {
+		_spec.ClearField(apikey.FieldManagedPurpose, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)

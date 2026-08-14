@@ -66,6 +66,11 @@ func (GenerationJob) Fields() []ent.Field {
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
+		field.Int64("product_id").Optional().Nillable(),
+		field.Int64("offer_id").Optional().Nillable(),
+		field.Int64("source_group_id").Optional().Nillable(),
+		field.String("operation").Optional().Nillable().MaxLen(32),
+		field.String("customer_price_version").Optional().Nillable().MaxLen(64),
 		field.Int64("account_id"),
 		field.String("upstream_generation_id").
 			Optional().
@@ -170,6 +175,9 @@ func (GenerationJob) Indexes() []ent.Index {
 		index.Fields("user_id"),
 		index.Fields("api_key_id"),
 		index.Fields("group_id"),
+		index.Fields("product_id"),
+		index.Fields("offer_id"),
+		index.Fields("source_group_id"),
 		index.Fields("account_id"),
 		index.Fields("upstream_generation_id"),
 		index.Fields("status"),

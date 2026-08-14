@@ -32,6 +32,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/mediaoffer"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproduct"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproductprice"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -95,6 +98,12 @@ type Client struct {
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
+	// MediaOffer is the client for interacting with the MediaOffer builders.
+	MediaOffer *MediaOfferClient
+	// MediaProduct is the client for interacting with the MediaProduct builders.
+	MediaProduct *MediaProductClient
+	// MediaProductPrice is the client for interacting with the MediaProductPrice builders.
+	MediaProductPrice *MediaProductPriceClient
 	// PaymentAuditLog is the client for interacting with the PaymentAuditLog builders.
 	PaymentAuditLog *PaymentAuditLogClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -163,6 +172,9 @@ func (c *Client) init() {
 	c.IdeaMessage = NewIdeaMessageClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
+	c.MediaOffer = NewMediaOfferClient(c.config)
+	c.MediaProduct = NewMediaProductClient(c.config)
+	c.MediaProductPrice = NewMediaProductPriceClient(c.config)
 	c.PaymentAuditLog = NewPaymentAuditLogClient(c.config)
 	c.PaymentOrder = NewPaymentOrderClient(c.config)
 	c.PaymentProviderInstance = NewPaymentProviderInstanceClient(c.config)
@@ -292,6 +304,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		IdeaMessage:                   NewIdeaMessageClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
+		MediaOffer:                    NewMediaOfferClient(cfg),
+		MediaProduct:                  NewMediaProductClient(cfg),
+		MediaProductPrice:             NewMediaProductPriceClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
@@ -348,6 +363,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		IdeaMessage:                   NewIdeaMessageClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
+		MediaOffer:                    NewMediaOfferClient(cfg),
+		MediaProduct:                  NewMediaProductClient(cfg),
+		MediaProductPrice:             NewMediaProductPriceClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
@@ -402,12 +420,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.GenerationJob,
 		c.Group, c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
-		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
-		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
-		c.UserSubscription,
+		c.MediaOffer, c.MediaProduct, c.MediaProductPrice, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -422,12 +440,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.GenerationJob,
 		c.Group, c.IdeaMessage, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
-		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
-		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
-		c.UserSubscription,
+		c.MediaOffer, c.MediaProduct, c.MediaProductPrice, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -470,6 +488,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.IdempotencyRecord.mutate(ctx, m)
 	case *IdentityAdoptionDecisionMutation:
 		return c.IdentityAdoptionDecision.mutate(ctx, m)
+	case *MediaOfferMutation:
+		return c.MediaOffer.mutate(ctx, m)
+	case *MediaProductMutation:
+		return c.MediaProduct.mutate(ctx, m)
+	case *MediaProductPriceMutation:
+		return c.MediaProductPrice.mutate(ctx, m)
 	case *PaymentAuditLogMutation:
 		return c.PaymentAuditLog.mutate(ctx, m)
 	case *PaymentOrderMutation:
@@ -2755,6 +2779,38 @@ func (c *GroupClient) QueryAllowedUsers(_m *Group) *UserQuery {
 	return query
 }
 
+// QueryMediaProducts queries the media_products edge of a Group.
+func (c *GroupClient) QueryMediaProducts(_m *Group) *MediaProductQuery {
+	query := (&MediaProductClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(mediaproduct.Table, mediaproduct.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, group.MediaProductsTable, group.MediaProductsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMediaSourceOffers queries the media_source_offers edge of a Group.
+func (c *GroupClient) QueryMediaSourceOffers(_m *Group) *MediaOfferQuery {
+	query := (&MediaOfferClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(mediaoffer.Table, mediaoffer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.MediaSourceOffersTable, group.MediaSourceOffersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAccountGroups queries the account_groups edge of a Group.
 func (c *GroupClient) QueryAccountGroups(_m *Group) *AccountGroupQuery {
 	query := (&AccountGroupClient{config: c.config}).Query()
@@ -3244,6 +3300,501 @@ func (c *IdentityAdoptionDecisionClient) mutate(ctx context.Context, m *Identity
 		return (&IdentityAdoptionDecisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown IdentityAdoptionDecision mutation op: %q", m.Op())
+	}
+}
+
+// MediaOfferClient is a client for the MediaOffer schema.
+type MediaOfferClient struct {
+	config
+}
+
+// NewMediaOfferClient returns a client for the MediaOffer from the given config.
+func NewMediaOfferClient(c config) *MediaOfferClient {
+	return &MediaOfferClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mediaoffer.Hooks(f(g(h())))`.
+func (c *MediaOfferClient) Use(hooks ...Hook) {
+	c.hooks.MediaOffer = append(c.hooks.MediaOffer, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mediaoffer.Intercept(f(g(h())))`.
+func (c *MediaOfferClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MediaOffer = append(c.inters.MediaOffer, interceptors...)
+}
+
+// Create returns a builder for creating a MediaOffer entity.
+func (c *MediaOfferClient) Create() *MediaOfferCreate {
+	mutation := newMediaOfferMutation(c.config, OpCreate)
+	return &MediaOfferCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MediaOffer entities.
+func (c *MediaOfferClient) CreateBulk(builders ...*MediaOfferCreate) *MediaOfferCreateBulk {
+	return &MediaOfferCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MediaOfferClient) MapCreateBulk(slice any, setFunc func(*MediaOfferCreate, int)) *MediaOfferCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MediaOfferCreateBulk{err: fmt.Errorf("calling to MediaOfferClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MediaOfferCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MediaOfferCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MediaOffer.
+func (c *MediaOfferClient) Update() *MediaOfferUpdate {
+	mutation := newMediaOfferMutation(c.config, OpUpdate)
+	return &MediaOfferUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MediaOfferClient) UpdateOne(_m *MediaOffer) *MediaOfferUpdateOne {
+	mutation := newMediaOfferMutation(c.config, OpUpdateOne, withMediaOffer(_m))
+	return &MediaOfferUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MediaOfferClient) UpdateOneID(id int64) *MediaOfferUpdateOne {
+	mutation := newMediaOfferMutation(c.config, OpUpdateOne, withMediaOfferID(id))
+	return &MediaOfferUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MediaOffer.
+func (c *MediaOfferClient) Delete() *MediaOfferDelete {
+	mutation := newMediaOfferMutation(c.config, OpDelete)
+	return &MediaOfferDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MediaOfferClient) DeleteOne(_m *MediaOffer) *MediaOfferDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MediaOfferClient) DeleteOneID(id int64) *MediaOfferDeleteOne {
+	builder := c.Delete().Where(mediaoffer.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MediaOfferDeleteOne{builder}
+}
+
+// Query returns a query builder for MediaOffer.
+func (c *MediaOfferClient) Query() *MediaOfferQuery {
+	return &MediaOfferQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMediaOffer},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MediaOffer entity by its id.
+func (c *MediaOfferClient) Get(ctx context.Context, id int64) (*MediaOffer, error) {
+	return c.Query().Where(mediaoffer.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MediaOfferClient) GetX(ctx context.Context, id int64) *MediaOffer {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProduct queries the product edge of a MediaOffer.
+func (c *MediaOfferClient) QueryProduct(_m *MediaOffer) *MediaProductQuery {
+	query := (&MediaProductClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaoffer.Table, mediaoffer.FieldID, id),
+			sqlgraph.To(mediaproduct.Table, mediaproduct.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, mediaoffer.ProductTable, mediaoffer.ProductColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySourceGroup queries the source_group edge of a MediaOffer.
+func (c *MediaOfferClient) QuerySourceGroup(_m *MediaOffer) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaoffer.Table, mediaoffer.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, mediaoffer.SourceGroupTable, mediaoffer.SourceGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MediaOfferClient) Hooks() []Hook {
+	return c.hooks.MediaOffer
+}
+
+// Interceptors returns the client interceptors.
+func (c *MediaOfferClient) Interceptors() []Interceptor {
+	return c.inters.MediaOffer
+}
+
+func (c *MediaOfferClient) mutate(ctx context.Context, m *MediaOfferMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MediaOfferCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MediaOfferUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MediaOfferUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MediaOfferDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MediaOffer mutation op: %q", m.Op())
+	}
+}
+
+// MediaProductClient is a client for the MediaProduct schema.
+type MediaProductClient struct {
+	config
+}
+
+// NewMediaProductClient returns a client for the MediaProduct from the given config.
+func NewMediaProductClient(c config) *MediaProductClient {
+	return &MediaProductClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mediaproduct.Hooks(f(g(h())))`.
+func (c *MediaProductClient) Use(hooks ...Hook) {
+	c.hooks.MediaProduct = append(c.hooks.MediaProduct, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mediaproduct.Intercept(f(g(h())))`.
+func (c *MediaProductClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MediaProduct = append(c.inters.MediaProduct, interceptors...)
+}
+
+// Create returns a builder for creating a MediaProduct entity.
+func (c *MediaProductClient) Create() *MediaProductCreate {
+	mutation := newMediaProductMutation(c.config, OpCreate)
+	return &MediaProductCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MediaProduct entities.
+func (c *MediaProductClient) CreateBulk(builders ...*MediaProductCreate) *MediaProductCreateBulk {
+	return &MediaProductCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MediaProductClient) MapCreateBulk(slice any, setFunc func(*MediaProductCreate, int)) *MediaProductCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MediaProductCreateBulk{err: fmt.Errorf("calling to MediaProductClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MediaProductCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MediaProductCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MediaProduct.
+func (c *MediaProductClient) Update() *MediaProductUpdate {
+	mutation := newMediaProductMutation(c.config, OpUpdate)
+	return &MediaProductUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MediaProductClient) UpdateOne(_m *MediaProduct) *MediaProductUpdateOne {
+	mutation := newMediaProductMutation(c.config, OpUpdateOne, withMediaProduct(_m))
+	return &MediaProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MediaProductClient) UpdateOneID(id int64) *MediaProductUpdateOne {
+	mutation := newMediaProductMutation(c.config, OpUpdateOne, withMediaProductID(id))
+	return &MediaProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MediaProduct.
+func (c *MediaProductClient) Delete() *MediaProductDelete {
+	mutation := newMediaProductMutation(c.config, OpDelete)
+	return &MediaProductDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MediaProductClient) DeleteOne(_m *MediaProduct) *MediaProductDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MediaProductClient) DeleteOneID(id int64) *MediaProductDeleteOne {
+	builder := c.Delete().Where(mediaproduct.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MediaProductDeleteOne{builder}
+}
+
+// Query returns a query builder for MediaProduct.
+func (c *MediaProductClient) Query() *MediaProductQuery {
+	return &MediaProductQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMediaProduct},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MediaProduct entity by its id.
+func (c *MediaProductClient) Get(ctx context.Context, id int64) (*MediaProduct, error) {
+	return c.Query().Where(mediaproduct.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MediaProductClient) GetX(ctx context.Context, id int64) *MediaProduct {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPrices queries the prices edge of a MediaProduct.
+func (c *MediaProductClient) QueryPrices(_m *MediaProduct) *MediaProductPriceQuery {
+	query := (&MediaProductPriceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaproduct.Table, mediaproduct.FieldID, id),
+			sqlgraph.To(mediaproductprice.Table, mediaproductprice.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, mediaproduct.PricesTable, mediaproduct.PricesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOffers queries the offers edge of a MediaProduct.
+func (c *MediaProductClient) QueryOffers(_m *MediaProduct) *MediaOfferQuery {
+	query := (&MediaOfferClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaproduct.Table, mediaproduct.FieldID, id),
+			sqlgraph.To(mediaoffer.Table, mediaoffer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, mediaproduct.OffersTable, mediaproduct.OffersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroups queries the groups edge of a MediaProduct.
+func (c *MediaProductClient) QueryGroups(_m *MediaProduct) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaproduct.Table, mediaproduct.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, mediaproduct.GroupsTable, mediaproduct.GroupsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MediaProductClient) Hooks() []Hook {
+	return c.hooks.MediaProduct
+}
+
+// Interceptors returns the client interceptors.
+func (c *MediaProductClient) Interceptors() []Interceptor {
+	return c.inters.MediaProduct
+}
+
+func (c *MediaProductClient) mutate(ctx context.Context, m *MediaProductMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MediaProductCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MediaProductUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MediaProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MediaProductDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MediaProduct mutation op: %q", m.Op())
+	}
+}
+
+// MediaProductPriceClient is a client for the MediaProductPrice schema.
+type MediaProductPriceClient struct {
+	config
+}
+
+// NewMediaProductPriceClient returns a client for the MediaProductPrice from the given config.
+func NewMediaProductPriceClient(c config) *MediaProductPriceClient {
+	return &MediaProductPriceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mediaproductprice.Hooks(f(g(h())))`.
+func (c *MediaProductPriceClient) Use(hooks ...Hook) {
+	c.hooks.MediaProductPrice = append(c.hooks.MediaProductPrice, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mediaproductprice.Intercept(f(g(h())))`.
+func (c *MediaProductPriceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MediaProductPrice = append(c.inters.MediaProductPrice, interceptors...)
+}
+
+// Create returns a builder for creating a MediaProductPrice entity.
+func (c *MediaProductPriceClient) Create() *MediaProductPriceCreate {
+	mutation := newMediaProductPriceMutation(c.config, OpCreate)
+	return &MediaProductPriceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MediaProductPrice entities.
+func (c *MediaProductPriceClient) CreateBulk(builders ...*MediaProductPriceCreate) *MediaProductPriceCreateBulk {
+	return &MediaProductPriceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MediaProductPriceClient) MapCreateBulk(slice any, setFunc func(*MediaProductPriceCreate, int)) *MediaProductPriceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MediaProductPriceCreateBulk{err: fmt.Errorf("calling to MediaProductPriceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MediaProductPriceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MediaProductPriceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MediaProductPrice.
+func (c *MediaProductPriceClient) Update() *MediaProductPriceUpdate {
+	mutation := newMediaProductPriceMutation(c.config, OpUpdate)
+	return &MediaProductPriceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MediaProductPriceClient) UpdateOne(_m *MediaProductPrice) *MediaProductPriceUpdateOne {
+	mutation := newMediaProductPriceMutation(c.config, OpUpdateOne, withMediaProductPrice(_m))
+	return &MediaProductPriceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MediaProductPriceClient) UpdateOneID(id int64) *MediaProductPriceUpdateOne {
+	mutation := newMediaProductPriceMutation(c.config, OpUpdateOne, withMediaProductPriceID(id))
+	return &MediaProductPriceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MediaProductPrice.
+func (c *MediaProductPriceClient) Delete() *MediaProductPriceDelete {
+	mutation := newMediaProductPriceMutation(c.config, OpDelete)
+	return &MediaProductPriceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MediaProductPriceClient) DeleteOne(_m *MediaProductPrice) *MediaProductPriceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MediaProductPriceClient) DeleteOneID(id int64) *MediaProductPriceDeleteOne {
+	builder := c.Delete().Where(mediaproductprice.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MediaProductPriceDeleteOne{builder}
+}
+
+// Query returns a query builder for MediaProductPrice.
+func (c *MediaProductPriceClient) Query() *MediaProductPriceQuery {
+	return &MediaProductPriceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMediaProductPrice},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MediaProductPrice entity by its id.
+func (c *MediaProductPriceClient) Get(ctx context.Context, id int64) (*MediaProductPrice, error) {
+	return c.Query().Where(mediaproductprice.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MediaProductPriceClient) GetX(ctx context.Context, id int64) *MediaProductPrice {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProduct queries the product edge of a MediaProductPrice.
+func (c *MediaProductPriceClient) QueryProduct(_m *MediaProductPrice) *MediaProductQuery {
+	query := (&MediaProductClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mediaproductprice.Table, mediaproductprice.FieldID, id),
+			sqlgraph.To(mediaproduct.Table, mediaproduct.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, mediaproductprice.ProductTable, mediaproductprice.ProductColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MediaProductPriceClient) Hooks() []Hook {
+	return c.hooks.MediaProductPrice
+}
+
+// Interceptors returns the client interceptors.
+func (c *MediaProductPriceClient) Interceptors() []Interceptor {
+	return c.inters.MediaProductPrice
+}
+
+func (c *MediaProductPriceClient) mutate(ctx context.Context, m *MediaProductPriceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MediaProductPriceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MediaProductPriceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MediaProductPriceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MediaProductPriceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MediaProductPrice mutation op: %q", m.Op())
 	}
 }
 
@@ -6483,22 +7034,22 @@ type (
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
 		GenerationJob, Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+		MediaOffer, MediaProduct, MediaProductPrice, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
 		GenerationJob, Group, IdeaMessage, IdempotencyRecord, IdentityAdoptionDecision,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+		MediaOffer, MediaProduct, MediaProductPrice, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

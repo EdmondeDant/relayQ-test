@@ -105,6 +105,31 @@ func GroupID(v int64) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldGroupID, v))
 }
 
+// ProductID applies equality check predicate on the "product_id" field. It's identical to ProductIDEQ.
+func ProductID(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldProductID, v))
+}
+
+// OfferID applies equality check predicate on the "offer_id" field. It's identical to OfferIDEQ.
+func OfferID(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldOfferID, v))
+}
+
+// SourceGroupID applies equality check predicate on the "source_group_id" field. It's identical to SourceGroupIDEQ.
+func SourceGroupID(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldSourceGroupID, v))
+}
+
+// Operation applies equality check predicate on the "operation" field. It's identical to OperationEQ.
+func Operation(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldOperation, v))
+}
+
+// CustomerPriceVersion applies equality check predicate on the "customer_price_version" field. It's identical to CustomerPriceVersionEQ.
+func CustomerPriceVersion(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldCustomerPriceVersion, v))
+}
+
 // AccountID applies equality check predicate on the "account_id" field. It's identical to AccountIDEQ.
 func AccountID(v int64) predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldEQ(FieldAccountID, v))
@@ -763,6 +788,306 @@ func GroupIDIsNil() predicate.GenerationJob {
 // GroupIDNotNil applies the NotNil predicate on the "group_id" field.
 func GroupIDNotNil() predicate.GenerationJob {
 	return predicate.GenerationJob(sql.FieldNotNull(FieldGroupID))
+}
+
+// ProductIDEQ applies the EQ predicate on the "product_id" field.
+func ProductIDEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldProductID, v))
+}
+
+// ProductIDNEQ applies the NEQ predicate on the "product_id" field.
+func ProductIDNEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldProductID, v))
+}
+
+// ProductIDIn applies the In predicate on the "product_id" field.
+func ProductIDIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldProductID, vs...))
+}
+
+// ProductIDNotIn applies the NotIn predicate on the "product_id" field.
+func ProductIDNotIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldProductID, vs...))
+}
+
+// ProductIDGT applies the GT predicate on the "product_id" field.
+func ProductIDGT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldProductID, v))
+}
+
+// ProductIDGTE applies the GTE predicate on the "product_id" field.
+func ProductIDGTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldProductID, v))
+}
+
+// ProductIDLT applies the LT predicate on the "product_id" field.
+func ProductIDLT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldProductID, v))
+}
+
+// ProductIDLTE applies the LTE predicate on the "product_id" field.
+func ProductIDLTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldProductID, v))
+}
+
+// ProductIDIsNil applies the IsNil predicate on the "product_id" field.
+func ProductIDIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldProductID))
+}
+
+// ProductIDNotNil applies the NotNil predicate on the "product_id" field.
+func ProductIDNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldProductID))
+}
+
+// OfferIDEQ applies the EQ predicate on the "offer_id" field.
+func OfferIDEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldOfferID, v))
+}
+
+// OfferIDNEQ applies the NEQ predicate on the "offer_id" field.
+func OfferIDNEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldOfferID, v))
+}
+
+// OfferIDIn applies the In predicate on the "offer_id" field.
+func OfferIDIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldOfferID, vs...))
+}
+
+// OfferIDNotIn applies the NotIn predicate on the "offer_id" field.
+func OfferIDNotIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldOfferID, vs...))
+}
+
+// OfferIDGT applies the GT predicate on the "offer_id" field.
+func OfferIDGT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldOfferID, v))
+}
+
+// OfferIDGTE applies the GTE predicate on the "offer_id" field.
+func OfferIDGTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldOfferID, v))
+}
+
+// OfferIDLT applies the LT predicate on the "offer_id" field.
+func OfferIDLT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldOfferID, v))
+}
+
+// OfferIDLTE applies the LTE predicate on the "offer_id" field.
+func OfferIDLTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldOfferID, v))
+}
+
+// OfferIDIsNil applies the IsNil predicate on the "offer_id" field.
+func OfferIDIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldOfferID))
+}
+
+// OfferIDNotNil applies the NotNil predicate on the "offer_id" field.
+func OfferIDNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldOfferID))
+}
+
+// SourceGroupIDEQ applies the EQ predicate on the "source_group_id" field.
+func SourceGroupIDEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDNEQ applies the NEQ predicate on the "source_group_id" field.
+func SourceGroupIDNEQ(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDIn applies the In predicate on the "source_group_id" field.
+func SourceGroupIDIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldSourceGroupID, vs...))
+}
+
+// SourceGroupIDNotIn applies the NotIn predicate on the "source_group_id" field.
+func SourceGroupIDNotIn(vs ...int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldSourceGroupID, vs...))
+}
+
+// SourceGroupIDGT applies the GT predicate on the "source_group_id" field.
+func SourceGroupIDGT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDGTE applies the GTE predicate on the "source_group_id" field.
+func SourceGroupIDGTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDLT applies the LT predicate on the "source_group_id" field.
+func SourceGroupIDLT(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDLTE applies the LTE predicate on the "source_group_id" field.
+func SourceGroupIDLTE(v int64) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDIsNil applies the IsNil predicate on the "source_group_id" field.
+func SourceGroupIDIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldSourceGroupID))
+}
+
+// SourceGroupIDNotNil applies the NotNil predicate on the "source_group_id" field.
+func SourceGroupIDNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldSourceGroupID))
+}
+
+// OperationEQ applies the EQ predicate on the "operation" field.
+func OperationEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldOperation, v))
+}
+
+// OperationNEQ applies the NEQ predicate on the "operation" field.
+func OperationNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldOperation, v))
+}
+
+// OperationIn applies the In predicate on the "operation" field.
+func OperationIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldOperation, vs...))
+}
+
+// OperationNotIn applies the NotIn predicate on the "operation" field.
+func OperationNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldOperation, vs...))
+}
+
+// OperationGT applies the GT predicate on the "operation" field.
+func OperationGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldOperation, v))
+}
+
+// OperationGTE applies the GTE predicate on the "operation" field.
+func OperationGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldOperation, v))
+}
+
+// OperationLT applies the LT predicate on the "operation" field.
+func OperationLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldOperation, v))
+}
+
+// OperationLTE applies the LTE predicate on the "operation" field.
+func OperationLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldOperation, v))
+}
+
+// OperationContains applies the Contains predicate on the "operation" field.
+func OperationContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldOperation, v))
+}
+
+// OperationHasPrefix applies the HasPrefix predicate on the "operation" field.
+func OperationHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldOperation, v))
+}
+
+// OperationHasSuffix applies the HasSuffix predicate on the "operation" field.
+func OperationHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldOperation, v))
+}
+
+// OperationIsNil applies the IsNil predicate on the "operation" field.
+func OperationIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldOperation))
+}
+
+// OperationNotNil applies the NotNil predicate on the "operation" field.
+func OperationNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldOperation))
+}
+
+// OperationEqualFold applies the EqualFold predicate on the "operation" field.
+func OperationEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldOperation, v))
+}
+
+// OperationContainsFold applies the ContainsFold predicate on the "operation" field.
+func OperationContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldOperation, v))
+}
+
+// CustomerPriceVersionEQ applies the EQ predicate on the "customer_price_version" field.
+func CustomerPriceVersionEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEQ(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionNEQ applies the NEQ predicate on the "customer_price_version" field.
+func CustomerPriceVersionNEQ(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNEQ(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionIn applies the In predicate on the "customer_price_version" field.
+func CustomerPriceVersionIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIn(FieldCustomerPriceVersion, vs...))
+}
+
+// CustomerPriceVersionNotIn applies the NotIn predicate on the "customer_price_version" field.
+func CustomerPriceVersionNotIn(vs ...string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotIn(FieldCustomerPriceVersion, vs...))
+}
+
+// CustomerPriceVersionGT applies the GT predicate on the "customer_price_version" field.
+func CustomerPriceVersionGT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGT(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionGTE applies the GTE predicate on the "customer_price_version" field.
+func CustomerPriceVersionGTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldGTE(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionLT applies the LT predicate on the "customer_price_version" field.
+func CustomerPriceVersionLT(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLT(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionLTE applies the LTE predicate on the "customer_price_version" field.
+func CustomerPriceVersionLTE(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldLTE(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionContains applies the Contains predicate on the "customer_price_version" field.
+func CustomerPriceVersionContains(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContains(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionHasPrefix applies the HasPrefix predicate on the "customer_price_version" field.
+func CustomerPriceVersionHasPrefix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasPrefix(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionHasSuffix applies the HasSuffix predicate on the "customer_price_version" field.
+func CustomerPriceVersionHasSuffix(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldHasSuffix(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionIsNil applies the IsNil predicate on the "customer_price_version" field.
+func CustomerPriceVersionIsNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldIsNull(FieldCustomerPriceVersion))
+}
+
+// CustomerPriceVersionNotNil applies the NotNil predicate on the "customer_price_version" field.
+func CustomerPriceVersionNotNil() predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldNotNull(FieldCustomerPriceVersion))
+}
+
+// CustomerPriceVersionEqualFold applies the EqualFold predicate on the "customer_price_version" field.
+func CustomerPriceVersionEqualFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldEqualFold(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionContainsFold applies the ContainsFold predicate on the "customer_price_version" field.
+func CustomerPriceVersionContainsFold(v string) predicate.GenerationJob {
+	return predicate.GenerationJob(sql.FieldContainsFold(FieldCustomerPriceVersion, v))
 }
 
 // AccountIDEQ applies the EQ predicate on the "account_id" field.

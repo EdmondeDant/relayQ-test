@@ -85,6 +85,48 @@ func (_c *APIKeyCreate) SetName(v string) *APIKeyCreate {
 	return _c
 }
 
+// SetClientApp sets the "client_app" field.
+func (_c *APIKeyCreate) SetClientApp(v string) *APIKeyCreate {
+	_c.mutation.SetClientApp(v)
+	return _c
+}
+
+// SetNillableClientApp sets the "client_app" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableClientApp(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetClientApp(*v)
+	}
+	return _c
+}
+
+// SetManaged sets the "managed" field.
+func (_c *APIKeyCreate) SetManaged(v bool) *APIKeyCreate {
+	_c.mutation.SetManaged(v)
+	return _c
+}
+
+// SetNillableManaged sets the "managed" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableManaged(v *bool) *APIKeyCreate {
+	if v != nil {
+		_c.SetManaged(*v)
+	}
+	return _c
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (_c *APIKeyCreate) SetManagedPurpose(v string) *APIKeyCreate {
+	_c.mutation.SetManagedPurpose(v)
+	return _c
+}
+
+// SetNillableManagedPurpose sets the "managed_purpose" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableManagedPurpose(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetManagedPurpose(*v)
+	}
+	return _c
+}
+
 // SetGroupID sets the "group_id" field.
 func (_c *APIKeyCreate) SetGroupID(v int64) *APIKeyCreate {
 	_c.mutation.SetGroupID(v)
@@ -383,6 +425,14 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.ClientApp(); !ok {
+		v := apikey.DefaultClientApp
+		_c.mutation.SetClientApp(v)
+	}
+	if _, ok := _c.mutation.Managed(); !ok {
+		v := apikey.DefaultManaged
+		_c.mutation.SetManaged(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -447,6 +497,22 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ClientApp(); !ok {
+		return &ValidationError{Name: "client_app", err: errors.New(`ent: missing required field "APIKey.client_app"`)}
+	}
+	if v, ok := _c.mutation.ClientApp(); ok {
+		if err := apikey.ClientAppValidator(v); err != nil {
+			return &ValidationError{Name: "client_app", err: fmt.Errorf(`ent: validator failed for field "APIKey.client_app": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Managed(); !ok {
+		return &ValidationError{Name: "managed", err: errors.New(`ent: missing required field "APIKey.managed"`)}
+	}
+	if v, ok := _c.mutation.ManagedPurpose(); ok {
+		if err := apikey.ManagedPurposeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_purpose", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_purpose": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
@@ -530,6 +596,18 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.ClientApp(); ok {
+		_spec.SetField(apikey.FieldClientApp, field.TypeString, value)
+		_node.ClientApp = value
+	}
+	if value, ok := _c.mutation.Managed(); ok {
+		_spec.SetField(apikey.FieldManaged, field.TypeBool, value)
+		_node.Managed = value
+	}
+	if value, ok := _c.mutation.ManagedPurpose(); ok {
+		_spec.SetField(apikey.FieldManagedPurpose, field.TypeString, value)
+		_node.ManagedPurpose = &value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -760,6 +838,48 @@ func (u *APIKeyUpsert) SetName(v string) *APIKeyUpsert {
 // UpdateName sets the "name" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateName() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldName)
+	return u
+}
+
+// SetClientApp sets the "client_app" field.
+func (u *APIKeyUpsert) SetClientApp(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldClientApp, v)
+	return u
+}
+
+// UpdateClientApp sets the "client_app" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateClientApp() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldClientApp)
+	return u
+}
+
+// SetManaged sets the "managed" field.
+func (u *APIKeyUpsert) SetManaged(v bool) *APIKeyUpsert {
+	u.Set(apikey.FieldManaged, v)
+	return u
+}
+
+// UpdateManaged sets the "managed" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateManaged() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldManaged)
+	return u
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (u *APIKeyUpsert) SetManagedPurpose(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldManagedPurpose, v)
+	return u
+}
+
+// UpdateManagedPurpose sets the "managed_purpose" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateManagedPurpose() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldManagedPurpose)
+	return u
+}
+
+// ClearManagedPurpose clears the value of the "managed_purpose" field.
+func (u *APIKeyUpsert) ClearManagedPurpose() *APIKeyUpsert {
+	u.SetNull(apikey.FieldManagedPurpose)
 	return u
 }
 
@@ -1182,6 +1302,55 @@ func (u *APIKeyUpsertOne) SetName(v string) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateName() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetClientApp sets the "client_app" field.
+func (u *APIKeyUpsertOne) SetClientApp(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetClientApp(v)
+	})
+}
+
+// UpdateClientApp sets the "client_app" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateClientApp() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateClientApp()
+	})
+}
+
+// SetManaged sets the "managed" field.
+func (u *APIKeyUpsertOne) SetManaged(v bool) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManaged(v)
+	})
+}
+
+// UpdateManaged sets the "managed" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateManaged() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManaged()
+	})
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (u *APIKeyUpsertOne) SetManagedPurpose(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedPurpose(v)
+	})
+}
+
+// UpdateManagedPurpose sets the "managed_purpose" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateManagedPurpose() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedPurpose()
+	})
+}
+
+// ClearManagedPurpose clears the value of the "managed_purpose" field.
+func (u *APIKeyUpsertOne) ClearManagedPurpose() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearManagedPurpose()
 	})
 }
 
@@ -1820,6 +1989,55 @@ func (u *APIKeyUpsertBulk) SetName(v string) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateName() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetClientApp sets the "client_app" field.
+func (u *APIKeyUpsertBulk) SetClientApp(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetClientApp(v)
+	})
+}
+
+// UpdateClientApp sets the "client_app" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateClientApp() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateClientApp()
+	})
+}
+
+// SetManaged sets the "managed" field.
+func (u *APIKeyUpsertBulk) SetManaged(v bool) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManaged(v)
+	})
+}
+
+// UpdateManaged sets the "managed" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateManaged() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManaged()
+	})
+}
+
+// SetManagedPurpose sets the "managed_purpose" field.
+func (u *APIKeyUpsertBulk) SetManagedPurpose(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedPurpose(v)
+	})
+}
+
+// UpdateManagedPurpose sets the "managed_purpose" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateManagedPurpose() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedPurpose()
+	})
+}
+
+// ClearManagedPurpose clears the value of the "managed_purpose" field.
+func (u *APIKeyUpsertBulk) ClearManagedPurpose() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearManagedPurpose()
 	})
 }
 

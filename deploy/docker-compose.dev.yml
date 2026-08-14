@@ -9,6 +9,17 @@
 # =============================================================================
 
 services:
+  infinite-canvas:
+    build:
+      context: .
+      dockerfile: infinite-canvas.Dockerfile
+    container_name: infinite-canvas-dev
+    restart: unless-stopped
+    ports:
+      - "${CANVAS_BIND_HOST:-127.0.0.1}:${CANVAS_PORT:-3000}:3000"
+    networks:
+      - sub2api-network
+
   sub2api:
     build:
       context: ..

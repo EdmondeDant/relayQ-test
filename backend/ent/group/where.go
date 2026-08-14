@@ -1578,6 +1578,52 @@ func HasAllowedUsersWith(preds ...predicate.User) predicate.Group {
 	})
 }
 
+// HasMediaProducts applies the HasEdge predicate on the "media_products" edge.
+func HasMediaProducts() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, MediaProductsTable, MediaProductsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMediaProductsWith applies the HasEdge predicate on the "media_products" edge with a given conditions (other predicates).
+func HasMediaProductsWith(preds ...predicate.MediaProduct) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newMediaProductsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMediaSourceOffers applies the HasEdge predicate on the "media_source_offers" edge.
+func HasMediaSourceOffers() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, MediaSourceOffersTable, MediaSourceOffersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMediaSourceOffersWith applies the HasEdge predicate on the "media_source_offers" edge with a given conditions (other predicates).
+func HasMediaSourceOffersWith(preds ...predicate.MediaOffer) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newMediaSourceOffersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAccountGroups applies the HasEdge predicate on the "account_groups" edge.
 func HasAccountGroups() predicate.Group {
 	return predicate.Group(func(s *sql.Selector) {

@@ -115,6 +115,51 @@ func GroupID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldGroupID, v))
 }
 
+// MediaProductID applies equality check predicate on the "media_product_id" field. It's identical to MediaProductIDEQ.
+func MediaProductID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldMediaProductID, v))
+}
+
+// MediaOfferID applies equality check predicate on the "media_offer_id" field. It's identical to MediaOfferIDEQ.
+func MediaOfferID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldMediaOfferID, v))
+}
+
+// UpstreamPlatform applies equality check predicate on the "upstream_platform" field. It's identical to UpstreamPlatformEQ.
+func UpstreamPlatform(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldUpstreamPlatform, v))
+}
+
+// SourceGroupID applies equality check predicate on the "source_group_id" field. It's identical to SourceGroupIDEQ.
+func SourceGroupID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSourceGroupID, v))
+}
+
+// TrustedCostAmount applies equality check predicate on the "trusted_cost_amount" field. It's identical to TrustedCostAmountEQ.
+func TrustedCostAmount(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostUnit applies equality check predicate on the "trusted_cost_unit" field. It's identical to TrustedCostUnitEQ.
+func TrustedCostUnit(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostSource applies equality check predicate on the "trusted_cost_source" field. It's identical to TrustedCostSourceEQ.
+func TrustedCostSource(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostSource, v))
+}
+
+// TrustedCostVersion applies equality check predicate on the "trusted_cost_version" field. It's identical to TrustedCostVersionEQ.
+func TrustedCostVersion(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostVersion, v))
+}
+
+// CustomerPriceVersion applies equality check predicate on the "customer_price_version" field. It's identical to CustomerPriceVersionEQ.
+func CustomerPriceVersion(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCustomerPriceVersion, v))
+}
+
 // SubscriptionID applies equality check predicate on the "subscription_id" field. It's identical to SubscriptionIDEQ.
 func SubscriptionID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldSubscriptionID, v))
@@ -898,6 +943,581 @@ func GroupIDIsNil() predicate.UsageLog {
 // GroupIDNotNil applies the NotNil predicate on the "group_id" field.
 func GroupIDNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldGroupID))
+}
+
+// MediaProductIDEQ applies the EQ predicate on the "media_product_id" field.
+func MediaProductIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldMediaProductID, v))
+}
+
+// MediaProductIDNEQ applies the NEQ predicate on the "media_product_id" field.
+func MediaProductIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldMediaProductID, v))
+}
+
+// MediaProductIDIn applies the In predicate on the "media_product_id" field.
+func MediaProductIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldMediaProductID, vs...))
+}
+
+// MediaProductIDNotIn applies the NotIn predicate on the "media_product_id" field.
+func MediaProductIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldMediaProductID, vs...))
+}
+
+// MediaProductIDGT applies the GT predicate on the "media_product_id" field.
+func MediaProductIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldMediaProductID, v))
+}
+
+// MediaProductIDGTE applies the GTE predicate on the "media_product_id" field.
+func MediaProductIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldMediaProductID, v))
+}
+
+// MediaProductIDLT applies the LT predicate on the "media_product_id" field.
+func MediaProductIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldMediaProductID, v))
+}
+
+// MediaProductIDLTE applies the LTE predicate on the "media_product_id" field.
+func MediaProductIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldMediaProductID, v))
+}
+
+// MediaProductIDIsNil applies the IsNil predicate on the "media_product_id" field.
+func MediaProductIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldMediaProductID))
+}
+
+// MediaProductIDNotNil applies the NotNil predicate on the "media_product_id" field.
+func MediaProductIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldMediaProductID))
+}
+
+// MediaOfferIDEQ applies the EQ predicate on the "media_offer_id" field.
+func MediaOfferIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDNEQ applies the NEQ predicate on the "media_offer_id" field.
+func MediaOfferIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDIn applies the In predicate on the "media_offer_id" field.
+func MediaOfferIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldMediaOfferID, vs...))
+}
+
+// MediaOfferIDNotIn applies the NotIn predicate on the "media_offer_id" field.
+func MediaOfferIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldMediaOfferID, vs...))
+}
+
+// MediaOfferIDGT applies the GT predicate on the "media_offer_id" field.
+func MediaOfferIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDGTE applies the GTE predicate on the "media_offer_id" field.
+func MediaOfferIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDLT applies the LT predicate on the "media_offer_id" field.
+func MediaOfferIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDLTE applies the LTE predicate on the "media_offer_id" field.
+func MediaOfferIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldMediaOfferID, v))
+}
+
+// MediaOfferIDIsNil applies the IsNil predicate on the "media_offer_id" field.
+func MediaOfferIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldMediaOfferID))
+}
+
+// MediaOfferIDNotNil applies the NotNil predicate on the "media_offer_id" field.
+func MediaOfferIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldMediaOfferID))
+}
+
+// UpstreamPlatformEQ applies the EQ predicate on the "upstream_platform" field.
+func UpstreamPlatformEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformNEQ applies the NEQ predicate on the "upstream_platform" field.
+func UpstreamPlatformNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformIn applies the In predicate on the "upstream_platform" field.
+func UpstreamPlatformIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldUpstreamPlatform, vs...))
+}
+
+// UpstreamPlatformNotIn applies the NotIn predicate on the "upstream_platform" field.
+func UpstreamPlatformNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldUpstreamPlatform, vs...))
+}
+
+// UpstreamPlatformGT applies the GT predicate on the "upstream_platform" field.
+func UpstreamPlatformGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformGTE applies the GTE predicate on the "upstream_platform" field.
+func UpstreamPlatformGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformLT applies the LT predicate on the "upstream_platform" field.
+func UpstreamPlatformLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformLTE applies the LTE predicate on the "upstream_platform" field.
+func UpstreamPlatformLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformContains applies the Contains predicate on the "upstream_platform" field.
+func UpstreamPlatformContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformHasPrefix applies the HasPrefix predicate on the "upstream_platform" field.
+func UpstreamPlatformHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformHasSuffix applies the HasSuffix predicate on the "upstream_platform" field.
+func UpstreamPlatformHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformIsNil applies the IsNil predicate on the "upstream_platform" field.
+func UpstreamPlatformIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldUpstreamPlatform))
+}
+
+// UpstreamPlatformNotNil applies the NotNil predicate on the "upstream_platform" field.
+func UpstreamPlatformNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldUpstreamPlatform))
+}
+
+// UpstreamPlatformEqualFold applies the EqualFold predicate on the "upstream_platform" field.
+func UpstreamPlatformEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldUpstreamPlatform, v))
+}
+
+// UpstreamPlatformContainsFold applies the ContainsFold predicate on the "upstream_platform" field.
+func UpstreamPlatformContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldUpstreamPlatform, v))
+}
+
+// SourceGroupIDEQ applies the EQ predicate on the "source_group_id" field.
+func SourceGroupIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDNEQ applies the NEQ predicate on the "source_group_id" field.
+func SourceGroupIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDIn applies the In predicate on the "source_group_id" field.
+func SourceGroupIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldSourceGroupID, vs...))
+}
+
+// SourceGroupIDNotIn applies the NotIn predicate on the "source_group_id" field.
+func SourceGroupIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldSourceGroupID, vs...))
+}
+
+// SourceGroupIDGT applies the GT predicate on the "source_group_id" field.
+func SourceGroupIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDGTE applies the GTE predicate on the "source_group_id" field.
+func SourceGroupIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDLT applies the LT predicate on the "source_group_id" field.
+func SourceGroupIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDLTE applies the LTE predicate on the "source_group_id" field.
+func SourceGroupIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldSourceGroupID, v))
+}
+
+// SourceGroupIDIsNil applies the IsNil predicate on the "source_group_id" field.
+func SourceGroupIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldSourceGroupID))
+}
+
+// SourceGroupIDNotNil applies the NotNil predicate on the "source_group_id" field.
+func SourceGroupIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldSourceGroupID))
+}
+
+// TrustedCostAmountEQ applies the EQ predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountNEQ applies the NEQ predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountIn applies the In predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldTrustedCostAmount, vs...))
+}
+
+// TrustedCostAmountNotIn applies the NotIn predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldTrustedCostAmount, vs...))
+}
+
+// TrustedCostAmountGT applies the GT predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountGTE applies the GTE predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountLT applies the LT predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountLTE applies the LTE predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldTrustedCostAmount, v))
+}
+
+// TrustedCostAmountIsNil applies the IsNil predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldTrustedCostAmount))
+}
+
+// TrustedCostAmountNotNil applies the NotNil predicate on the "trusted_cost_amount" field.
+func TrustedCostAmountNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldTrustedCostAmount))
+}
+
+// TrustedCostUnitEQ applies the EQ predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitNEQ applies the NEQ predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitIn applies the In predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldTrustedCostUnit, vs...))
+}
+
+// TrustedCostUnitNotIn applies the NotIn predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldTrustedCostUnit, vs...))
+}
+
+// TrustedCostUnitGT applies the GT predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitGTE applies the GTE predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitLT applies the LT predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitLTE applies the LTE predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitContains applies the Contains predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitHasPrefix applies the HasPrefix predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitHasSuffix applies the HasSuffix predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitIsNil applies the IsNil predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldTrustedCostUnit))
+}
+
+// TrustedCostUnitNotNil applies the NotNil predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldTrustedCostUnit))
+}
+
+// TrustedCostUnitEqualFold applies the EqualFold predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostUnitContainsFold applies the ContainsFold predicate on the "trusted_cost_unit" field.
+func TrustedCostUnitContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldTrustedCostUnit, v))
+}
+
+// TrustedCostSourceEQ applies the EQ predicate on the "trusted_cost_source" field.
+func TrustedCostSourceEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceNEQ applies the NEQ predicate on the "trusted_cost_source" field.
+func TrustedCostSourceNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceIn applies the In predicate on the "trusted_cost_source" field.
+func TrustedCostSourceIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldTrustedCostSource, vs...))
+}
+
+// TrustedCostSourceNotIn applies the NotIn predicate on the "trusted_cost_source" field.
+func TrustedCostSourceNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldTrustedCostSource, vs...))
+}
+
+// TrustedCostSourceGT applies the GT predicate on the "trusted_cost_source" field.
+func TrustedCostSourceGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceGTE applies the GTE predicate on the "trusted_cost_source" field.
+func TrustedCostSourceGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceLT applies the LT predicate on the "trusted_cost_source" field.
+func TrustedCostSourceLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceLTE applies the LTE predicate on the "trusted_cost_source" field.
+func TrustedCostSourceLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceContains applies the Contains predicate on the "trusted_cost_source" field.
+func TrustedCostSourceContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceHasPrefix applies the HasPrefix predicate on the "trusted_cost_source" field.
+func TrustedCostSourceHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceHasSuffix applies the HasSuffix predicate on the "trusted_cost_source" field.
+func TrustedCostSourceHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceIsNil applies the IsNil predicate on the "trusted_cost_source" field.
+func TrustedCostSourceIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldTrustedCostSource))
+}
+
+// TrustedCostSourceNotNil applies the NotNil predicate on the "trusted_cost_source" field.
+func TrustedCostSourceNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldTrustedCostSource))
+}
+
+// TrustedCostSourceEqualFold applies the EqualFold predicate on the "trusted_cost_source" field.
+func TrustedCostSourceEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldTrustedCostSource, v))
+}
+
+// TrustedCostSourceContainsFold applies the ContainsFold predicate on the "trusted_cost_source" field.
+func TrustedCostSourceContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldTrustedCostSource, v))
+}
+
+// TrustedCostVersionEQ applies the EQ predicate on the "trusted_cost_version" field.
+func TrustedCostVersionEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionNEQ applies the NEQ predicate on the "trusted_cost_version" field.
+func TrustedCostVersionNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionIn applies the In predicate on the "trusted_cost_version" field.
+func TrustedCostVersionIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldTrustedCostVersion, vs...))
+}
+
+// TrustedCostVersionNotIn applies the NotIn predicate on the "trusted_cost_version" field.
+func TrustedCostVersionNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldTrustedCostVersion, vs...))
+}
+
+// TrustedCostVersionGT applies the GT predicate on the "trusted_cost_version" field.
+func TrustedCostVersionGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionGTE applies the GTE predicate on the "trusted_cost_version" field.
+func TrustedCostVersionGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionLT applies the LT predicate on the "trusted_cost_version" field.
+func TrustedCostVersionLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionLTE applies the LTE predicate on the "trusted_cost_version" field.
+func TrustedCostVersionLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionContains applies the Contains predicate on the "trusted_cost_version" field.
+func TrustedCostVersionContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionHasPrefix applies the HasPrefix predicate on the "trusted_cost_version" field.
+func TrustedCostVersionHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionHasSuffix applies the HasSuffix predicate on the "trusted_cost_version" field.
+func TrustedCostVersionHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionIsNil applies the IsNil predicate on the "trusted_cost_version" field.
+func TrustedCostVersionIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldTrustedCostVersion))
+}
+
+// TrustedCostVersionNotNil applies the NotNil predicate on the "trusted_cost_version" field.
+func TrustedCostVersionNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldTrustedCostVersion))
+}
+
+// TrustedCostVersionEqualFold applies the EqualFold predicate on the "trusted_cost_version" field.
+func TrustedCostVersionEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldTrustedCostVersion, v))
+}
+
+// TrustedCostVersionContainsFold applies the ContainsFold predicate on the "trusted_cost_version" field.
+func TrustedCostVersionContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldTrustedCostVersion, v))
+}
+
+// CustomerPriceVersionEQ applies the EQ predicate on the "customer_price_version" field.
+func CustomerPriceVersionEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionNEQ applies the NEQ predicate on the "customer_price_version" field.
+func CustomerPriceVersionNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionIn applies the In predicate on the "customer_price_version" field.
+func CustomerPriceVersionIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldCustomerPriceVersion, vs...))
+}
+
+// CustomerPriceVersionNotIn applies the NotIn predicate on the "customer_price_version" field.
+func CustomerPriceVersionNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldCustomerPriceVersion, vs...))
+}
+
+// CustomerPriceVersionGT applies the GT predicate on the "customer_price_version" field.
+func CustomerPriceVersionGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionGTE applies the GTE predicate on the "customer_price_version" field.
+func CustomerPriceVersionGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionLT applies the LT predicate on the "customer_price_version" field.
+func CustomerPriceVersionLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionLTE applies the LTE predicate on the "customer_price_version" field.
+func CustomerPriceVersionLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionContains applies the Contains predicate on the "customer_price_version" field.
+func CustomerPriceVersionContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionHasPrefix applies the HasPrefix predicate on the "customer_price_version" field.
+func CustomerPriceVersionHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionHasSuffix applies the HasSuffix predicate on the "customer_price_version" field.
+func CustomerPriceVersionHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionIsNil applies the IsNil predicate on the "customer_price_version" field.
+func CustomerPriceVersionIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldCustomerPriceVersion))
+}
+
+// CustomerPriceVersionNotNil applies the NotNil predicate on the "customer_price_version" field.
+func CustomerPriceVersionNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldCustomerPriceVersion))
+}
+
+// CustomerPriceVersionEqualFold applies the EqualFold predicate on the "customer_price_version" field.
+func CustomerPriceVersionEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldCustomerPriceVersion, v))
+}
+
+// CustomerPriceVersionContainsFold applies the ContainsFold predicate on the "customer_price_version" field.
+func CustomerPriceVersionContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldCustomerPriceVersion, v))
 }
 
 // SubscriptionIDEQ applies the EQ predicate on the "subscription_id" field.

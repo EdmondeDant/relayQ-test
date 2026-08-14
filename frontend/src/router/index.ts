@@ -251,6 +251,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/canvas',
+    name: 'Canvas',
+    component: () => import('@/views/user/CanvasView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Infinite Canvas',
+      titleKey: 'canvas.title',
+      descriptionKey: 'canvas.description'
+    }
+  },
+  {
     path: '/redeem',
     name: 'Redeem',
     component: () => import('@/views/user/RedeemView.vue'),
@@ -529,6 +541,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Channel Monitor',
       titleKey: 'admin.channelMonitor.title',
       descriptionKey: 'admin.channelMonitor.description'
+    }
+  },
+  {
+    path: '/admin/media-products',
+    name: 'AdminMediaProducts',
+    component: () => import('@/views/admin/MediaProductsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Media Products',
+      titleKey: 'admin.mediaProducts.title',
+      descriptionKey: 'admin.mediaProducts.description'
     }
   },
   {

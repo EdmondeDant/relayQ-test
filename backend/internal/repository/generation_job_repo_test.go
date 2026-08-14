@@ -38,6 +38,11 @@ func newGenerationJobRepoSQLite(t *testing.T) (*generationJobRepository, *dbent.
 			user_id INTEGER NOT NULL,
 			api_key_id INTEGER NOT NULL,
 			group_id INTEGER NULL,
+			product_id INTEGER NULL,
+			offer_id INTEGER NULL,
+			source_group_id INTEGER NULL,
+			operation TEXT NULL,
+			customer_price_version TEXT NULL,
 			account_id INTEGER NOT NULL,
 			upstream_generation_id TEXT NULL,
 			status TEXT NOT NULL,
@@ -79,6 +84,11 @@ func TestGenerationJobRepositoryCreateAndLookupFullMapping(t *testing.T) {
 	repo, _ := newGenerationJobRepoSQLite(t)
 	ctx := context.Background()
 	groupID := int64(3)
+	productID := int64(10)
+	offerID := int64(11)
+	sourceGroupID := int64(12)
+	operation := "generations"
+	customerPriceVersion := "retail-2026-08"
 	upstreamID := "upstream-123"
 	upstreamStatus := "PENDING"
 	errorCode := "waiting"
@@ -103,6 +113,11 @@ func TestGenerationJobRepositoryCreateAndLookupFullMapping(t *testing.T) {
 		UserID:                      1,
 		APIKeyID:                    2,
 		GroupID:                     &groupID,
+		ProductID:                   &productID,
+		OfferID:                     &offerID,
+		SourceGroupID:               &sourceGroupID,
+		Operation:                   &operation,
+		CustomerPriceVersion:        &customerPriceVersion,
 		AccountID:                   4,
 		UpstreamGenerationID:        &upstreamID,
 		Status:                      service.GenerationJobStatusQueued,
@@ -152,6 +167,11 @@ func TestGenerationJobRepositoryCreateAndLookupFullMapping(t *testing.T) {
 	require.Equal(t, job.UserID, byPublicID.UserID)
 	require.Equal(t, job.APIKeyID, byPublicID.APIKeyID)
 	require.Equal(t, job.GroupID, byPublicID.GroupID)
+	require.Equal(t, job.ProductID, byPublicID.ProductID)
+	require.Equal(t, job.OfferID, byPublicID.OfferID)
+	require.Equal(t, job.SourceGroupID, byPublicID.SourceGroupID)
+	require.Equal(t, job.Operation, byPublicID.Operation)
+	require.Equal(t, job.CustomerPriceVersion, byPublicID.CustomerPriceVersion)
 	require.Equal(t, job.AccountID, byPublicID.AccountID)
 	require.Equal(t, job.UpstreamGenerationID, byPublicID.UpstreamGenerationID)
 	require.Equal(t, job.Status, byPublicID.Status)

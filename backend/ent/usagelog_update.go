@@ -249,6 +249,214 @@ func (_u *UsageLogUpdate) ClearGroupID() *UsageLogUpdate {
 	return _u
 }
 
+// SetMediaProductID sets the "media_product_id" field.
+func (_u *UsageLogUpdate) SetMediaProductID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetMediaProductID()
+	_u.mutation.SetMediaProductID(v)
+	return _u
+}
+
+// SetNillableMediaProductID sets the "media_product_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableMediaProductID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetMediaProductID(*v)
+	}
+	return _u
+}
+
+// AddMediaProductID adds value to the "media_product_id" field.
+func (_u *UsageLogUpdate) AddMediaProductID(v int64) *UsageLogUpdate {
+	_u.mutation.AddMediaProductID(v)
+	return _u
+}
+
+// ClearMediaProductID clears the value of the "media_product_id" field.
+func (_u *UsageLogUpdate) ClearMediaProductID() *UsageLogUpdate {
+	_u.mutation.ClearMediaProductID()
+	return _u
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (_u *UsageLogUpdate) SetMediaOfferID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetMediaOfferID()
+	_u.mutation.SetMediaOfferID(v)
+	return _u
+}
+
+// SetNillableMediaOfferID sets the "media_offer_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableMediaOfferID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetMediaOfferID(*v)
+	}
+	return _u
+}
+
+// AddMediaOfferID adds value to the "media_offer_id" field.
+func (_u *UsageLogUpdate) AddMediaOfferID(v int64) *UsageLogUpdate {
+	_u.mutation.AddMediaOfferID(v)
+	return _u
+}
+
+// ClearMediaOfferID clears the value of the "media_offer_id" field.
+func (_u *UsageLogUpdate) ClearMediaOfferID() *UsageLogUpdate {
+	_u.mutation.ClearMediaOfferID()
+	return _u
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (_u *UsageLogUpdate) SetUpstreamPlatform(v string) *UsageLogUpdate {
+	_u.mutation.SetUpstreamPlatform(v)
+	return _u
+}
+
+// SetNillableUpstreamPlatform sets the "upstream_platform" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableUpstreamPlatform(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetUpstreamPlatform(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamPlatform clears the value of the "upstream_platform" field.
+func (_u *UsageLogUpdate) ClearUpstreamPlatform() *UsageLogUpdate {
+	_u.mutation.ClearUpstreamPlatform()
+	return _u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *UsageLogUpdate) SetSourceGroupID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableSourceGroupID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *UsageLogUpdate) AddSourceGroupID(v int64) *UsageLogUpdate {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *UsageLogUpdate) ClearSourceGroupID() *UsageLogUpdate {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (_u *UsageLogUpdate) SetTrustedCostAmount(v float64) *UsageLogUpdate {
+	_u.mutation.ResetTrustedCostAmount()
+	_u.mutation.SetTrustedCostAmount(v)
+	return _u
+}
+
+// SetNillableTrustedCostAmount sets the "trusted_cost_amount" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableTrustedCostAmount(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetTrustedCostAmount(*v)
+	}
+	return _u
+}
+
+// AddTrustedCostAmount adds value to the "trusted_cost_amount" field.
+func (_u *UsageLogUpdate) AddTrustedCostAmount(v float64) *UsageLogUpdate {
+	_u.mutation.AddTrustedCostAmount(v)
+	return _u
+}
+
+// ClearTrustedCostAmount clears the value of the "trusted_cost_amount" field.
+func (_u *UsageLogUpdate) ClearTrustedCostAmount() *UsageLogUpdate {
+	_u.mutation.ClearTrustedCostAmount()
+	return _u
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (_u *UsageLogUpdate) SetTrustedCostUnit(v string) *UsageLogUpdate {
+	_u.mutation.SetTrustedCostUnit(v)
+	return _u
+}
+
+// SetNillableTrustedCostUnit sets the "trusted_cost_unit" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableTrustedCostUnit(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetTrustedCostUnit(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostUnit clears the value of the "trusted_cost_unit" field.
+func (_u *UsageLogUpdate) ClearTrustedCostUnit() *UsageLogUpdate {
+	_u.mutation.ClearTrustedCostUnit()
+	return _u
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (_u *UsageLogUpdate) SetTrustedCostSource(v string) *UsageLogUpdate {
+	_u.mutation.SetTrustedCostSource(v)
+	return _u
+}
+
+// SetNillableTrustedCostSource sets the "trusted_cost_source" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableTrustedCostSource(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetTrustedCostSource(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostSource clears the value of the "trusted_cost_source" field.
+func (_u *UsageLogUpdate) ClearTrustedCostSource() *UsageLogUpdate {
+	_u.mutation.ClearTrustedCostSource()
+	return _u
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (_u *UsageLogUpdate) SetTrustedCostVersion(v string) *UsageLogUpdate {
+	_u.mutation.SetTrustedCostVersion(v)
+	return _u
+}
+
+// SetNillableTrustedCostVersion sets the "trusted_cost_version" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableTrustedCostVersion(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetTrustedCostVersion(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostVersion clears the value of the "trusted_cost_version" field.
+func (_u *UsageLogUpdate) ClearTrustedCostVersion() *UsageLogUpdate {
+	_u.mutation.ClearTrustedCostVersion()
+	return _u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_u *UsageLogUpdate) SetCustomerPriceVersion(v string) *UsageLogUpdate {
+	_u.mutation.SetCustomerPriceVersion(v)
+	return _u
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableCustomerPriceVersion(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetCustomerPriceVersion(*v)
+	}
+	return _u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (_u *UsageLogUpdate) ClearCustomerPriceVersion() *UsageLogUpdate {
+	_u.mutation.ClearCustomerPriceVersion()
+	return _u
+}
+
 // SetSubscriptionID sets the "subscription_id" field.
 func (_u *UsageLogUpdate) SetSubscriptionID(v int64) *UsageLogUpdate {
 	_u.mutation.SetSubscriptionID(v)
@@ -949,6 +1157,31 @@ func (_u *UsageLogUpdate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.UpstreamPlatform(); ok {
+		if err := usagelog.UpstreamPlatformValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_platform", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_platform": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostUnit(); ok {
+		if err := usagelog.TrustedCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_unit", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostSource(); ok {
+		if err := usagelog.TrustedCostSourceValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostVersion(); ok {
+		if err := usagelog.TrustedCostVersionValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CustomerPriceVersion(); ok {
+		if err := usagelog.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.customer_price_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1047,6 +1280,72 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.MediaProductID(); ok {
+		_spec.SetField(usagelog.FieldMediaProductID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedMediaProductID(); ok {
+		_spec.AddField(usagelog.FieldMediaProductID, field.TypeInt64, value)
+	}
+	if _u.mutation.MediaProductIDCleared() {
+		_spec.ClearField(usagelog.FieldMediaProductID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.MediaOfferID(); ok {
+		_spec.SetField(usagelog.FieldMediaOfferID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedMediaOfferID(); ok {
+		_spec.AddField(usagelog.FieldMediaOfferID, field.TypeInt64, value)
+	}
+	if _u.mutation.MediaOfferIDCleared() {
+		_spec.ClearField(usagelog.FieldMediaOfferID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.UpstreamPlatform(); ok {
+		_spec.SetField(usagelog.FieldUpstreamPlatform, field.TypeString, value)
+	}
+	if _u.mutation.UpstreamPlatformCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamPlatform, field.TypeString)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(usagelog.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(usagelog.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(usagelog.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.TrustedCostAmount(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTrustedCostAmount(); ok {
+		_spec.AddField(usagelog.FieldTrustedCostAmount, field.TypeFloat64, value)
+	}
+	if _u.mutation.TrustedCostAmountCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostAmount, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TrustedCostUnit(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostUnit, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostUnitCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostUnit, field.TypeString)
+	}
+	if value, ok := _u.mutation.TrustedCostSource(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostSource, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostSourceCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostSource, field.TypeString)
+	}
+	if value, ok := _u.mutation.TrustedCostVersion(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostVersion, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostVersionCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostVersion, field.TypeString)
+	}
+	if value, ok := _u.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(usagelog.FieldCustomerPriceVersion, field.TypeString, value)
+	}
+	if _u.mutation.CustomerPriceVersionCleared() {
+		_spec.ClearField(usagelog.FieldCustomerPriceVersion, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1592,6 +1891,214 @@ func (_u *UsageLogUpdateOne) SetNillableGroupID(v *int64) *UsageLogUpdateOne {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *UsageLogUpdateOne) ClearGroupID() *UsageLogUpdateOne {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetMediaProductID sets the "media_product_id" field.
+func (_u *UsageLogUpdateOne) SetMediaProductID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetMediaProductID()
+	_u.mutation.SetMediaProductID(v)
+	return _u
+}
+
+// SetNillableMediaProductID sets the "media_product_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableMediaProductID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetMediaProductID(*v)
+	}
+	return _u
+}
+
+// AddMediaProductID adds value to the "media_product_id" field.
+func (_u *UsageLogUpdateOne) AddMediaProductID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddMediaProductID(v)
+	return _u
+}
+
+// ClearMediaProductID clears the value of the "media_product_id" field.
+func (_u *UsageLogUpdateOne) ClearMediaProductID() *UsageLogUpdateOne {
+	_u.mutation.ClearMediaProductID()
+	return _u
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (_u *UsageLogUpdateOne) SetMediaOfferID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetMediaOfferID()
+	_u.mutation.SetMediaOfferID(v)
+	return _u
+}
+
+// SetNillableMediaOfferID sets the "media_offer_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableMediaOfferID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetMediaOfferID(*v)
+	}
+	return _u
+}
+
+// AddMediaOfferID adds value to the "media_offer_id" field.
+func (_u *UsageLogUpdateOne) AddMediaOfferID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddMediaOfferID(v)
+	return _u
+}
+
+// ClearMediaOfferID clears the value of the "media_offer_id" field.
+func (_u *UsageLogUpdateOne) ClearMediaOfferID() *UsageLogUpdateOne {
+	_u.mutation.ClearMediaOfferID()
+	return _u
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (_u *UsageLogUpdateOne) SetUpstreamPlatform(v string) *UsageLogUpdateOne {
+	_u.mutation.SetUpstreamPlatform(v)
+	return _u
+}
+
+// SetNillableUpstreamPlatform sets the "upstream_platform" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableUpstreamPlatform(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetUpstreamPlatform(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamPlatform clears the value of the "upstream_platform" field.
+func (_u *UsageLogUpdateOne) ClearUpstreamPlatform() *UsageLogUpdateOne {
+	_u.mutation.ClearUpstreamPlatform()
+	return _u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *UsageLogUpdateOne) SetSourceGroupID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableSourceGroupID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *UsageLogUpdateOne) AddSourceGroupID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *UsageLogUpdateOne) ClearSourceGroupID() *UsageLogUpdateOne {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (_u *UsageLogUpdateOne) SetTrustedCostAmount(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetTrustedCostAmount()
+	_u.mutation.SetTrustedCostAmount(v)
+	return _u
+}
+
+// SetNillableTrustedCostAmount sets the "trusted_cost_amount" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableTrustedCostAmount(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetTrustedCostAmount(*v)
+	}
+	return _u
+}
+
+// AddTrustedCostAmount adds value to the "trusted_cost_amount" field.
+func (_u *UsageLogUpdateOne) AddTrustedCostAmount(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddTrustedCostAmount(v)
+	return _u
+}
+
+// ClearTrustedCostAmount clears the value of the "trusted_cost_amount" field.
+func (_u *UsageLogUpdateOne) ClearTrustedCostAmount() *UsageLogUpdateOne {
+	_u.mutation.ClearTrustedCostAmount()
+	return _u
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (_u *UsageLogUpdateOne) SetTrustedCostUnit(v string) *UsageLogUpdateOne {
+	_u.mutation.SetTrustedCostUnit(v)
+	return _u
+}
+
+// SetNillableTrustedCostUnit sets the "trusted_cost_unit" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableTrustedCostUnit(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetTrustedCostUnit(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostUnit clears the value of the "trusted_cost_unit" field.
+func (_u *UsageLogUpdateOne) ClearTrustedCostUnit() *UsageLogUpdateOne {
+	_u.mutation.ClearTrustedCostUnit()
+	return _u
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (_u *UsageLogUpdateOne) SetTrustedCostSource(v string) *UsageLogUpdateOne {
+	_u.mutation.SetTrustedCostSource(v)
+	return _u
+}
+
+// SetNillableTrustedCostSource sets the "trusted_cost_source" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableTrustedCostSource(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetTrustedCostSource(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostSource clears the value of the "trusted_cost_source" field.
+func (_u *UsageLogUpdateOne) ClearTrustedCostSource() *UsageLogUpdateOne {
+	_u.mutation.ClearTrustedCostSource()
+	return _u
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (_u *UsageLogUpdateOne) SetTrustedCostVersion(v string) *UsageLogUpdateOne {
+	_u.mutation.SetTrustedCostVersion(v)
+	return _u
+}
+
+// SetNillableTrustedCostVersion sets the "trusted_cost_version" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableTrustedCostVersion(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetTrustedCostVersion(*v)
+	}
+	return _u
+}
+
+// ClearTrustedCostVersion clears the value of the "trusted_cost_version" field.
+func (_u *UsageLogUpdateOne) ClearTrustedCostVersion() *UsageLogUpdateOne {
+	_u.mutation.ClearTrustedCostVersion()
+	return _u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_u *UsageLogUpdateOne) SetCustomerPriceVersion(v string) *UsageLogUpdateOne {
+	_u.mutation.SetCustomerPriceVersion(v)
+	return _u
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableCustomerPriceVersion(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetCustomerPriceVersion(*v)
+	}
+	return _u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (_u *UsageLogUpdateOne) ClearCustomerPriceVersion() *UsageLogUpdateOne {
+	_u.mutation.ClearCustomerPriceVersion()
 	return _u
 }
 
@@ -2308,6 +2815,31 @@ func (_u *UsageLogUpdateOne) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.UpstreamPlatform(); ok {
+		if err := usagelog.UpstreamPlatformValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_platform", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_platform": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostUnit(); ok {
+		if err := usagelog.TrustedCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_unit", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostSource(); ok {
+		if err := usagelog.TrustedCostSourceValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TrustedCostVersion(); ok {
+		if err := usagelog.TrustedCostVersionValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CustomerPriceVersion(); ok {
+		if err := usagelog.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.customer_price_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -2423,6 +2955,72 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.MediaProductID(); ok {
+		_spec.SetField(usagelog.FieldMediaProductID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedMediaProductID(); ok {
+		_spec.AddField(usagelog.FieldMediaProductID, field.TypeInt64, value)
+	}
+	if _u.mutation.MediaProductIDCleared() {
+		_spec.ClearField(usagelog.FieldMediaProductID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.MediaOfferID(); ok {
+		_spec.SetField(usagelog.FieldMediaOfferID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedMediaOfferID(); ok {
+		_spec.AddField(usagelog.FieldMediaOfferID, field.TypeInt64, value)
+	}
+	if _u.mutation.MediaOfferIDCleared() {
+		_spec.ClearField(usagelog.FieldMediaOfferID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.UpstreamPlatform(); ok {
+		_spec.SetField(usagelog.FieldUpstreamPlatform, field.TypeString, value)
+	}
+	if _u.mutation.UpstreamPlatformCleared() {
+		_spec.ClearField(usagelog.FieldUpstreamPlatform, field.TypeString)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(usagelog.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(usagelog.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(usagelog.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.TrustedCostAmount(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTrustedCostAmount(); ok {
+		_spec.AddField(usagelog.FieldTrustedCostAmount, field.TypeFloat64, value)
+	}
+	if _u.mutation.TrustedCostAmountCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostAmount, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TrustedCostUnit(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostUnit, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostUnitCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostUnit, field.TypeString)
+	}
+	if value, ok := _u.mutation.TrustedCostSource(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostSource, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostSourceCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostSource, field.TypeString)
+	}
+	if value, ok := _u.mutation.TrustedCostVersion(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostVersion, field.TypeString, value)
+	}
+	if _u.mutation.TrustedCostVersionCleared() {
+		_spec.ClearField(usagelog.FieldTrustedCostVersion, field.TypeString)
+	}
+	if value, ok := _u.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(usagelog.FieldCustomerPriceVersion, field.TypeString, value)
+	}
+	if _u.mutation.CustomerPriceVersionCleared() {
+		_spec.ClearField(usagelog.FieldCustomerPriceVersion, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)

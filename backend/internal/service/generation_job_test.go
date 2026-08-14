@@ -7,6 +7,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestIsTerminalMediaStatusAliases(t *testing.T) {
+	for _, status := range []string{"succeeded", "completed", "SUCCEEDED", " Completed ", "ready", "done"} {
+		require.True(t, IsTerminalMediaSuccessStatus(status), status)
+		require.False(t, IsTerminalMediaFailureStatus(status), status)
+	}
+	for _, status := range []string{"failed", "unknown", "cancelled", "canceled", "error", "rejected", "expired", "FAILED", " Cancelled "} {
+		require.True(t, IsTerminalMediaFailureStatus(status), status)
+		require.False(t, IsTerminalMediaSuccessStatus(status), status)
+	}
+	for _, status := range []string{"", "queued", "running", "in_progress", "submitting"} {
+		require.False(t, IsTerminalMediaSuccessStatus(status), status)
+		require.False(t, IsTerminalMediaFailureStatus(status), status)
+	}
+}
+
 func TestCanTransitionGenerationJobStatus(t *testing.T) {
 	tests := []struct {
 		from    GenerationJobStatus

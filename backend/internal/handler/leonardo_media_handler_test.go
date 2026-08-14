@@ -93,6 +93,33 @@ func TestLeonardoOpenAIVideoValidatesOfficialSpecifications(t *testing.T) {
 	}
 }
 
+func TestLeonardoOpenAIVideoAcceptsCanvasMultipart(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "wan-2.7"))
+	require.NoError(t, writer.WriteField("prompt", "cow walking"))
+	require.NoError(t, writer.WriteField("seconds", "2"))
+	require.NoError(t, writer.WriteField("size", "720x1280"))
+	require.NoError(t, writer.WriteField("resolution_name", "480p"))
+	require.NoError(t, writer.WriteField("preset", "normal"))
+	require.NoError(t, writer.Close())
+
+	repo := &leonardoMediaAccountRepoStub{}
+	handler := NewLeonardoMediaHandler(service.NewLeonardoMediaCreateService(repo, service.NewLeonardoImageCreateOrchestrator(nil, nil, nil, nil, nil)), nil)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	apiKey := leonardoMediaValidAPIKey()
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: apiKey.User.ID})
+
+	handler.OpenAIVideoGenerations(c)
+
+	require.NotEqual(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+}
+
 func TestLeonardoRawVideoValidatesModelParameters(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
@@ -242,7 +269,7 @@ func TestLeonardoOpenAIImagesAsyncGeneratesIdempotencyKey(t *testing.T) {
 	handler := NewLeonardoMediaHandler(service.NewLeonardoMediaCreateService(repo, service.NewLeonardoImageCreateOrchestrator(quotes, nil, nil, nil, nil)), service.NewLeonardoMediaGetService(nil, nil))
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"flux-schnell","prompt":"cat","async":true}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"flux-schnell","prompt":"cat","output_format":"png","async":true}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	apiKey := leonardoMediaValidAPIKey()
 	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)

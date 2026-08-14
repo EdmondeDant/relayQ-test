@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
   // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
   const backendUrl = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
+  const canvasUrl = env.VITE_CANVAS_PROXY_TARGET || 'http://127.0.0.1:3001'
   const devPort = Number(env.VITE_DEV_PORT || 3000)
 
   return {
@@ -110,11 +111,20 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: devPort,
       proxy: {
+        '/canvas-app': {
+          target: canvasUrl,
+          changeOrigin: true
+        },
         '/api': {
           target: backendUrl,
           changeOrigin: true
         },
         '/v1': {
+          target: backendUrl,
+          changeOrigin: true
+        },
+        // Canvas video compatible mode may use /v2 base.
+        '/v2': {
           target: backendUrl,
           changeOrigin: true
         },

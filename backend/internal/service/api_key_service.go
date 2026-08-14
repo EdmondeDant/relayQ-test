@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -44,6 +45,9 @@ const (
 	// DB 写失败后的短退避，避免请求路径持续同步重试造成写风暴与高延迟。
 	apiKeyLastUsedFailBackoff  = 5 * time.Second
 	playgroundAPIKeyNamePrefix = "RelayQ Online Experience"
+	canvasAPIKeyName           = "Infinite Canvas"
+	canvasClientApp            = "infinite-canvas"
+	canvasManagedPurpose       = "canvas_bootstrap"
 )
 
 type APIKeyRepository interface {
@@ -207,6 +211,7 @@ type APIKeyService struct {
 	authGroup             singleflight.Group
 	lastUsedTouchL1       sync.Map // keyID -> nextAllowedAt(time.Time)
 	lastUsedTouchSF       singleflight.Group
+	canvasRouting         *CanvasRoutingService
 }
 
 // NewAPIKeyService 创建API Key服务实例
@@ -236,6 +241,24 @@ func NewAPIKeyService(
 // Called after construction (e.g. in wire) to avoid circular dependencies.
 func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidator) {
 	s.rateLimitCacheInvalid = inv
+}
+
+func (s *APIKeyService) SetCanvasRoutingService(routing *CanvasRoutingService) {
+	s.canvasRouting = routing
+}
+
+func (s *APIKeyService) ResolveCanvasRoute(ctx context.Context, req CanvasRouteRequest) (*CanvasRoute, error) {
+	if s.canvasRouting == nil {
+		return nil, ErrCanvasRouteNotFound
+	}
+	return s.canvasRouting.Resolve(ctx, req)
+}
+
+func (s *APIKeyService) GetCanvasCatalog(ctx context.Context, userID int64) ([]CanvasModel, error) {
+	if s.canvasRouting == nil {
+		return nil, ErrCanvasRouteNotFound
+	}
+	return s.canvasRouting.Catalog(ctx, userID)
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
@@ -484,13 +507,92 @@ func (s *APIKeyService) GetOrCreatePlaygroundAPIKey(ctx context.Context, userID 
 	return full, nil
 }
 
+func (s *APIKeyService) GetOrCreateCanvasAPIKey(ctx context.Context, userID int64) (*APIKey, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if !user.IsActive() {
+		return nil, ErrUserNotActive
+	}
+	findExisting := func() (*APIKey, error) {
+		finder, ok := s.apiKeyRepo.(interface {
+			GetManagedByUserAndPurpose(context.Context, int64, string, string) (*APIKey, error)
+		})
+		if !ok {
+			return nil, ErrAPIKeyNotFound
+		}
+		return finder.GetManagedByUserAndPurpose(ctx, userID, canvasClientApp, canvasManagedPurpose)
+	}
+
+	key, err := findExisting()
+	if err == nil {
+		if key.IsActive() && key.GroupID == nil {
+			s.compileAPIKeyIPRules(key)
+			return key, nil
+		}
+		key.GroupID = nil
+		key.Status = StatusActive
+		if err := s.apiKeyRepo.Update(ctx, key); err != nil {
+			return nil, fmt.Errorf("update canvas api key: %w", err)
+		}
+		s.InvalidateAuthCacheByKey(ctx, key.Key)
+		return s.apiKeyRepo.GetByID(ctx, key.ID)
+	}
+	if !errors.Is(err, ErrAPIKeyNotFound) {
+		return nil, fmt.Errorf("get canvas api key: %w", err)
+	}
+
+	keyValue, err := s.GenerateKey()
+	if err != nil {
+		return nil, fmt.Errorf("generate canvas key: %w", err)
+	}
+	purpose := canvasManagedPurpose
+	key = &APIKey{
+		UserID:         userID,
+		Key:            keyValue,
+		Name:           canvasAPIKeyName,
+		ClientApp:      canvasClientApp,
+		Managed:        true,
+		ManagedPurpose: &purpose,
+		Status:         StatusActive,
+	}
+	if err := s.apiKeyRepo.Create(ctx, key); err != nil {
+		if errors.Is(err, ErrAPIKeyExists) {
+			return findExisting()
+		}
+		return nil, fmt.Errorf("create canvas api key: %w", err)
+	}
+	return s.apiKeyRepo.GetByID(ctx, key.ID)
+}
+
 // List 获取用户的API Key列表
 func (s *APIKeyService) List(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
+	if repo, ok := s.apiKeyRepo.(interface {
+		ListVisibleByUserID(context.Context, int64, pagination.PaginationParams, APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error)
+	}); ok {
+		keys, result, err := repo.ListVisibleByUserID(ctx, userID, params, filters)
+		if err != nil {
+			return nil, nil, fmt.Errorf("list api keys: %w", err)
+		}
+		return keys, result, nil
+	}
 	keys, pagination, err := s.apiKeyRepo.ListByUserID(ctx, userID, params, filters)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
-	return keys, pagination, nil
+	visible := keys[:0]
+	for i := range keys {
+		if keys[i].Managed && keys[i].ClientApp == canvasClientApp {
+			continue
+		}
+		visible = append(visible, keys[i])
+	}
+	return visible, pagination, nil
+}
+
+func IsCanvasAPIKey(apiKey *APIKey) bool {
+	return apiKey != nil && apiKey.Managed && apiKey.ClientApp == canvasClientApp && apiKey.ManagedPurpose != nil && *apiKey.ManagedPurpose == canvasManagedPurpose
 }
 
 func (s *APIKeyService) VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error) {
@@ -576,6 +678,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 	// 验证所有权
 	if apiKey.UserID != userID {
+		return nil, ErrInsufficientPerms
+	}
+	if apiKey.Managed {
 		return nil, ErrInsufficientPerms
 	}
 
@@ -695,6 +800,13 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get api key: %w", err)
+	}
+	if apiKey.Managed {
+		return ErrInsufficientPerms
+	}
 	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)

@@ -17,10 +17,13 @@ import (
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 type LeonardoMediaHandler struct {
@@ -68,6 +71,7 @@ type leonardoOpenAIImagesRequest struct {
 	Size           string `json:"size,omitempty"`
 	Quality        string `json:"quality,omitempty"`
 	ResponseFormat string `json:"response_format,omitempty"`
+	OutputFormat   string `json:"output_format,omitempty"`
 	Async          bool   `json:"async,omitempty"`
 }
 
@@ -126,6 +130,14 @@ func (h *LeonardoMediaHandler) OpenAIVideoGenerations(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
+	// Infinite Canvas posts multipart/form-data; reuse the shared converter so
+	// Leonardo stays aligned with OpenAI/xAI video intake.
+	normalized, err := service.CanvasVideoMultipartToJSON(c.GetHeader("Content-Type"), body)
+	if err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	body = normalized
 	var shape map[string]json.RawMessage
 	if json.Unmarshal(body, &shape) != nil {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
@@ -136,9 +148,35 @@ func (h *LeonardoMediaHandler) OpenAIVideoGenerations(c *gin.Context) {
 		return
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
+	// Canvas multipart may include helper fields (resolution_name/preset) that
+	// were flattened into JSON; allow them via a tolerant decode path first.
 	var req leonardoOpenAIVideoRequest
-	if decoder.Decode(&req) != nil || ensureLeonardoMediaJSONEOF(decoder) != nil || strings.TrimSpace(req.Prompt) == "" {
+	if err := decoder.Decode(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	if req.Seconds <= 0 {
+		if seconds := gjson.GetBytes(body, "seconds"); seconds.Exists() {
+			req.Seconds = int(seconds.Int())
+		} else if duration := gjson.GetBytes(body, "duration"); duration.Exists() {
+			req.Seconds = int(duration.Int())
+		}
+	}
+	if strings.TrimSpace(req.Size) == "" {
+		req.Size = strings.TrimSpace(gjson.GetBytes(body, "size").String())
+	}
+	if req.InputReference == nil {
+		if imageURL := strings.TrimSpace(gjson.GetBytes(body, "input_reference.image_url").String()); imageURL != "" {
+			req.InputReference = &struct {
+				ImageURL string `json:"image_url"`
+			}{ImageURL: imageURL}
+		}
+	}
+	h.openAIVideoGenerationRequest(c, req)
+}
+
+func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req leonardoOpenAIVideoRequest) {
+	if strings.TrimSpace(req.Prompt) == "" {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
@@ -165,10 +203,18 @@ func (h *LeonardoMediaHandler) OpenAIVideoGenerations(c *gin.Context) {
 			return
 		}
 	}
-	body, err = json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Prompt, Parameters: leonardoMediaImageParameters{Width: width, Height: height, Quantity: 1, Duration: req.Seconds, StartFrameSource: startFrameSource}})
+	body, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Prompt, Parameters: leonardoMediaImageParameters{Width: width, Height: height, Quantity: 1, Duration: req.Seconds, StartFrameSource: startFrameSource}})
 	if err != nil {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
+	}
+	if strings.TrimSpace(c.GetHeader("Idempotency-Key")) == "" {
+		apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+		subject, _ := middleware2.GetAuthSubjectFromContext(c)
+		if apiKey != nil {
+			key, _ := leonardoOpenAIImagesIdempotencyKey("", subject.UserID, apiKey.ID, c.FullPath(), body, time.Now())
+			c.Request.Header.Set("Idempotency-Key", key)
+		}
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -643,22 +689,37 @@ func (h *LeonardoMediaHandler) waitLeonardoOpenAIImages(ctx context.Context, inp
 		if err != nil {
 			return nil, err
 		}
-		switch result.Status {
-		case string(service.GenerationJobStatusSucceeded):
+		// Media Get() may return internal labels (succeeded/failed) or OpenAI-
+		// compatible aliases (completed/cancelled). Use the shared helpers so
+		// image/video/audio wait loops all accept the same terminal set.
+		if service.IsTerminalMediaSuccessStatus(result.Status) {
 			out := &leonardoOpenAIImagesResult{Created: createdAt, Data: make([]leonardoOpenAIImageData, len(result.Data))}
 			for i := range result.Data {
+				itemURL := strings.TrimSpace(result.Data[i].URL)
 				if responseFormat == "b64_json" {
 					encoded, encodeErr := h.get.ContentBase64(ctx, service.LeonardoMediaContentInput{LeonardoMediaGetInput: input, Index: i})
-					if encodeErr != nil {
+					if encodeErr == nil && strings.TrimSpace(encoded) != "" {
+						out.Data[i].B64JSON = encoded
+						continue
+					}
+					// CDN download timed out / failed: fall back to URL so clients
+					// still receive a usable result instead of hanging/failing.
+					if itemURL == "" {
 						return nil, encodeErr
 					}
-					out.Data[i].B64JSON = encoded
-				} else {
-					out.Data[i].URL = result.Data[i].URL
+					logger.L().Warn("leonardo content base64 fallback to url",
+						zap.Int("index", i),
+						zap.String("public_id", input.PublicID),
+						zap.Error(encodeErr),
+					)
+					out.Data[i].URL = itemURL
+					continue
 				}
+				out.Data[i].URL = itemURL
 			}
 			return out, nil
-		case string(service.GenerationJobStatusFailed), string(service.GenerationJobStatusUnknown):
+		}
+		if service.IsTerminalMediaFailureStatus(result.Status) {
 			if result.Error != nil && strings.TrimSpace(result.Error.Code) != "" {
 				status := http.StatusBadGateway
 				if result.Error.Code == "content_policy_violation" {

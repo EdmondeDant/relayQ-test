@@ -154,6 +154,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Embeddings(c)
 		})
 		gateway.POST("/videos", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "video", "generations") {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
 				c.Status(http.StatusNotFound)
 				return
@@ -175,6 +178,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoGenerations(c)
 		})
 		gateway.POST("/videos/generations", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "video", "generations") {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
 				c.Status(http.StatusNotFound)
 				return
@@ -196,6 +202,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoGenerations(c)
 		})
 		gateway.POST("/videos/edits", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "video", "edits") {
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformXAI {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -209,6 +218,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoEdits(c)
 		})
 		gateway.POST("/videos/extensions", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "video", "extensions") {
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformXAI {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -222,6 +234,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoExtensions(c)
 		})
 		gateway.GET("/videos/:request_id/content", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Lookup(c, true) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
 				c.Status(http.StatusNotFound)
 				return
@@ -244,6 +259,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoContent(c)
 		})
 		gateway.GET("/videos/:request_id", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Lookup(c, false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
 				c.Status(http.StatusNotFound)
 				return
@@ -266,6 +284,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.VideoStatus(c)
 		})
 		gateway.POST("/images/generations", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "image", "generations") {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo {
 				if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
 					c.Status(http.StatusNotFound)
@@ -287,6 +308,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Images(c)
 		})
 		gateway.POST("/images/edits", func(c *gin.Context) {
+			if h.Media != nil && h.Media.Submit(c, "image", "edits") {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformLeonardo {
 				if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
 					c.Status(http.StatusNotFound)
@@ -365,6 +389,19 @@ func RegisterGatewayRoutes(
 	})
 	videoHandler := func(mode string) gin.HandlerFunc {
 		return func(c *gin.Context) {
+			operation := mode
+			if mode == "generation" {
+				operation = "generations"
+			} else if mode == "edit" {
+				operation = "edits"
+			} else if mode == "extension" {
+				operation = "extensions"
+			}
+			if h.Media != nil {
+				if mode == "status" && h.Media.Lookup(c, false) || mode == "content" && h.Media.Lookup(c, true) || mode != "status" && mode != "content" && h.Media.Submit(c, "video", operation) {
+					return
+				}
+			}
 			platform := getGroupPlatform(c)
 			xaiOnly := mode == "edit" || mode == "extension"
 			if mode == "generation" && platform == service.PlatformLeonardo && (!cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.VideoEnabled) {
@@ -415,6 +452,9 @@ func RegisterGatewayRoutes(
 	r.GET("/videos/:request_id/content", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, videoHandler("content"))
 	r.GET("/videos/:request_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, videoHandler("status"))
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if h.Media != nil && h.Media.Submit(c, "image", "generations") {
+			return
+		}
 		if getGroupPlatform(c) == service.PlatformLeonardo {
 			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
 				c.Status(http.StatusNotFound)
@@ -436,6 +476,9 @@ func RegisterGatewayRoutes(
 		h.OpenAIGateway.Images(c)
 	})
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if h.Media != nil && h.Media.Submit(c, "image", "edits") {
+			return
+		}
 		if getGroupPlatform(c) == service.PlatformLeonardo {
 			if !cfg.Leonardo.ProviderEnabled || !cfg.Leonardo.MediaEnabled {
 				c.Status(http.StatusNotFound)

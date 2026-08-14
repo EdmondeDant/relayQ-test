@@ -29,6 +29,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/mediaoffer"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproduct"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproductprice"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -126,6 +129,9 @@ func checkColumn(t, c string) error {
 			ideamessage.Table:                   ideamessage.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,
 			identityadoptiondecision.Table:      identityadoptiondecision.ValidColumn,
+			mediaoffer.Table:                    mediaoffer.ValidColumn,
+			mediaproduct.Table:                  mediaproduct.ValidColumn,
+			mediaproductprice.Table:             mediaproductprice.ValidColumn,
 			paymentauditlog.Table:               paymentauditlog.ValidColumn,
 			paymentorder.Table:                  paymentorder.ValidColumn,
 			paymentproviderinstance.Table:       paymentproviderinstance.ValidColumn,

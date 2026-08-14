@@ -85,6 +85,21 @@ func Name(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldName, v))
 }
 
+// ClientApp applies equality check predicate on the "client_app" field. It's identical to ClientAppEQ.
+func ClientApp(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldClientApp, v))
+}
+
+// Managed applies equality check predicate on the "managed" field. It's identical to ManagedEQ.
+func Managed(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManaged, v))
+}
+
+// ManagedPurpose applies equality check predicate on the "managed_purpose" field. It's identical to ManagedPurposeEQ.
+func ManagedPurpose(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedPurpose, v))
+}
+
 // GroupID applies equality check predicate on the "group_id" field. It's identical to GroupIDEQ.
 func GroupID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldGroupID, v))
@@ -438,6 +453,156 @@ func NameEqualFold(v string) predicate.APIKey {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldContainsFold(FieldName, v))
+}
+
+// ClientAppEQ applies the EQ predicate on the "client_app" field.
+func ClientAppEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldClientApp, v))
+}
+
+// ClientAppNEQ applies the NEQ predicate on the "client_app" field.
+func ClientAppNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldClientApp, v))
+}
+
+// ClientAppIn applies the In predicate on the "client_app" field.
+func ClientAppIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldClientApp, vs...))
+}
+
+// ClientAppNotIn applies the NotIn predicate on the "client_app" field.
+func ClientAppNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldClientApp, vs...))
+}
+
+// ClientAppGT applies the GT predicate on the "client_app" field.
+func ClientAppGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldClientApp, v))
+}
+
+// ClientAppGTE applies the GTE predicate on the "client_app" field.
+func ClientAppGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldClientApp, v))
+}
+
+// ClientAppLT applies the LT predicate on the "client_app" field.
+func ClientAppLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldClientApp, v))
+}
+
+// ClientAppLTE applies the LTE predicate on the "client_app" field.
+func ClientAppLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldClientApp, v))
+}
+
+// ClientAppContains applies the Contains predicate on the "client_app" field.
+func ClientAppContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldClientApp, v))
+}
+
+// ClientAppHasPrefix applies the HasPrefix predicate on the "client_app" field.
+func ClientAppHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldClientApp, v))
+}
+
+// ClientAppHasSuffix applies the HasSuffix predicate on the "client_app" field.
+func ClientAppHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldClientApp, v))
+}
+
+// ClientAppEqualFold applies the EqualFold predicate on the "client_app" field.
+func ClientAppEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldClientApp, v))
+}
+
+// ClientAppContainsFold applies the ContainsFold predicate on the "client_app" field.
+func ClientAppContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldClientApp, v))
+}
+
+// ManagedEQ applies the EQ predicate on the "managed" field.
+func ManagedEQ(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManaged, v))
+}
+
+// ManagedNEQ applies the NEQ predicate on the "managed" field.
+func ManagedNEQ(v bool) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldManaged, v))
+}
+
+// ManagedPurposeEQ applies the EQ predicate on the "managed_purpose" field.
+func ManagedPurposeEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeNEQ applies the NEQ predicate on the "managed_purpose" field.
+func ManagedPurposeNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeIn applies the In predicate on the "managed_purpose" field.
+func ManagedPurposeIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldManagedPurpose, vs...))
+}
+
+// ManagedPurposeNotIn applies the NotIn predicate on the "managed_purpose" field.
+func ManagedPurposeNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldManagedPurpose, vs...))
+}
+
+// ManagedPurposeGT applies the GT predicate on the "managed_purpose" field.
+func ManagedPurposeGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeGTE applies the GTE predicate on the "managed_purpose" field.
+func ManagedPurposeGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeLT applies the LT predicate on the "managed_purpose" field.
+func ManagedPurposeLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeLTE applies the LTE predicate on the "managed_purpose" field.
+func ManagedPurposeLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeContains applies the Contains predicate on the "managed_purpose" field.
+func ManagedPurposeContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeHasPrefix applies the HasPrefix predicate on the "managed_purpose" field.
+func ManagedPurposeHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeHasSuffix applies the HasSuffix predicate on the "managed_purpose" field.
+func ManagedPurposeHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeIsNil applies the IsNil predicate on the "managed_purpose" field.
+func ManagedPurposeIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldManagedPurpose))
+}
+
+// ManagedPurposeNotNil applies the NotNil predicate on the "managed_purpose" field.
+func ManagedPurposeNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldManagedPurpose))
+}
+
+// ManagedPurposeEqualFold applies the EqualFold predicate on the "managed_purpose" field.
+func ManagedPurposeEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldManagedPurpose, v))
+}
+
+// ManagedPurposeContainsFold applies the ContainsFold predicate on the "managed_purpose" field.
+func ManagedPurposeContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldManagedPurpose, v))
 }
 
 // GroupIDEQ applies the EQ predicate on the "group_id" field.

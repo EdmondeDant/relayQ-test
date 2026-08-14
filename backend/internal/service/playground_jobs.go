@@ -789,23 +789,11 @@ func playgroundFirstNonNil(values ...any) any {
 }
 
 func isFinishedVideoStatus(status string) bool {
-	value := strings.ToLower(strings.TrimSpace(status))
-	switch value {
-	case "completed", "succeeded", "ready", "done":
-		return true
-	default:
-		return false
-	}
+	return IsTerminalMediaSuccessStatus(status)
 }
 
 func isFailedVideoStatus(status string) bool {
-	value := strings.ToLower(strings.TrimSpace(status))
-	switch value {
-	case "failed", "error", "canceled", "cancelled", "rejected", "expired":
-		return true
-	default:
-		return false
-	}
+	return IsTerminalMediaFailureStatus(status)
 }
 
 func normalizePlaygroundProgress(value any) int {

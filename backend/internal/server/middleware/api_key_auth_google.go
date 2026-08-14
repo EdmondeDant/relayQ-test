@@ -41,6 +41,18 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 500, "Failed to validate API key")
 			return
 		}
+		if service.IsCanvasAPIKey(apiKey) {
+			route, routeErr := resolveCanvasAPIKeyRoute(c, apiKeyService, apiKey)
+			if routeErr != nil {
+				abortWithGoogleError(c, 404, "No available Canvas route for this model")
+				return
+			}
+			resolved := *apiKey
+			groupID := route.Group.ID
+			resolved.GroupID = &groupID
+			resolved.Group = route.Group
+			apiKey = &resolved
+		}
 
 		if !apiKey.IsActive() {
 			abortWithGoogleError(c, 401, "API key is disabled")

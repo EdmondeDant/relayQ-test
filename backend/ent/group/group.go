@@ -98,6 +98,10 @@ const (
 	EdgeAccounts = "accounts"
 	// EdgeAllowedUsers holds the string denoting the allowed_users edge name in mutations.
 	EdgeAllowedUsers = "allowed_users"
+	// EdgeMediaProducts holds the string denoting the media_products edge name in mutations.
+	EdgeMediaProducts = "media_products"
+	// EdgeMediaSourceOffers holds the string denoting the media_source_offers edge name in mutations.
+	EdgeMediaSourceOffers = "media_source_offers"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
@@ -142,6 +146,18 @@ const (
 	// AllowedUsersInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	AllowedUsersInverseTable = "users"
+	// MediaProductsTable is the table that holds the media_products relation/edge. The primary key declared below.
+	MediaProductsTable = "media_product_group_bindings"
+	// MediaProductsInverseTable is the table name for the MediaProduct entity.
+	// It exists in this package in order to avoid circular dependency with the "mediaproduct" package.
+	MediaProductsInverseTable = "media_products"
+	// MediaSourceOffersTable is the table that holds the media_source_offers relation/edge.
+	MediaSourceOffersTable = "media_offers"
+	// MediaSourceOffersInverseTable is the table name for the MediaOffer entity.
+	// It exists in this package in order to avoid circular dependency with the "mediaoffer" package.
+	MediaSourceOffersInverseTable = "media_offers"
+	// MediaSourceOffersColumn is the table column denoting the media_source_offers relation/edge.
+	MediaSourceOffersColumn = "source_group_id"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -205,6 +221,9 @@ var (
 	// AllowedUsersPrimaryKey and AllowedUsersColumn2 are the table columns denoting the
 	// primary key for the allowed_users relation (M2M).
 	AllowedUsersPrimaryKey = []string{"user_id", "group_id"}
+	// MediaProductsPrimaryKey and MediaProductsColumn2 are the table columns denoting the
+	// primary key for the media_products relation (M2M).
+	MediaProductsPrimaryKey = []string{"group_id", "product_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -532,6 +551,34 @@ func ByAllowedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByMediaProductsCount orders the results by media_products count.
+func ByMediaProductsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMediaProductsStep(), opts...)
+	}
+}
+
+// ByMediaProducts orders the results by media_products terms.
+func ByMediaProducts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMediaProductsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByMediaSourceOffersCount orders the results by media_source_offers count.
+func ByMediaSourceOffersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMediaSourceOffersStep(), opts...)
+	}
+}
+
+// ByMediaSourceOffers orders the results by media_source_offers terms.
+func ByMediaSourceOffers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMediaSourceOffersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -599,6 +646,20 @@ func newAllowedUsersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AllowedUsersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, AllowedUsersTable, AllowedUsersPrimaryKey...),
+	)
+}
+func newMediaProductsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MediaProductsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, MediaProductsTable, MediaProductsPrimaryKey...),
+	)
+}
+func newMediaSourceOffersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MediaSourceOffersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MediaSourceOffersTable, MediaSourceOffersColumn),
 	)
 }
 func newAccountGroupsStep() *sqlgraph.Step {

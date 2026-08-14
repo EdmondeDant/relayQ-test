@@ -352,6 +352,7 @@ export default {
     apiKeys: 'API Keys',
     usage: 'Usage',
     modelTest: 'Online Experience',
+    canvas: 'Infinite Canvas',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
@@ -363,6 +364,7 @@ export default {
     users: 'Users',
     groups: 'Groups',
     channels: 'Channels',
+    mediaProducts: 'Media Products',
     availableChannels: 'Available Channels',
     pricingCalculator: 'Pricing Calculator',
     subscriptions: 'Subscriptions',
@@ -401,6 +403,16 @@ export default {
   modelTest: {
     title: 'Online Experience',
     description: 'Try selected generative models with your account balance, no API key required'
+  },
+
+  canvas: {
+    title: 'Infinite Canvas',
+    description: 'Open Infinite Canvas with your RelayQ session, balance, and available models.',
+    retention: 'Generated assets are retained on RelayQ servers for 15 days. Download important work promptly.',
+    connecting: 'Connecting to canvas…',
+    open: 'Open Infinite Canvas',
+    retry: 'Retry',
+    failed: 'Failed to connect to canvas'
   },
 
   // Auth
@@ -2391,6 +2403,10 @@ export default {
         unitPerMillion: '/ 1M tokens',
         unitPerRequest: '/ request'
       }
+    },
+
+    mediaProducts: {
+      title: 'Media Products', description: 'Manage public models, fixed specification prices, entry groups and provider offers', create: 'Create Media Product', edit: 'Edit Media Product', empty: 'No media products', publicModel: 'Public Model', modality: 'Modality', bindings: 'Entry Groups', prices: 'Fixed Prices', productDescription: 'Description', entryGroups: 'OpenAI Entry Groups', specKey: 'Canonical specification key', version: 'Version', addPrice: 'Add Price', addOffer: 'Add Offer', sourceGroup: 'Select source group', upstreamModel: 'Upstream model', priority: 'Priority', operations: 'Operations, comma separated', costSource: 'Cost source', costVersion: 'Cost version', capabilities: 'Capabilities JSON', costRules: 'Cost rules JSON', verifiedAt: 'Verified at', expiresAt: 'Expires at', invalidJSON: 'Invalid JSON', needEntryGroup: 'Bind at least one OpenAI entry group', needPrice: 'Configure at least one fixed price', needOffer: 'Configure at least one offer', invalidOffer: 'Each offer requires a source group, operations, cost provenance and a future expiry', disableConfirm: 'Disable media product "{model}"?'
     },
 
     // Channel Management

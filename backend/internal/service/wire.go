@@ -20,6 +20,25 @@ type BuildInfo struct {
 	BuildType string
 }
 
+func ProvideAuthService(
+	entClient *dbent.Client,
+	userRepo UserRepository,
+	redeemRepo RedeemCodeRepository,
+	refreshTokenCache RefreshTokenCache,
+	cfg *config.Config,
+	settingService *SettingService,
+	emailService *EmailService,
+	turnstileService *TurnstileService,
+	emailQueueService *EmailQueueService,
+	promoService *PromoService,
+	defaultSubAssigner DefaultSubscriptionAssigner,
+	affiliateService *AffiliateService,
+	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	redisClient *redis.Client,
+) *AuthService {
+	return NewAuthService(entClient, userRepo, redeemRepo, refreshTokenCache, cfg, settingService, emailService, turnstileService, emailQueueService, promoService, defaultSubAssigner, affiliateService, userPlatformQuotaRepo, redisClient)
+}
+
 // ProvidePricingService creates and initializes PricingService
 func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient) (*PricingService, error) {
 	svc := NewPricingService(cfg, remoteClient)
@@ -562,7 +581,7 @@ func ProvideLeonardoWebhookProcessor(events LeonardoWebhookEventRepository, orch
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
-	NewAuthService,
+	ProvideAuthService,
 	NewUserService,
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
@@ -586,6 +605,7 @@ var ProviderSet = wire.NewSet(
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),
 	NewOAuthService,
 	ProvideOpenAIOAuthService,
+	ProvideXAIOAuthService,
 	NewGeminiOAuthService,
 	NewGeminiQuotaService,
 	NewCompositeTokenCacheInvalidator,
@@ -647,6 +667,15 @@ var ProviderSet = wire.NewSet(
 	NewGroupCapacityService,
 	NewChannelService,
 	NewModelPricingResolver,
+	NewCanvasRoutingService,
+	NewMediaCatalogService,
+	NewMediaFundsService,
+	NewMediaUsageAuditService,
+	NewDefaultMediaOpenAIExecutor,
+	NewMediaOpenAIAdapter,
+	NewDefaultMediaLeonardoExecutor,
+	NewMediaLeonardoAdapter,
+	ProvideMediaOrchestrator,
 	NewContentModerationService,
 	ProvideLeonardoOutputModerator,
 	ProvideLeonardoImageQuoteGuard,

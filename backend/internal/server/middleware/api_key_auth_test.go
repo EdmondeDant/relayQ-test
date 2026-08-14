@@ -3,8 +3,10 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -460,6 +462,16 @@ func TestRequireGroupAssignmentMarksUngroupedKeyBusinessLimited(t *testing.T) {
 	require.Contains(t, w.Body.String(), "not assigned to any group")
 	require.True(t, markedBusinessLimited)
 	require.Equal(t, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned, businessLimitedReason)
+}
+
+func TestCanvasModelFromMultipartBody(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("prompt", "ocean"))
+	require.NoError(t, writer.WriteField("model", "wan-2.7"))
+	require.NoError(t, writer.Close())
+
+	require.Equal(t, "wan-2.7", canvasModelFromBody(writer.FormDataContentType(), body.Bytes()))
 }
 
 func TestAPIKeyAuthIPRestrictionDoesNotTrustForwardedClientIPByDefault(t *testing.T) {

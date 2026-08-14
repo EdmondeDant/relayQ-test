@@ -54,6 +54,7 @@ type GatewayHandler struct {
 	maxAccountSwitchesGemini  int
 	cfg                       *config.Config
 	settingService            *service.SettingService
+	mediaCatalog              *service.MediaCatalogService
 }
 
 // NewGatewayHandler creates a new GatewayHandler
@@ -72,6 +73,7 @@ func NewGatewayHandler(
 	userMsgQueueService *service.UserMessageQueueService,
 	cfg *config.Config,
 	settingService *service.SettingService,
+	mediaCatalog *service.MediaCatalogService,
 ) *GatewayHandler {
 	pingInterval := time.Duration(0)
 	maxAccountSwitches := 10
@@ -109,6 +111,7 @@ func NewGatewayHandler(
 		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
 		cfg:                       cfg,
 		settingService:            settingService,
+		mediaCatalog:              mediaCatalog,
 	}
 }
 
@@ -973,6 +976,15 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 // Falls back to default models if no whitelist is configured
 func (h *GatewayHandler) Models(c *gin.Context) {
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	if service.IsCanvasAPIKey(apiKey) {
+		models, err := h.apiKeyService.GetCanvasCatalog(c.Request.Context(), apiKey.UserID)
+		if err != nil {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to list available models")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"object": "list", "data": models})
+		return
+	}
 
 	var groupID *int64
 	var platform string
@@ -987,6 +999,14 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	// Get available models from account configurations for the selected group platform.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
+	if groupID != nil && platform == service.PlatformOpenAI && h.mediaCatalog != nil {
+		mediaModels, err := h.mediaCatalog.ListRuntimeModels(c.Request.Context(), *groupID)
+		if err != nil {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to list available models")
+			return
+		}
+		availableModels = mergeUniqueModels(availableModels, mediaModels)
+	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
 		availableModels = filterModelsByCustomList(availableModels, defaultModelIDsForPlatform(platform), apiKey.Group.ModelsListConfig.Models)
 		writeCustomModelsList(c, platform, availableModels)
@@ -1019,6 +1039,22 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		"object": "list",
 		"data":   claude.DefaultModels,
 	})
+}
+
+func mergeUniqueModels(existing, media []string) []string {
+	result := append([]string(nil), existing...)
+	seen := make(map[string]struct{}, len(result)+len(media))
+	for _, model := range result {
+		seen[model] = struct{}{}
+	}
+	for _, model := range media {
+		if _, ok := seen[model]; ok {
+			continue
+		}
+		seen[model] = struct{}{}
+		result = append(result, model)
+	}
+	return result
 }
 
 func writeModelsList(c *gin.Context, modelIDs []string) {

@@ -1,0 +1,450 @@
+diff --git a/web/src/components/canvas/canvas-top-bar.tsx b/web/src/components/canvas/canvas-top-bar.tsx
+index cd2b8fc..35fe92c 100644
+--- a/web/src/components/canvas/canvas-top-bar.tsx
++++ b/web/src/components/canvas/canvas-top-bar.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useRef, useState } from "react";
+-import { BookOpen, Bot, Download, Home, Images, Menu, PanelLeftClose, PanelLeftOpen, Plus, Redo2, Trash2, Undo2, Upload } from "lucide-react";
++import { BookOpen, Bot, Download, Home, Images, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Redo2, Trash2, Undo2, Upload, Wallet } from "lucide-react";
+ import { Button, Dropdown, Modal, Tooltip } from "antd";
+ import { useTranslation } from "react-i18next";
+ 
+@@ -8,6 +8,7 @@ import { canvasThemes } from "@/lib/canvas-theme";
+ import { useCanvasSidePanelStore } from "@/stores/use-canvas-side-panel-store";
+ import { useThemeStore } from "@/stores/use-theme-store";
+ import { DOCS_URL } from "@/constant/env";
++import { useRelayQIntegration } from "@/lib/relayq-integration";
+ 
+ export function CanvasTopBar({
+     title,
+@@ -61,6 +62,7 @@ export function CanvasTopBar({
+     const [shortcutsOpen, setShortcutsOpen] = useState(false);
+     const sidePanelOpen = useCanvasSidePanelStore((state) => state.panelOpen);
+     const toggleSidePanel = useCanvasSidePanelStore((state) => state.togglePanel);
++    const relayq = useRelayQIntegration();
+ 
+     useEffect(() => {
+         if (!isTitleEditing) return;
+@@ -139,7 +141,9 @@ export function CanvasTopBar({
+                 </div>
+ 
+                 <div className="pointer-events-auto flex items-center gap-1.5">
+-                    <UserStatusActions variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
++                    {relayq.managed ? <a href={relayq.usageUrl} className="inline-flex items-center gap-1 text-sm" style={{ color: theme.node.text }}><Wallet className="size-4" />{relayq.balance === null ? "--" : `$${relayq.balance.toFixed(2)}`}</a> : null}
++                    <UserStatusActions showConfig={!relayq.managed} variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
++                    {relayq.managed ? <Button type="text" style={{ color: theme.node.text }} icon={<LogOut className="size-4" />} onClick={relayq.exit}>退出无线画布</Button> : null}
+                     <span className="h-6 w-px" style={{ background: theme.toolbar.border }} />
+                     <Button
+                         type="text"
+diff --git a/web/src/components/layout/app-top-nav.tsx b/web/src/components/layout/app-top-nav.tsx
+index 28a85e7..3d874ae 100644
+--- a/web/src/components/layout/app-top-nav.tsx
++++ b/web/src/components/layout/app-top-nav.tsx
+@@ -1,4 +1,4 @@
+-import { Bot, Menu } from "lucide-react";
++import { Bot, LogOut, Menu, Wallet } from "lucide-react";
+ import { Button, Tooltip } from "antd";
+ import { Link, useLocation } from "react-router-dom";
+ import { useTranslation } from "react-i18next";
+@@ -10,6 +10,7 @@ import { UserStatusActions } from "@/components/layout/user-status-actions";
+ import { cn } from "@/lib/utils";
+ import { useEffect, useRef, useState } from "react";
+ import { useAgentStore } from "@/stores/use-agent-store";
++import { useRelayQIntegration } from "@/lib/relayq-integration";
+ 
+ export function AppTopNav() {
+     const { t } = useTranslation();
+@@ -22,6 +23,7 @@ export function AppTopNav() {
+     const connectAgent = useAgentStore((state) => state.connectAgent);
+     const togglePanel = useAgentStore((state) => state.togglePanel);
+     const panelOpen = useAgentStore((state) => state.panelOpen);
++    const relayq = useRelayQIntegration();
+     const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
+     const slug = pathname.split("/").filter(Boolean)[0];
+     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
+@@ -60,7 +62,7 @@ export function AppTopNav() {
+                             </button>
+ 
+                             <nav className="hide-scrollbar ml-8 hidden h-14 min-w-0 items-center gap-7 overflow-x-auto md:flex">
+-                                {navigationTools.map((tool) => {
++                                {navigationTools.filter((tool) => !relayq.managed || tool.slug !== "config").map((tool) => {
+                                     const Icon = tool.icon;
+                                     const active = tool.slug === activeToolSlug;
+                                     return (
+@@ -83,17 +85,19 @@ export function AppTopNav() {
+                         </div>
+ 
+                         <div className="my-auto flex h-9 min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
++                            {relayq.managed ? <a href={relayq.usageUrl} className="inline-flex items-center gap-1 text-sm"><Wallet className="size-4" />{relayq.balance === null ? "--" : `$${relayq.balance.toFixed(2)}`}</a> : null}
+                             <Tooltip title={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}>
+                                 <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" icon={<Bot className="size-4" />} onClick={togglePanel} aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")} />
+                             </Tooltip>
+-                            <UserStatusActions />
++                            <UserStatusActions showConfig={!relayq.managed} />
++                            {relayq.managed ? <Button type="text" icon={<LogOut className="size-4" />} onClick={relayq.exit}>退出无线画布</Button> : null}
+                         </div>
+                     </div>
+                 </header>
+             ) : null}
+ 
+-            <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} />
+-            <AppConfigModal />
++            <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} managed={relayq.managed} />
++            {!relayq.managed ? <AppConfigModal /> : null}
+         </>
+     );
+ }
+diff --git a/web/src/components/layout/client-root-init.tsx b/web/src/components/layout/client-root-init.tsx
+index 576d387..69dd1d3 100644
+--- a/web/src/components/layout/client-root-init.tsx
++++ b/web/src/components/layout/client-root-init.tsx
+@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
+ import { App } from "antd";
+ import { useTranslation } from "react-i18next";
+ 
+-import { createModelChannel, useConfigStore } from "@/stores/use-config-store";
++import { createModelChannel, encodeChannelModel, useConfigStore } from "@/stores/use-config-store";
+ import { usePromptSourceScheduler } from "@/hooks/use-prompt-source-scheduler";
+ 
+ export function ClientRootInit({ children }: { children: ReactNode }) {
+@@ -18,9 +18,25 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
+ 
+     useEffect(() => {
+         if (handledConfigParams.current) return;
++        let relayqConfig: {
++            base_url?: string;
++            api_key?: string;
++            models?: Array<{ id: string; modality: "image" | "video" | "text" | "audio" }>;
++        } = {};
++        try {
++            const handoffPrefix = "relayq_canvas_bootstrap:";
++            if (window.name.startsWith(handoffPrefix)) {
++                window.sessionStorage.setItem("relayq_canvas_bootstrap", window.name.slice(handoffPrefix.length));
++                window.name = "";
++            }
++            const stored = window.sessionStorage.getItem("relayq_canvas_bootstrap");
++            if (stored) relayqConfig = JSON.parse(stored);
++        } catch {
++            relayqConfig = {};
++        }
+         const searchParams = new URLSearchParams(window.location.search);
+-        const baseUrl = searchParams.get("baseUrl") || searchParams.get("baseurl");
+-        const apiKey = searchParams.get("apiKey") || searchParams.get("apikey");
++        const baseUrl = searchParams.get("baseUrl") || searchParams.get("baseurl") || relayqConfig.base_url;
++        const apiKey = searchParams.get("apiKey") || searchParams.get("apikey") || relayqConfig.api_key;
+         if (!baseUrl && !apiKey) return;
+         handledConfigParams.current = true;
+         searchParams.delete("baseUrl");
+@@ -28,25 +44,23 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
+         searchParams.delete("apiKey");
+         searchParams.delete("apikey");
+         window.history.replaceState(null, "", `${window.location.pathname}${searchParams.size ? `?${searchParams}` : ""}${window.location.hash}`);
+-        const firstChannel = config.channels[0];
+-        updateConfig(
+-            "channels",
+-            firstChannel
+-                ? config.channels.map((channel, index) =>
+-                      index === 0
+-                          ? {
+-                                ...channel,
+-                                ...(baseUrl ? { baseUrl } : {}),
+-                                ...(apiKey ? { apiKey } : {}),
+-                            }
+-                          : channel,
+-                  )
+-                : [createModelChannel({ id: "default", name: t("config.channels.defaultName"), baseUrl: baseUrl || undefined, apiKey: apiKey || "" })],
+-        );
++        const relayqModels = (relayqConfig.models || []).map((model) => ({ name: model.id, capability: model.modality }));
++        const relayqChannel = createModelChannel({ id: "relayq", name: "RelayQ", baseUrl: baseUrl || undefined, apiKey: apiKey || "", apiFormat: "openai", models: relayqModels });
++        updateConfig("channels", relayqConfig.api_key ? [relayqChannel] : config.channels.length ? config.channels.map((channel, index) => (index === 0 ? { ...channel, ...(baseUrl ? { baseUrl } : {}), ...(apiKey ? { apiKey } : {}) } : channel)) : [relayqChannel]);
+         if (baseUrl) updateConfig("baseUrl", baseUrl);
+         if (apiKey) updateConfig("apiKey", apiKey);
+-        openConfigDialog(false);
+-        message.success(t("config.importedDirectConfig"));
++        if (relayqConfig.api_key) {
++            const options = relayqModels.map((model) => encodeChannelModel("relayq", model.name));
++            updateConfig("models", options);
++            for (const capability of ["image", "video", "text", "audio"] as const) {
++                const selected = relayqModels.find((model) => model.capability === capability);
++                if (selected) updateConfig(capability === "image" ? "imageModel" : capability === "video" ? "videoModel" : capability === "audio" ? "audioModel" : "textModel", encodeChannelModel("relayq", selected.name));
++            }
++        }
++        if (!relayqConfig.api_key) {
++            openConfigDialog(false);
++            message.success(t("config.importedDirectConfig"));
++        }
+     }, [config.channels, message, openConfigDialog, t, updateConfig]);
+ 
+     return <>{children}</>;
+diff --git a/web/src/components/layout/mobile-nav-drawer.tsx b/web/src/components/layout/mobile-nav-drawer.tsx
+index 18a5d44..e3fa334 100644
+--- a/web/src/components/layout/mobile-nav-drawer.tsx
++++ b/web/src/components/layout/mobile-nav-drawer.tsx
+@@ -9,15 +9,16 @@ type MobileNavDrawerProps = {
+     open: boolean;
+     activeToolSlug?: NavigationToolSlug;
+     onClose: () => void;
++    managed?: boolean;
+ };
+ 
+-export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDrawerProps) {
++export function MobileNavDrawer({ open, activeToolSlug, onClose, managed }: MobileNavDrawerProps) {
+     const { t } = useTranslation();
+ 
+     return (
+         <Drawer title={t("topNav.navigation")} placement="left" size={280} open={open} onClose={onClose} className="md:hidden">
+             <div className="space-y-1">
+-                {navigationTools.map((tool) => {
++                {navigationTools.filter((tool) => !managed || tool.slug !== "config").map((tool) => {
+                     const Icon = tool.icon;
+                     const active = tool.slug === activeToolSlug;
+                     return (
+diff --git a/web/src/lib/relayq-integration.ts b/web/src/lib/relayq-integration.ts
+new file mode 100644
+index 0000000..4316349
+--- /dev/null
++++ b/web/src/lib/relayq-integration.ts
+@@ -0,0 +1,63 @@
++import { useEffect, useState } from "react";
++
++type RelayQBootstrap = {
++    api_key?: string;
++    user?: { balance?: number };
++    dashboard_url?: string;
++    usage_url?: string;
++    relayq_origin?: string;
++};
++
++function bootstrap(): RelayQBootstrap | null {
++    try {
++        const handoffPrefix = "relayq_canvas_bootstrap:";
++        if (window.name.startsWith(handoffPrefix)) {
++            window.sessionStorage.setItem("relayq_canvas_bootstrap", window.name.slice(handoffPrefix.length));
++            window.name = "";
++        }
++        const raw = window.sessionStorage.getItem("relayq_canvas_bootstrap");
++        return raw ? JSON.parse(raw) : null;
++    } catch {
++        return null;
++    }
++}
++
++export function useRelayQIntegration() {
++    const config = bootstrap();
++    const [balance, setBalance] = useState<number | null>(config?.user?.balance ?? null);
++
++    useEffect(() => {
++        if (!config?.api_key) return;
++        const refresh = async () => {
++            try {
++                const response = await fetch("/v1/usage", { headers: { Authorization: `Bearer ${config.api_key}` } });
++                if (response.status === 401 || response.status === 403) {
++                    window.sessionStorage.removeItem("relayq_canvas_bootstrap");
++                    window.location.assign(`${config.relayq_origin || ""}/login?redirect=/canvas`);
++                    return;
++                }
++                if (!response.ok) return;
++                const data = await response.json();
++                if (typeof data.balance === "number") setBalance(data.balance);
++            } catch {}
++        };
++        void refresh();
++        const interval = window.setInterval(refresh, 30000);
++        const onFocus = () => void refresh();
++        const onBalanceRefresh = () => void refresh();
++        window.addEventListener("focus", onFocus);
++        window.addEventListener("relayq:balance-refresh", onBalanceRefresh);
++        return () => {
++            window.clearInterval(interval);
++            window.removeEventListener("focus", onFocus);
++            window.removeEventListener("relayq:balance-refresh", onBalanceRefresh);
++        };
++    }, [config?.api_key]);
++
++    const exit = () => {
++        window.sessionStorage.removeItem("relayq_canvas_bootstrap");
++        window.location.assign(`${config?.relayq_origin || ""}${config?.dashboard_url || "/dashboard"}`);
++    };
++
++    return { managed: Boolean(config?.api_key), balance, usageUrl: config?.usage_url || "/usage", exit };
++}
+diff --git a/web/src/pages/canvas/project.tsx b/web/src/pages/canvas/project.tsx
+index ef64651..ed98776 100644
+--- a/web/src/pages/canvas/project.tsx
++++ b/web/src/pages/canvas/project.tsx
+@@ -2398,6 +2398,7 @@ function InfiniteCanvasPage() {
+             } finally {
+                 finishGenerationRequest(nodeId, runController);
+                 setRunningNodeId(null);
++                if (mode === "image" || mode === "video") window.dispatchEvent(new Event("relayq:balance-refresh"));
+             }
+         },
+         [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest, t],
+@@ -2553,6 +2554,7 @@ function InfiniteCanvasPage() {
+             } finally {
+                 finishGenerationRequest(node.id, controller);
+                 setRunningNodeId(null);
++                if (node.type === CanvasNodeType.Image || node.type === CanvasNodeType.Video) window.dispatchEvent(new Event("relayq:balance-refresh"));
+             }
+         },
+         [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest, t],
+diff --git a/web/src/pages/config/index.tsx b/web/src/pages/config/index.tsx
+index ee1294b..a3659c7 100644
+--- a/web/src/pages/config/index.tsx
++++ b/web/src/pages/config/index.tsx
+@@ -1,9 +1,20 @@
++import { useEffect } from "react";
+ import { useTranslation } from "react-i18next";
++import { Navigate } from "react-router-dom";
+ 
+ import { AppConfigPanel } from "@/components/layout/app-config-modal";
+ 
+ export default function ConfigPage() {
+     const { t } = useTranslation();
++    const managed = Boolean(window.sessionStorage.getItem("relayq_canvas_bootstrap"));
++    const relayqEntry = !managed && window.location.port === "3001" ? `${window.location.protocol}//${window.location.hostname}:3000/canvas` : "";
++
++    useEffect(() => {
++        if (relayqEntry) window.location.replace(relayqEntry);
++    }, [relayqEntry]);
++
++    if (managed) return <Navigate to="/" replace />;
++    if (relayqEntry) return null;
+ 
+     return (
+         <main className="h-full overflow-y-auto bg-background">
+diff --git a/web/src/router.tsx b/web/src/router.tsx
+index 69e19db..a43df64 100644
+--- a/web/src/router.tsx
++++ b/web/src/router.tsx
+@@ -32,4 +32,4 @@ export const router = createBrowserRouter([
+         ],
+     },
+     { path: "*", element: <NotFound /> },
+-]);
++], { basename: "/canvas-app" });
+diff --git a/web/src/services/api/image.ts b/web/src/services/api/image.ts
+index e062a09..6567514 100644
+--- a/web/src/services/api/image.ts
++++ b/web/src/services/api/image.ts
+@@ -339,6 +339,8 @@ function aiApiUrl(config: AiConfig, path: string) {
+ function aiHeaders(config: AiConfig, contentType?: string) {
+     return {
+         Authorization: `Bearer ${config.apiKey}`,
++        "X-RelayQ-Source": "infinite-canvas",
++        "X-RelayQ-Client": "infinite-canvas-web",
+         ...(contentType ? { "Content-Type": contentType } : {}),
+     };
+ }
+@@ -917,7 +919,7 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
+                 .filter((id): id is string => Boolean(id))
+                 .sort((a, b) => a.localeCompare(b));
+         }
+-        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
++        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/v1/models"), {
+             headers: {
+                 Authorization: `Bearer ${config.apiKey}`,
+             },
+diff --git a/web/src/services/api/video.ts b/web/src/services/api/video.ts
+index d81d1f7..167658b 100644
+--- a/web/src/services/api/video.ts
++++ b/web/src/services/api/video.ts
+@@ -11,7 +11,7 @@ import { runModelPlugin } from "./model-plugin";
+ import type { ReferenceImage } from "@/types/image";
+ import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
+ 
+-type VideoResponse = { id: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
++type VideoResponse = { id?: string; request_id?: string; job_id?: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
+ type ApiVideoResponse = VideoResponse | { code?: number | string; data?: VideoResponse | null; msg?: string; message?: string; error?: { message?: string } };
+ type SeedanceTask = {
+     id: string;
+@@ -40,6 +40,8 @@ function aiApiUrl(config: AiConfig, path: string) {
+ function aiHeaders(config: AiConfig, contentType?: string) {
+     return {
+         Authorization: `Bearer ${config.apiKey}`,
++        "X-RelayQ-Source": "infinite-canvas",
++        "X-RelayQ-Client": "infinite-canvas-web",
+         ...(contentType ? { "Content-Type": contentType } : {}),
+     };
+ }
+@@ -155,10 +159,12 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: str
+     body.append("preset", "normal");
+     const files = await Promise.all(references.slice(0, 7).map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
+     files.forEach((file) => body.append("input_reference[]", file));
++    const idempotencyKey = `canvas-video-${nanoid()}`;
+     try {
+-        const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: aiHeaders(config), signal: options?.signal })).data);
+-        if (!created.id) throw new Error(apiText("noVideoTaskId"));
+-        return { id: created.id, provider: "openai", model };
++        const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: { ...aiHeaders(config), "Idempotency-Key": idempotencyKey }, signal: options?.signal })).data);
++        const taskId = videoTaskId(created);
++        if (!taskId) throw new Error(apiText("noVideoTaskId"));
++        return { id: taskId, provider: "openai", model };
+     } catch (error) {
+         throw new Error(readAxiosError(error, apiText("videoTaskCreateFailed")));
+     }
+@@ -197,8 +203,9 @@ async function createSeedanceTask(config: AiConfig, model: string, prompt: string
+         watermark: boolConfig(config.videoWatermark, false),
+     };
+ 
++    const idempotencyKey = `canvas-video-${nanoid()}`;
+     try {
+-        const created = unwrapSeedanceTask((await axios.post<ApiEnvelope<SeedanceTask>>(seedanceApiUrl(config), payload, { headers: aiHeaders(config, "application/json"), signal: options?.signal })).data);
++        const created = unwrapSeedanceTask((await axios.post<ApiEnvelope<SeedanceTask>>(seedanceApiUrl(config), payload, { headers: { ...aiHeaders(config, "application/json"), "Idempotency-Key": idempotencyKey }, signal: options?.signal })).data);
+         if (!created.id) throw new Error(apiText("seedanceNoTaskId"));
+         return { id: created.id, provider: "seedance", model };
+     } catch (error) {
+@@ -326,6 +333,10 @@ function unwrapVideoResponse(payload: ApiVideoResponse) {
+     return unwrapEnvelope(payload, apiText("noVideoTask"));
+ }
+ 
++function videoTaskId(payload: VideoResponse) {
++    return [payload.request_id, payload.job_id, payload.id].find((id) => typeof id === "string" && id.trim())?.trim() || "";
++}
++
+ function unwrapSeedanceTask(payload: ApiEnvelope<SeedanceTask>) {
+     return unwrapEnvelope(payload, apiText("seedanceNoTask"));
+ }
+diff --git a/web/src/stores/use-config-store.ts b/web/src/stores/use-config-store.ts
+index d00e32e..51e0050 100644
+--- a/web/src/stores/use-config-store.ts
++++ b/web/src/stores/use-config-store.ts
+@@ -209,7 +209,10 @@ export const useConfigStore = create<ConfigStore>()(
+                     },
+                 })),
+             isAiConfigReady: (config, model) => isAiConfigReady(config, model),
+-            openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
++            openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => {
++                if (window.sessionStorage.getItem("relayq_canvas_bootstrap")) return;
++                set({ isConfigOpen: true, shouldPromptContinue, configTab });
++            },
+             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
+             clearPromptContinue: () => set({ shouldPromptContinue: false }),
+         }),
+@@ -389,7 +392,8 @@ export function buildApiUrl(baseUrl: string, path: string) {
+     normalizedBaseUrl = normalizeArkPlanBaseUrl(normalizedBaseUrl);
+     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
+     const apiBaseUrl = lowerBaseUrl.endsWith("/v1") || lowerBaseUrl.endsWith("/api/v3") || lowerBaseUrl.endsWith("/api/plan/v3") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;
+-    return `${apiBaseUrl}${path}`;
++    const normalizedPath = `/${path.trim().replace(/^\/+/, "")}`;
++    return `${apiBaseUrl}${lowerBaseUrl.endsWith("/v1") && normalizedPath.toLowerCase().startsWith("/v1/") ? normalizedPath.slice(3) : normalizedPath}`;
+ }
+ 
+ function normalizeArkPlanBaseUrl(baseUrl: string) {
+diff --git a/web/vite.config.ts b/web/vite.config.ts
+index 263c130..6c64461 100644
+--- a/web/vite.config.ts
++++ b/web/vite.config.ts
+@@ -50,4 +50,12 @@ export default defineConfig({
+         __APP_VERSION__: JSON.stringify(localVersion),
+         __APP_RELEASES__: JSON.stringify(parseChangelog(localChangelog)),
+     },
++    server: {
++        proxy: {
++            "/v1": {
++                target: process.env.VITE_RELAYQ_API_URL || "http://127.0.0.1:8080",
++                changeOrigin: true,
++            },
++        },
++    },
+ });

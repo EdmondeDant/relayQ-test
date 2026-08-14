@@ -48,6 +48,12 @@ type Tx struct {
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
+	// MediaOffer is the client for interacting with the MediaOffer builders.
+	MediaOffer *MediaOfferClient
+	// MediaProduct is the client for interacting with the MediaProduct builders.
+	MediaProduct *MediaProductClient
+	// MediaProductPrice is the client for interacting with the MediaProductPrice builders.
+	MediaProductPrice *MediaProductPriceClient
 	// PaymentAuditLog is the client for interacting with the PaymentAuditLog builders.
 	PaymentAuditLog *PaymentAuditLogClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -236,6 +242,9 @@ func (tx *Tx) init() {
 	tx.IdeaMessage = NewIdeaMessageClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
+	tx.MediaOffer = NewMediaOfferClient(tx.config)
+	tx.MediaProduct = NewMediaProductClient(tx.config)
+	tx.MediaProductPrice = NewMediaProductPriceClient(tx.config)
 	tx.PaymentAuditLog = NewPaymentAuditLogClient(tx.config)
 	tx.PaymentOrder = NewPaymentOrderClient(tx.config)
 	tx.PaymentProviderInstance = NewPaymentProviderInstanceClient(tx.config)

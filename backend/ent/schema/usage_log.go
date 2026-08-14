@@ -60,6 +60,15 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
+		field.Int64("media_product_id").Optional().Nillable(),
+		field.Int64("media_offer_id").Optional().Nillable(),
+		field.String("upstream_platform").Optional().Nillable().MaxLen(32),
+		field.Int64("source_group_id").Optional().Nillable(),
+		field.Float("trusted_cost_amount").Optional().Nillable().SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.String("trusted_cost_unit").Optional().Nillable().MaxLen(32),
+		field.String("trusted_cost_source").Optional().Nillable().MaxLen(500),
+		field.String("trusted_cost_version").Optional().Nillable().MaxLen(64),
+		field.String("customer_price_version").Optional().Nillable().MaxLen(64),
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),

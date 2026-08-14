@@ -39,6 +39,16 @@ type GenerationJob struct {
 	APIKeyID int64 `json:"api_key_id,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID *int64 `json:"group_id,omitempty"`
+	// ProductID holds the value of the "product_id" field.
+	ProductID *int64 `json:"product_id,omitempty"`
+	// OfferID holds the value of the "offer_id" field.
+	OfferID *int64 `json:"offer_id,omitempty"`
+	// SourceGroupID holds the value of the "source_group_id" field.
+	SourceGroupID *int64 `json:"source_group_id,omitempty"`
+	// Operation holds the value of the "operation" field.
+	Operation *string `json:"operation,omitempty"`
+	// CustomerPriceVersion holds the value of the "customer_price_version" field.
+	CustomerPriceVersion *string `json:"customer_price_version,omitempty"`
 	// AccountID holds the value of the "account_id" field.
 	AccountID int64 `json:"account_id,omitempty"`
 	// UpstreamGenerationID holds the value of the "upstream_generation_id" field.
@@ -109,9 +119,9 @@ func (*GenerationJob) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(decimal.Decimal)}
 		case generationjob.FieldRequestPayload, generationjob.FieldResultPayload:
 			values[i] = new([]byte)
-		case generationjob.FieldID, generationjob.FieldUserID, generationjob.FieldAPIKeyID, generationjob.FieldGroupID, generationjob.FieldAccountID, generationjob.FieldOutputCount, generationjob.FieldPollAttempts:
+		case generationjob.FieldID, generationjob.FieldUserID, generationjob.FieldAPIKeyID, generationjob.FieldGroupID, generationjob.FieldProductID, generationjob.FieldOfferID, generationjob.FieldSourceGroupID, generationjob.FieldAccountID, generationjob.FieldOutputCount, generationjob.FieldPollAttempts:
 			values[i] = new(sql.NullInt64)
-		case generationjob.FieldPublicID, generationjob.FieldProvider, generationjob.FieldModality, generationjob.FieldModel, generationjob.FieldUpstreamModel, generationjob.FieldUpstreamGenerationID, generationjob.FieldStatus, generationjob.FieldUpstreamStatus, generationjob.FieldRequestHash, generationjob.FieldErrorCode, generationjob.FieldErrorMessage, generationjob.FieldEstimatedUpstreamCostUnit, generationjob.FieldPricingSnapshotVersion, generationjob.FieldPricingSource, generationjob.FieldPricingMatchType, generationjob.FieldActualUpstreamCostUnit, generationjob.FieldBillingStatus, generationjob.FieldBillingReference:
+		case generationjob.FieldPublicID, generationjob.FieldProvider, generationjob.FieldModality, generationjob.FieldModel, generationjob.FieldUpstreamModel, generationjob.FieldOperation, generationjob.FieldCustomerPriceVersion, generationjob.FieldUpstreamGenerationID, generationjob.FieldStatus, generationjob.FieldUpstreamStatus, generationjob.FieldRequestHash, generationjob.FieldErrorCode, generationjob.FieldErrorMessage, generationjob.FieldEstimatedUpstreamCostUnit, generationjob.FieldPricingSnapshotVersion, generationjob.FieldPricingSource, generationjob.FieldPricingMatchType, generationjob.FieldActualUpstreamCostUnit, generationjob.FieldBillingStatus, generationjob.FieldBillingReference:
 			values[i] = new(sql.NullString)
 		case generationjob.FieldCreatedAt, generationjob.FieldUpdatedAt, generationjob.FieldNextPollAt, generationjob.FieldLastPolledAt, generationjob.FieldSubmittedAt, generationjob.FieldStartedAt, generationjob.FieldCompletedAt, generationjob.FieldFailedAt:
 			values[i] = new(sql.NullTime)
@@ -196,6 +206,41 @@ func (_m *GenerationJob) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.GroupID = new(int64)
 				*_m.GroupID = value.Int64
+			}
+		case generationjob.FieldProductID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field product_id", values[i])
+			} else if value.Valid {
+				_m.ProductID = new(int64)
+				*_m.ProductID = value.Int64
+			}
+		case generationjob.FieldOfferID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field offer_id", values[i])
+			} else if value.Valid {
+				_m.OfferID = new(int64)
+				*_m.OfferID = value.Int64
+			}
+		case generationjob.FieldSourceGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field source_group_id", values[i])
+			} else if value.Valid {
+				_m.SourceGroupID = new(int64)
+				*_m.SourceGroupID = value.Int64
+			}
+		case generationjob.FieldOperation:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field operation", values[i])
+			} else if value.Valid {
+				_m.Operation = new(string)
+				*_m.Operation = value.String
+			}
+		case generationjob.FieldCustomerPriceVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field customer_price_version", values[i])
+			} else if value.Valid {
+				_m.CustomerPriceVersion = new(string)
+				*_m.CustomerPriceVersion = value.String
 			}
 		case generationjob.FieldAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -457,6 +502,31 @@ func (_m *GenerationJob) String() string {
 	if v := _m.GroupID; v != nil {
 		builder.WriteString("group_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ProductID; v != nil {
+		builder.WriteString("product_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.OfferID; v != nil {
+		builder.WriteString("offer_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.SourceGroupID; v != nil {
+		builder.WriteString("source_group_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.Operation; v != nil {
+		builder.WriteString("operation=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CustomerPriceVersion; v != nil {
+		builder.WriteString("customer_price_version=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	builder.WriteString("account_id=")

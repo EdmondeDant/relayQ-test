@@ -38,6 +38,24 @@ const (
 	FieldBillingMode = "billing_mode"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldMediaProductID holds the string denoting the media_product_id field in the database.
+	FieldMediaProductID = "media_product_id"
+	// FieldMediaOfferID holds the string denoting the media_offer_id field in the database.
+	FieldMediaOfferID = "media_offer_id"
+	// FieldUpstreamPlatform holds the string denoting the upstream_platform field in the database.
+	FieldUpstreamPlatform = "upstream_platform"
+	// FieldSourceGroupID holds the string denoting the source_group_id field in the database.
+	FieldSourceGroupID = "source_group_id"
+	// FieldTrustedCostAmount holds the string denoting the trusted_cost_amount field in the database.
+	FieldTrustedCostAmount = "trusted_cost_amount"
+	// FieldTrustedCostUnit holds the string denoting the trusted_cost_unit field in the database.
+	FieldTrustedCostUnit = "trusted_cost_unit"
+	// FieldTrustedCostSource holds the string denoting the trusted_cost_source field in the database.
+	FieldTrustedCostSource = "trusted_cost_source"
+	// FieldTrustedCostVersion holds the string denoting the trusted_cost_version field in the database.
+	FieldTrustedCostVersion = "trusted_cost_version"
+	// FieldCustomerPriceVersion holds the string denoting the customer_price_version field in the database.
+	FieldCustomerPriceVersion = "customer_price_version"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
 	// FieldInputTokens holds the string denoting the input_tokens field in the database.
@@ -160,6 +178,15 @@ var Columns = []string{
 	FieldBillingTier,
 	FieldBillingMode,
 	FieldGroupID,
+	FieldMediaProductID,
+	FieldMediaOfferID,
+	FieldUpstreamPlatform,
+	FieldSourceGroupID,
+	FieldTrustedCostAmount,
+	FieldTrustedCostUnit,
+	FieldTrustedCostSource,
+	FieldTrustedCostVersion,
+	FieldCustomerPriceVersion,
 	FieldSubscriptionID,
 	FieldInputTokens,
 	FieldOutputTokens,
@@ -216,6 +243,16 @@ var (
 	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
+	// UpstreamPlatformValidator is a validator for the "upstream_platform" field. It is called by the builders before save.
+	UpstreamPlatformValidator func(string) error
+	// TrustedCostUnitValidator is a validator for the "trusted_cost_unit" field. It is called by the builders before save.
+	TrustedCostUnitValidator func(string) error
+	// TrustedCostSourceValidator is a validator for the "trusted_cost_source" field. It is called by the builders before save.
+	TrustedCostSourceValidator func(string) error
+	// TrustedCostVersionValidator is a validator for the "trusted_cost_version" field. It is called by the builders before save.
+	TrustedCostVersionValidator func(string) error
+	// CustomerPriceVersionValidator is a validator for the "customer_price_version" field. It is called by the builders before save.
+	CustomerPriceVersionValidator func(string) error
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
 	DefaultInputTokens int
 	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
@@ -332,6 +369,51 @@ func ByBillingMode(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByMediaProductID orders the results by the media_product_id field.
+func ByMediaProductID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMediaProductID, opts...).ToFunc()
+}
+
+// ByMediaOfferID orders the results by the media_offer_id field.
+func ByMediaOfferID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMediaOfferID, opts...).ToFunc()
+}
+
+// ByUpstreamPlatform orders the results by the upstream_platform field.
+func ByUpstreamPlatform(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamPlatform, opts...).ToFunc()
+}
+
+// BySourceGroupID orders the results by the source_group_id field.
+func BySourceGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceGroupID, opts...).ToFunc()
+}
+
+// ByTrustedCostAmount orders the results by the trusted_cost_amount field.
+func ByTrustedCostAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrustedCostAmount, opts...).ToFunc()
+}
+
+// ByTrustedCostUnit orders the results by the trusted_cost_unit field.
+func ByTrustedCostUnit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrustedCostUnit, opts...).ToFunc()
+}
+
+// ByTrustedCostSource orders the results by the trusted_cost_source field.
+func ByTrustedCostSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrustedCostSource, opts...).ToFunc()
+}
+
+// ByTrustedCostVersion orders the results by the trusted_cost_version field.
+func ByTrustedCostVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrustedCostVersion, opts...).ToFunc()
+}
+
+// ByCustomerPriceVersion orders the results by the customer_price_version field.
+func ByCustomerPriceVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCustomerPriceVersion, opts...).ToFunc()
 }
 
 // BySubscriptionID orders the results by the subscription_id field.

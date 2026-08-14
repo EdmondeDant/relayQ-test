@@ -154,8 +154,12 @@ func TestNormalizePlaygroundProgress(t *testing.T) {
 	}
 }
 
-func TestBuildVideoRequestAdaptsMiniMaxContract(t *testing.T) {
-	payload := playgroundJobPayload{Prompt: "video prompt", Metadata: map[string]any{"platform": PlatformOpenAI}}
+func TestBuildVideoRequestAdaptsMiniMaxH3(t *testing.T) {
+	payload := playgroundJobPayload{
+		Prompt: "city night", Duration: 10, Resolution: "1080p", AspectRatio: "16:9",
+		Metadata: map[string]any{"platform": PlatformOpenAI},
+		Media:    playgroundJobMedia{InputReference: &playgroundJobMediaRef{URL: "https://cdn.example/start.png"}},
+	}
 	_, body, err := payload.buildVideoRequest("minimax-h3")
 	if err != nil {
 		t.Fatalf("buildVideoRequest() error = %v", err)
@@ -164,11 +168,43 @@ func TestBuildVideoRequestAdaptsMiniMaxContract(t *testing.T) {
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		t.Fatalf("unmarshal body error = %v", err)
 	}
-	if decoded["duration"] != float64(5) || decoded["resolution"] != "480p" {
+	if decoded["model"] != "minimax-h3" || decoded["prompt"] != "city night" {
 		t.Fatalf("unexpected MiniMax request = %#v", decoded)
 	}
-	if _, ok := decoded["aspect_ratio"]; ok {
-		t.Fatalf("MiniMax request contains aspect_ratio")
+	if decoded["duration"] != float64(10) || decoded["resolution"] != "2K" || decoded["ratio"] != "adaptive" {
+		t.Fatalf("unexpected MiniMax request = %#v", decoded)
+	}
+	if decoded["image"] != nil {
+		t.Fatalf("MiniMax request contains image: %#v", decoded)
+	}
+	if decoded["reference_images"] != nil {
+		t.Fatalf("MiniMax request contains reference_images: %#v", decoded)
+	}
+	content, _ := decoded["content"].([]any)
+	if len(content) < 2 {
+		t.Fatalf("unexpected MiniMax content = %#v", decoded)
+	}
+
+	payload = playgroundJobPayload{
+		Prompt: "city night", Duration: 10, Resolution: "1080p", AspectRatio: "16:9",
+		Metadata: map[string]any{"platform": PlatformOpenAI},
+	}
+	_, body, err = payload.buildVideoRequest("minimax-h3")
+	if err != nil {
+		t.Fatalf("buildVideoRequest() error = %v", err)
+	}
+	decoded = map[string]any{}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("unmarshal body error = %v", err)
+	}
+	if decoded["model"] != "minimax-h3" || decoded["prompt"] != "city night" {
+		t.Fatalf("unexpected MiniMax request = %#v", decoded)
+	}
+	if decoded["duration"] != float64(10) || decoded["resolution"] != "2K" || decoded["ratio"] != "16:9" {
+		t.Fatalf("unexpected MiniMax request = %#v", decoded)
+	}
+	if _, ok := decoded["image"]; ok {
+		t.Fatalf("MiniMax request contains image without first frame: %#v", decoded)
 	}
 }
 

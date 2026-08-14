@@ -496,7 +496,7 @@ const videoResolutionSelectOptions = computed(() => {
 })
 const videoSupportsFirstFrame = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
-  return model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro' || model === 'wan-2.7' || model === 'motion_2.0-fast' || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro'
+  return model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro' || model === 'wan-2.7' || model === 'motion_2.0-fast' || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro' || model === 'minimax-h3'
 })
 const copywritingPlatformOptions = [{ value: '电商详情页', label: '电商详情页' }, { value: '小红书', label: '小红书' }, { value: '抖音', label: '抖音' }, { value: '亚马逊', label: '亚马逊' }]
 const languageOptions = [

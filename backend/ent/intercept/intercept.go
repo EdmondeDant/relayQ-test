@@ -25,6 +25,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/mediaoffer"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproduct"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproductprice"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -561,6 +564,87 @@ func (f TraverseIdentityAdoptionDecision) Traverse(ctx context.Context, q ent.Qu
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.IdentityAdoptionDecisionQuery", q)
+}
+
+// The MediaOfferFunc type is an adapter to allow the use of ordinary function as a Querier.
+type MediaOfferFunc func(context.Context, *ent.MediaOfferQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f MediaOfferFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.MediaOfferQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.MediaOfferQuery", q)
+}
+
+// The TraverseMediaOffer type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseMediaOffer func(context.Context, *ent.MediaOfferQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseMediaOffer) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseMediaOffer) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.MediaOfferQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.MediaOfferQuery", q)
+}
+
+// The MediaProductFunc type is an adapter to allow the use of ordinary function as a Querier.
+type MediaProductFunc func(context.Context, *ent.MediaProductQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f MediaProductFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.MediaProductQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.MediaProductQuery", q)
+}
+
+// The TraverseMediaProduct type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseMediaProduct func(context.Context, *ent.MediaProductQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseMediaProduct) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseMediaProduct) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.MediaProductQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.MediaProductQuery", q)
+}
+
+// The MediaProductPriceFunc type is an adapter to allow the use of ordinary function as a Querier.
+type MediaProductPriceFunc func(context.Context, *ent.MediaProductPriceQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f MediaProductPriceFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.MediaProductPriceQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.MediaProductPriceQuery", q)
+}
+
+// The TraverseMediaProductPrice type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseMediaProductPrice func(context.Context, *ent.MediaProductPriceQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseMediaProductPrice) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseMediaProductPrice) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.MediaProductPriceQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.MediaProductPriceQuery", q)
 }
 
 // The PaymentAuditLogFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1140,6 +1224,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:
 		return &query[*ent.IdentityAdoptionDecisionQuery, predicate.IdentityAdoptionDecision, identityadoptiondecision.OrderOption]{typ: ent.TypeIdentityAdoptionDecision, tq: q}, nil
+	case *ent.MediaOfferQuery:
+		return &query[*ent.MediaOfferQuery, predicate.MediaOffer, mediaoffer.OrderOption]{typ: ent.TypeMediaOffer, tq: q}, nil
+	case *ent.MediaProductQuery:
+		return &query[*ent.MediaProductQuery, predicate.MediaProduct, mediaproduct.OrderOption]{typ: ent.TypeMediaProduct, tq: q}, nil
+	case *ent.MediaProductPriceQuery:
+		return &query[*ent.MediaProductPriceQuery, predicate.MediaProductPrice, mediaproductprice.OrderOption]{typ: ent.TypeMediaProductPrice, tq: q}, nil
 	case *ent.PaymentAuditLogQuery:
 		return &query[*ent.PaymentAuditLogQuery, predicate.PaymentAuditLog, paymentauditlog.OrderOption]{typ: ent.TypePaymentAuditLog, tq: q}, nil
 	case *ent.PaymentOrderQuery:

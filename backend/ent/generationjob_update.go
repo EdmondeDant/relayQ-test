@@ -174,6 +174,127 @@ func (_u *GenerationJobUpdate) ClearGroupID() *GenerationJobUpdate {
 	return _u
 }
 
+// SetProductID sets the "product_id" field.
+func (_u *GenerationJobUpdate) SetProductID(v int64) *GenerationJobUpdate {
+	_u.mutation.ResetProductID()
+	_u.mutation.SetProductID(v)
+	return _u
+}
+
+// SetNillableProductID sets the "product_id" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableProductID(v *int64) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetProductID(*v)
+	}
+	return _u
+}
+
+// AddProductID adds value to the "product_id" field.
+func (_u *GenerationJobUpdate) AddProductID(v int64) *GenerationJobUpdate {
+	_u.mutation.AddProductID(v)
+	return _u
+}
+
+// ClearProductID clears the value of the "product_id" field.
+func (_u *GenerationJobUpdate) ClearProductID() *GenerationJobUpdate {
+	_u.mutation.ClearProductID()
+	return _u
+}
+
+// SetOfferID sets the "offer_id" field.
+func (_u *GenerationJobUpdate) SetOfferID(v int64) *GenerationJobUpdate {
+	_u.mutation.ResetOfferID()
+	_u.mutation.SetOfferID(v)
+	return _u
+}
+
+// SetNillableOfferID sets the "offer_id" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableOfferID(v *int64) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetOfferID(*v)
+	}
+	return _u
+}
+
+// AddOfferID adds value to the "offer_id" field.
+func (_u *GenerationJobUpdate) AddOfferID(v int64) *GenerationJobUpdate {
+	_u.mutation.AddOfferID(v)
+	return _u
+}
+
+// ClearOfferID clears the value of the "offer_id" field.
+func (_u *GenerationJobUpdate) ClearOfferID() *GenerationJobUpdate {
+	_u.mutation.ClearOfferID()
+	return _u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *GenerationJobUpdate) SetSourceGroupID(v int64) *GenerationJobUpdate {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableSourceGroupID(v *int64) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *GenerationJobUpdate) AddSourceGroupID(v int64) *GenerationJobUpdate {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *GenerationJobUpdate) ClearSourceGroupID() *GenerationJobUpdate {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetOperation sets the "operation" field.
+func (_u *GenerationJobUpdate) SetOperation(v string) *GenerationJobUpdate {
+	_u.mutation.SetOperation(v)
+	return _u
+}
+
+// SetNillableOperation sets the "operation" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableOperation(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetOperation(*v)
+	}
+	return _u
+}
+
+// ClearOperation clears the value of the "operation" field.
+func (_u *GenerationJobUpdate) ClearOperation() *GenerationJobUpdate {
+	_u.mutation.ClearOperation()
+	return _u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_u *GenerationJobUpdate) SetCustomerPriceVersion(v string) *GenerationJobUpdate {
+	_u.mutation.SetCustomerPriceVersion(v)
+	return _u
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_u *GenerationJobUpdate) SetNillableCustomerPriceVersion(v *string) *GenerationJobUpdate {
+	if v != nil {
+		_u.SetCustomerPriceVersion(*v)
+	}
+	return _u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (_u *GenerationJobUpdate) ClearCustomerPriceVersion() *GenerationJobUpdate {
+	_u.mutation.ClearCustomerPriceVersion()
+	return _u
+}
+
 // SetAccountID sets the "account_id" field.
 func (_u *GenerationJobUpdate) SetAccountID(v int64) *GenerationJobUpdate {
 	_u.mutation.ResetAccountID()
@@ -739,6 +860,16 @@ func (_u *GenerationJobUpdate) check() error {
 			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.upstream_model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Operation(); ok {
+		if err := generationjob.OperationValidator(v); err != nil {
+			return &ValidationError{Name: "operation", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.operation": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CustomerPriceVersion(); ok {
+		if err := generationjob.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.customer_price_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UpstreamGenerationID(); ok {
 		if err := generationjob.UpstreamGenerationIDValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_generation_id", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.upstream_generation_id": %w`, err)}
@@ -862,6 +993,45 @@ func (_u *GenerationJobUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if _u.mutation.GroupIDCleared() {
 		_spec.ClearField(generationjob.FieldGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ProductID(); ok {
+		_spec.SetField(generationjob.FieldProductID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedProductID(); ok {
+		_spec.AddField(generationjob.FieldProductID, field.TypeInt64, value)
+	}
+	if _u.mutation.ProductIDCleared() {
+		_spec.ClearField(generationjob.FieldProductID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.OfferID(); ok {
+		_spec.SetField(generationjob.FieldOfferID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOfferID(); ok {
+		_spec.AddField(generationjob.FieldOfferID, field.TypeInt64, value)
+	}
+	if _u.mutation.OfferIDCleared() {
+		_spec.ClearField(generationjob.FieldOfferID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(generationjob.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(generationjob.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(generationjob.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.Operation(); ok {
+		_spec.SetField(generationjob.FieldOperation, field.TypeString, value)
+	}
+	if _u.mutation.OperationCleared() {
+		_spec.ClearField(generationjob.FieldOperation, field.TypeString)
+	}
+	if value, ok := _u.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(generationjob.FieldCustomerPriceVersion, field.TypeString, value)
+	}
+	if _u.mutation.CustomerPriceVersionCleared() {
+		_spec.ClearField(generationjob.FieldCustomerPriceVersion, field.TypeString)
 	}
 	if value, ok := _u.mutation.AccountID(); ok {
 		_spec.SetField(generationjob.FieldAccountID, field.TypeInt64, value)
@@ -1184,6 +1354,127 @@ func (_u *GenerationJobUpdateOne) AddGroupID(v int64) *GenerationJobUpdateOne {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *GenerationJobUpdateOne) ClearGroupID() *GenerationJobUpdateOne {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetProductID sets the "product_id" field.
+func (_u *GenerationJobUpdateOne) SetProductID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.ResetProductID()
+	_u.mutation.SetProductID(v)
+	return _u
+}
+
+// SetNillableProductID sets the "product_id" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableProductID(v *int64) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetProductID(*v)
+	}
+	return _u
+}
+
+// AddProductID adds value to the "product_id" field.
+func (_u *GenerationJobUpdateOne) AddProductID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.AddProductID(v)
+	return _u
+}
+
+// ClearProductID clears the value of the "product_id" field.
+func (_u *GenerationJobUpdateOne) ClearProductID() *GenerationJobUpdateOne {
+	_u.mutation.ClearProductID()
+	return _u
+}
+
+// SetOfferID sets the "offer_id" field.
+func (_u *GenerationJobUpdateOne) SetOfferID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.ResetOfferID()
+	_u.mutation.SetOfferID(v)
+	return _u
+}
+
+// SetNillableOfferID sets the "offer_id" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableOfferID(v *int64) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetOfferID(*v)
+	}
+	return _u
+}
+
+// AddOfferID adds value to the "offer_id" field.
+func (_u *GenerationJobUpdateOne) AddOfferID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.AddOfferID(v)
+	return _u
+}
+
+// ClearOfferID clears the value of the "offer_id" field.
+func (_u *GenerationJobUpdateOne) ClearOfferID() *GenerationJobUpdateOne {
+	_u.mutation.ClearOfferID()
+	return _u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *GenerationJobUpdateOne) SetSourceGroupID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableSourceGroupID(v *int64) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *GenerationJobUpdateOne) AddSourceGroupID(v int64) *GenerationJobUpdateOne {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *GenerationJobUpdateOne) ClearSourceGroupID() *GenerationJobUpdateOne {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetOperation sets the "operation" field.
+func (_u *GenerationJobUpdateOne) SetOperation(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetOperation(v)
+	return _u
+}
+
+// SetNillableOperation sets the "operation" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableOperation(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetOperation(*v)
+	}
+	return _u
+}
+
+// ClearOperation clears the value of the "operation" field.
+func (_u *GenerationJobUpdateOne) ClearOperation() *GenerationJobUpdateOne {
+	_u.mutation.ClearOperation()
+	return _u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_u *GenerationJobUpdateOne) SetCustomerPriceVersion(v string) *GenerationJobUpdateOne {
+	_u.mutation.SetCustomerPriceVersion(v)
+	return _u
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_u *GenerationJobUpdateOne) SetNillableCustomerPriceVersion(v *string) *GenerationJobUpdateOne {
+	if v != nil {
+		_u.SetCustomerPriceVersion(*v)
+	}
+	return _u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (_u *GenerationJobUpdateOne) ClearCustomerPriceVersion() *GenerationJobUpdateOne {
+	_u.mutation.ClearCustomerPriceVersion()
 	return _u
 }
 
@@ -1765,6 +2056,16 @@ func (_u *GenerationJobUpdateOne) check() error {
 			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.upstream_model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Operation(); ok {
+		if err := generationjob.OperationValidator(v); err != nil {
+			return &ValidationError{Name: "operation", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.operation": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CustomerPriceVersion(); ok {
+		if err := generationjob.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.customer_price_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UpstreamGenerationID(); ok {
 		if err := generationjob.UpstreamGenerationIDValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_generation_id", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.upstream_generation_id": %w`, err)}
@@ -1905,6 +2206,45 @@ func (_u *GenerationJobUpdateOne) sqlSave(ctx context.Context) (_node *Generatio
 	}
 	if _u.mutation.GroupIDCleared() {
 		_spec.ClearField(generationjob.FieldGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ProductID(); ok {
+		_spec.SetField(generationjob.FieldProductID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedProductID(); ok {
+		_spec.AddField(generationjob.FieldProductID, field.TypeInt64, value)
+	}
+	if _u.mutation.ProductIDCleared() {
+		_spec.ClearField(generationjob.FieldProductID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.OfferID(); ok {
+		_spec.SetField(generationjob.FieldOfferID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOfferID(); ok {
+		_spec.AddField(generationjob.FieldOfferID, field.TypeInt64, value)
+	}
+	if _u.mutation.OfferIDCleared() {
+		_spec.ClearField(generationjob.FieldOfferID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(generationjob.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(generationjob.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(generationjob.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.Operation(); ok {
+		_spec.SetField(generationjob.FieldOperation, field.TypeString, value)
+	}
+	if _u.mutation.OperationCleared() {
+		_spec.ClearField(generationjob.FieldOperation, field.TypeString)
+	}
+	if value, ok := _u.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(generationjob.FieldCustomerPriceVersion, field.TypeString, value)
+	}
+	if _u.mutation.CustomerPriceVersionCleared() {
+		_spec.ClearField(generationjob.FieldCustomerPriceVersion, field.TypeString)
 	}
 	if value, ok := _u.mutation.AccountID(); ok {
 		_spec.SetField(generationjob.FieldAccountID, field.TypeInt64, value)

@@ -461,10 +461,32 @@ func (p playgroundJobPayload) buildVideoRequest(model string) (string, json.RawM
 		return "/v1/videos/generations", mustJSON(body), nil
 	}
 	if strings.EqualFold(strings.TrimSpace(platform), PlatformOpenAI) && model == "minimax-h3" {
-		if p.Media.InputReference != nil && strings.TrimSpace(p.Media.InputReference.URL) != "" {
-			return "", nil, fmt.Errorf("%w: first-frame image is not supported by minimax-h3", ErrPlaygroundInvalidInput)
+		// minimax-h3 supports text / first-frame / multi-reference via shared normalizer.
+		body := map[string]any{
+			"model":  model,
+			"prompt": p.Prompt,
 		}
-		return "/v1/videos/generations", mustJSON(map[string]any{"model": model, "prompt": p.Prompt, "duration": 5, "resolution": "480p"}), nil
+		if p.Duration > 0 {
+			body["seconds"] = p.Duration
+		} else {
+			body["seconds"] = 5
+		}
+		body["resolution"] = playgroundFirstNonEmpty(p.Resolution, "480p")
+		if aspectRatio := strings.TrimSpace(p.AspectRatio); aspectRatio != "" {
+			body["aspect_ratio"] = aspectRatio
+		}
+		if p.Media.InputReference != nil && strings.TrimSpace(p.Media.InputReference.URL) != "" {
+			body["input_reference"] = map[string]any{"image_url": strings.TrimSpace(p.Media.InputReference.URL)}
+		}
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return "", nil, err
+		}
+		normalized, _, err := NormalizeVideoGenerationBodyForHandler("application/json", encoded)
+		if err != nil {
+			return "", nil, fmt.Errorf("%w: %v", ErrPlaygroundInvalidInput, err)
+		}
+		return "/v1/videos/generations", normalized, nil
 	}
 	body := map[string]any{
 		"model":        model,

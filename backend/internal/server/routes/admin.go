@@ -108,6 +108,7 @@ func RegisterAdminRoutes(
 
 		// 渠道管理
 		registerChannelRoutes(admin, h)
+		registerMediaProductRoutes(admin, h)
 
 		// 渠道监控
 		registerChannelMonitorRoutes(admin, h)
@@ -118,6 +119,15 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 	}
+}
+
+func registerMediaProductRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	products := admin.Group("/media-products")
+	products.GET("", h.Admin.MediaProduct.List)
+	products.POST("", h.Admin.MediaProduct.Create)
+	products.GET("/:id", h.Admin.MediaProduct.Get)
+	products.PUT("/:id", h.Admin.MediaProduct.Update)
+	products.DELETE("/:id", h.Admin.MediaProduct.Delete)
 }
 
 func registerIdeaMessageRoutes(admin *gin.RouterGroup, h *handler.Handlers, rateLimiter *middleware2.RateLimiter) {

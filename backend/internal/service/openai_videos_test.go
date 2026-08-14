@@ -1,6 +1,9 @@
 package service
 
 import (
+	"bytes"
+	"mime/multipart"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -76,4 +79,100 @@ func TestNormalizeXAIVideoGenerationBodyRejectsUnknownModel(t *testing.T) {
 	_, _, err := NormalizeXAIVideoGenerationBodyForHandler([]byte(`{"model":"veo-3","prompt":"city"}`))
 
 	require.ErrorContains(t, err, "xAI-compatible video model")
+}
+
+func TestCanvasVideoMultipartToJSONAcceptsInfiniteCanvasFields(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "minimax-h3"))
+	require.NoError(t, writer.WriteField("prompt", "a dog running"))
+	require.NoError(t, writer.WriteField("seconds", "5"))
+	require.NoError(t, writer.WriteField("size", "720x1280"))
+	require.NoError(t, writer.WriteField("resolution_name", "480p"))
+	require.NoError(t, writer.WriteField("preset", "normal"))
+	require.NoError(t, writer.Close())
+
+	got, err := CanvasVideoMultipartToJSON(writer.FormDataContentType(), body.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, "minimax-h3", gjson.GetBytes(got, "model").String())
+	require.Equal(t, "a dog running", gjson.GetBytes(got, "prompt").String())
+	require.Equal(t, float64(5), gjson.GetBytes(got, "seconds").Value())
+	require.Equal(t, "720x1280", gjson.GetBytes(got, "size").String())
+	require.Equal(t, "480p", gjson.GetBytes(got, "resolution").String())
+	require.False(t, gjson.GetBytes(got, "mode").Exists())
+}
+
+func TestNormalizeVideoGenerationBodyForHandlerAcceptsCanvasMultipart(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "minimax-h3"))
+	require.NoError(t, writer.WriteField("prompt", "a dog running"))
+	require.NoError(t, writer.WriteField("seconds", "5"))
+	require.NoError(t, writer.WriteField("size", "720x1280"))
+	require.NoError(t, writer.WriteField("resolution_name", "480p"))
+	require.NoError(t, writer.Close())
+
+	forwardBody, requestModel, err := NormalizeVideoGenerationBodyForHandler(writer.FormDataContentType(), body.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, "minimax-h3", requestModel)
+	require.Equal(t, "minimax-h3", gjson.GetBytes(forwardBody, "model").String())
+	require.Equal(t, float64(5), gjson.GetBytes(forwardBody, "duration").Value())
+	require.False(t, gjson.GetBytes(forwardBody, "seconds").Exists())
+	require.Equal(t, "9:16", gjson.GetBytes(forwardBody, "aspect_ratio").String())
+	require.Equal(t, "480p", gjson.GetBytes(forwardBody, "resolution").String())
+	require.False(t, gjson.GetBytes(forwardBody, "size").Exists())
+	require.Equal(t, "text", gjson.GetBytes(forwardBody, "content.0.type").String())
+	require.Equal(t, "a dog running", gjson.GetBytes(forwardBody, "content.0.text").String())
+}
+
+func TestNormalizeVideoGenerationBodyMapsMiniMaxH3FirstFrame(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "minimax-h3"))
+	require.NoError(t, writer.WriteField("prompt", "animate this subject"))
+	require.NoError(t, writer.WriteField("seconds", "5"))
+	require.NoError(t, writer.WriteField("resolution_name", "480p"))
+	part, err := writer.CreateFormFile("input_reference[]", "start.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	forwardBody, requestModel, err := NormalizeVideoGenerationBodyForHandler(writer.FormDataContentType(), body.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, "minimax-h3", requestModel)
+	require.Equal(t, "first_frame", gjson.GetBytes(forwardBody, "content.1.role").String())
+	require.True(t, strings.HasPrefix(gjson.GetBytes(forwardBody, "content.1.image_url.url").String(), "data:"))
+	require.False(t, gjson.GetBytes(forwardBody, "image").Exists())
+	require.Equal(t, "adaptive", gjson.GetBytes(forwardBody, "ratio").String())
+	require.False(t, gjson.GetBytes(forwardBody, "reference_images").Exists())
+}
+
+func TestNormalizeVideoGenerationBodyMapsMiniMaxH3ReferenceImages(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "minimax-h3"))
+	require.NoError(t, writer.WriteField("prompt", "person holding the drink"))
+	require.NoError(t, writer.WriteField("seconds", "5"))
+	require.NoError(t, writer.WriteField("resolution_name", "480p"))
+	for i, name := range []string{"person.png", "drink.png"} {
+		part, err := writer.CreateFormFile("input_reference[]", name)
+		require.NoError(t, err)
+		_, err = part.Write([]byte{0x89, 0x50, 0x4e, 0x47, byte(i), 0x0a, 0x1a, 0x0a})
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	forwardBody, requestModel, err := NormalizeVideoGenerationBodyForHandler(writer.FormDataContentType(), body.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, "minimax-h3", requestModel)
+	require.Equal(t, "reference_image", gjson.GetBytes(forwardBody, "content.1.role").String())
+	require.Equal(t, "reference_image", gjson.GetBytes(forwardBody, "content.2.role").String())
+	require.Equal(t, 2, int(gjson.GetBytes(forwardBody, "content.#").Int())-1)
+	require.False(t, gjson.GetBytes(forwardBody, "image").Exists())
+	require.False(t, gjson.GetBytes(forwardBody, "reference_images").Exists())
+	require.Equal(t, "adaptive", gjson.GetBytes(forwardBody, "ratio").String())
+	require.Contains(t, gjson.GetBytes(forwardBody, "prompt").String(), "Image 1")
+	require.Contains(t, gjson.GetBytes(forwardBody, "prompt").String(), "Image 2")
+	require.Contains(t, gjson.GetBytes(forwardBody, "content.0.text").String(), "Image 1")
 }

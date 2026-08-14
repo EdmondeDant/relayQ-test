@@ -15,6 +15,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/mediaoffer"
+	"github.com/Wei-Shaw/sub2api/ent/mediaproduct"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -741,6 +743,36 @@ func (_u *GroupUpdate) AddAllowedUsers(v ...*User) *GroupUpdate {
 	return _u.AddAllowedUserIDs(ids...)
 }
 
+// AddMediaProductIDs adds the "media_products" edge to the MediaProduct entity by IDs.
+func (_u *GroupUpdate) AddMediaProductIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddMediaProductIDs(ids...)
+	return _u
+}
+
+// AddMediaProducts adds the "media_products" edges to the MediaProduct entity.
+func (_u *GroupUpdate) AddMediaProducts(v ...*MediaProduct) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMediaProductIDs(ids...)
+}
+
+// AddMediaSourceOfferIDs adds the "media_source_offers" edge to the MediaOffer entity by IDs.
+func (_u *GroupUpdate) AddMediaSourceOfferIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddMediaSourceOfferIDs(ids...)
+	return _u
+}
+
+// AddMediaSourceOffers adds the "media_source_offers" edges to the MediaOffer entity.
+func (_u *GroupUpdate) AddMediaSourceOffers(v ...*MediaOffer) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMediaSourceOfferIDs(ids...)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (_u *GroupUpdate) Mutation() *GroupMutation {
 	return _u.mutation
@@ -870,6 +902,48 @@ func (_u *GroupUpdate) RemoveAllowedUsers(v ...*User) *GroupUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAllowedUserIDs(ids...)
+}
+
+// ClearMediaProducts clears all "media_products" edges to the MediaProduct entity.
+func (_u *GroupUpdate) ClearMediaProducts() *GroupUpdate {
+	_u.mutation.ClearMediaProducts()
+	return _u
+}
+
+// RemoveMediaProductIDs removes the "media_products" edge to MediaProduct entities by IDs.
+func (_u *GroupUpdate) RemoveMediaProductIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveMediaProductIDs(ids...)
+	return _u
+}
+
+// RemoveMediaProducts removes "media_products" edges to MediaProduct entities.
+func (_u *GroupUpdate) RemoveMediaProducts(v ...*MediaProduct) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMediaProductIDs(ids...)
+}
+
+// ClearMediaSourceOffers clears all "media_source_offers" edges to the MediaOffer entity.
+func (_u *GroupUpdate) ClearMediaSourceOffers() *GroupUpdate {
+	_u.mutation.ClearMediaSourceOffers()
+	return _u
+}
+
+// RemoveMediaSourceOfferIDs removes the "media_source_offers" edge to MediaOffer entities by IDs.
+func (_u *GroupUpdate) RemoveMediaSourceOfferIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveMediaSourceOfferIDs(ids...)
+	return _u
+}
+
+// RemoveMediaSourceOffers removes "media_source_offers" edges to MediaOffer entities.
+func (_u *GroupUpdate) RemoveMediaSourceOffers(v ...*MediaOffer) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMediaSourceOfferIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1427,6 +1501,96 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MediaProductsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMediaProductsIDs(); len(nodes) > 0 && !_u.mutation.MediaProductsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MediaProductsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MediaSourceOffersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMediaSourceOffersIDs(); len(nodes) > 0 && !_u.mutation.MediaSourceOffersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MediaSourceOffersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -2154,6 +2318,36 @@ func (_u *GroupUpdateOne) AddAllowedUsers(v ...*User) *GroupUpdateOne {
 	return _u.AddAllowedUserIDs(ids...)
 }
 
+// AddMediaProductIDs adds the "media_products" edge to the MediaProduct entity by IDs.
+func (_u *GroupUpdateOne) AddMediaProductIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddMediaProductIDs(ids...)
+	return _u
+}
+
+// AddMediaProducts adds the "media_products" edges to the MediaProduct entity.
+func (_u *GroupUpdateOne) AddMediaProducts(v ...*MediaProduct) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMediaProductIDs(ids...)
+}
+
+// AddMediaSourceOfferIDs adds the "media_source_offers" edge to the MediaOffer entity by IDs.
+func (_u *GroupUpdateOne) AddMediaSourceOfferIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddMediaSourceOfferIDs(ids...)
+	return _u
+}
+
+// AddMediaSourceOffers adds the "media_source_offers" edges to the MediaOffer entity.
+func (_u *GroupUpdateOne) AddMediaSourceOffers(v ...*MediaOffer) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMediaSourceOfferIDs(ids...)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (_u *GroupUpdateOne) Mutation() *GroupMutation {
 	return _u.mutation
@@ -2283,6 +2477,48 @@ func (_u *GroupUpdateOne) RemoveAllowedUsers(v ...*User) *GroupUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAllowedUserIDs(ids...)
+}
+
+// ClearMediaProducts clears all "media_products" edges to the MediaProduct entity.
+func (_u *GroupUpdateOne) ClearMediaProducts() *GroupUpdateOne {
+	_u.mutation.ClearMediaProducts()
+	return _u
+}
+
+// RemoveMediaProductIDs removes the "media_products" edge to MediaProduct entities by IDs.
+func (_u *GroupUpdateOne) RemoveMediaProductIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveMediaProductIDs(ids...)
+	return _u
+}
+
+// RemoveMediaProducts removes "media_products" edges to MediaProduct entities.
+func (_u *GroupUpdateOne) RemoveMediaProducts(v ...*MediaProduct) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMediaProductIDs(ids...)
+}
+
+// ClearMediaSourceOffers clears all "media_source_offers" edges to the MediaOffer entity.
+func (_u *GroupUpdateOne) ClearMediaSourceOffers() *GroupUpdateOne {
+	_u.mutation.ClearMediaSourceOffers()
+	return _u
+}
+
+// RemoveMediaSourceOfferIDs removes the "media_source_offers" edge to MediaOffer entities by IDs.
+func (_u *GroupUpdateOne) RemoveMediaSourceOfferIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveMediaSourceOfferIDs(ids...)
+	return _u
+}
+
+// RemoveMediaSourceOffers removes "media_source_offers" edges to MediaOffer entities.
+func (_u *GroupUpdateOne) RemoveMediaSourceOffers(v ...*MediaOffer) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMediaSourceOfferIDs(ids...)
 }
 
 // Where appends a list predicates to the GroupUpdate builder.
@@ -2870,6 +3106,96 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MediaProductsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMediaProductsIDs(); len(nodes) > 0 && !_u.mutation.MediaProductsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MediaProductsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.MediaProductsTable,
+			Columns: group.MediaProductsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaproduct.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MediaSourceOffersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMediaSourceOffersIDs(); len(nodes) > 0 && !_u.mutation.MediaSourceOffersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MediaSourceOffersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.MediaSourceOffersTable,
+			Columns: []string{group.MediaSourceOffersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mediaoffer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Group{config: _u.config}

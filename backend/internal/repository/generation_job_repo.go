@@ -32,6 +32,11 @@ func (r *generationJobRepository) Create(ctx context.Context, job *service.Gener
 		SetUserID(job.UserID).
 		SetAPIKeyID(job.APIKeyID).
 		SetNillableGroupID(job.GroupID).
+		SetNillableProductID(job.ProductID).
+		SetNillableOfferID(job.OfferID).
+		SetNillableSourceGroupID(job.SourceGroupID).
+		SetNillableOperation(job.Operation).
+		SetNillableCustomerPriceVersion(job.CustomerPriceVersion).
 		SetAccountID(job.AccountID).
 		SetNillableUpstreamGenerationID(job.UpstreamGenerationID).
 		SetStatus(generationjob.Status(job.Status)).
@@ -139,6 +144,14 @@ func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publ
 	service.NormalizeGenerationJob(job)
 	update := r.client.GenerationJob.Update().
 		Where(generationjob.PublicIDEQ(publicID), generationjob.StatusEQ(generationjob.Status(expectedStatus))).
+		SetProvider(job.Provider).
+		SetUpstreamModel(job.UpstreamModel).
+		SetAccountID(job.AccountID).
+		SetNillableProductID(job.ProductID).
+		SetNillableOfferID(job.OfferID).
+		SetNillableSourceGroupID(job.SourceGroupID).
+		SetNillableOperation(job.Operation).
+		SetNillableCustomerPriceVersion(job.CustomerPriceVersion).
 		SetStatus(generationjob.Status(job.Status)).
 		SetNillableUpstreamGenerationID(job.UpstreamGenerationID).
 		SetNillableUpstreamStatus(job.UpstreamStatus).
@@ -146,6 +159,10 @@ func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publ
 		SetNillableErrorCode(job.ErrorCode).
 		SetNillableErrorMessage(job.ErrorMessage).
 		SetOutputCount(job.OutputCount).
+		SetNillableEstimatedUpstreamCostUnit(job.EstimatedUpstreamCostUnit).
+		SetNillablePricingSnapshotVersion(job.PricingSnapshotVersion).
+		SetNillablePricingSource(job.PricingSource).
+		SetNillablePricingMatchType(job.PricingMatchType).
 		SetNillableActualUpstreamCostUnit(job.ActualUpstreamCostUnit).
 		SetBillingStatus(generationjob.BillingStatus(job.BillingStatus)).
 		SetNillableBillingReference(job.BillingReference).
@@ -156,6 +173,11 @@ func (r *generationJobRepository) CompareAndSwapStatus(ctx context.Context, publ
 		SetNillableStartedAt(job.StartedAt).
 		SetNillableCompletedAt(job.CompletedAt).
 		SetNillableFailedAt(job.FailedAt)
+	if job.EstimatedUpstreamCostAmount == nil {
+		update.ClearEstimatedUpstreamCostAmount()
+	} else {
+		update.SetEstimatedUpstreamCostAmount(job.EstimatedUpstreamCostAmount)
+	}
 	if job.ActualUpstreamCostAmount == nil {
 		update.ClearActualUpstreamCostAmount()
 	} else {
@@ -325,6 +347,11 @@ func generationJobEntityToService(entity *dbent.GenerationJob) *service.Generati
 		UserID:                      entity.UserID,
 		APIKeyID:                    entity.APIKeyID,
 		GroupID:                     entity.GroupID,
+		ProductID:                   entity.ProductID,
+		OfferID:                     entity.OfferID,
+		SourceGroupID:               entity.SourceGroupID,
+		Operation:                   entity.Operation,
+		CustomerPriceVersion:        entity.CustomerPriceVersion,
 		AccountID:                   entity.AccountID,
 		UpstreamGenerationID:        entity.UpstreamGenerationID,
 		Status:                      service.GenerationJobStatus(entity.Status),

@@ -107,6 +107,76 @@ func (_c *GenerationJobCreate) SetNillableGroupID(v *int64) *GenerationJobCreate
 	return _c
 }
 
+// SetProductID sets the "product_id" field.
+func (_c *GenerationJobCreate) SetProductID(v int64) *GenerationJobCreate {
+	_c.mutation.SetProductID(v)
+	return _c
+}
+
+// SetNillableProductID sets the "product_id" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableProductID(v *int64) *GenerationJobCreate {
+	if v != nil {
+		_c.SetProductID(*v)
+	}
+	return _c
+}
+
+// SetOfferID sets the "offer_id" field.
+func (_c *GenerationJobCreate) SetOfferID(v int64) *GenerationJobCreate {
+	_c.mutation.SetOfferID(v)
+	return _c
+}
+
+// SetNillableOfferID sets the "offer_id" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableOfferID(v *int64) *GenerationJobCreate {
+	if v != nil {
+		_c.SetOfferID(*v)
+	}
+	return _c
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_c *GenerationJobCreate) SetSourceGroupID(v int64) *GenerationJobCreate {
+	_c.mutation.SetSourceGroupID(v)
+	return _c
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableSourceGroupID(v *int64) *GenerationJobCreate {
+	if v != nil {
+		_c.SetSourceGroupID(*v)
+	}
+	return _c
+}
+
+// SetOperation sets the "operation" field.
+func (_c *GenerationJobCreate) SetOperation(v string) *GenerationJobCreate {
+	_c.mutation.SetOperation(v)
+	return _c
+}
+
+// SetNillableOperation sets the "operation" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableOperation(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetOperation(*v)
+	}
+	return _c
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_c *GenerationJobCreate) SetCustomerPriceVersion(v string) *GenerationJobCreate {
+	_c.mutation.SetCustomerPriceVersion(v)
+	return _c
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_c *GenerationJobCreate) SetNillableCustomerPriceVersion(v *string) *GenerationJobCreate {
+	if v != nil {
+		_c.SetCustomerPriceVersion(*v)
+	}
+	return _c
+}
+
 // SetAccountID sets the "account_id" field.
 func (_c *GenerationJobCreate) SetAccountID(v int64) *GenerationJobCreate {
 	_c.mutation.SetAccountID(v)
@@ -564,6 +634,16 @@ func (_c *GenerationJobCreate) check() error {
 	if _, ok := _c.mutation.APIKeyID(); !ok {
 		return &ValidationError{Name: "api_key_id", err: errors.New(`ent: missing required field "GenerationJob.api_key_id"`)}
 	}
+	if v, ok := _c.mutation.Operation(); ok {
+		if err := generationjob.OperationValidator(v); err != nil {
+			return &ValidationError{Name: "operation", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.operation": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CustomerPriceVersion(); ok {
+		if err := generationjob.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "GenerationJob.customer_price_version": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.AccountID(); !ok {
 		return &ValidationError{Name: "account_id", err: errors.New(`ent: missing required field "GenerationJob.account_id"`)}
 	}
@@ -724,6 +804,26 @@ func (_c *GenerationJobCreate) createSpec() (*GenerationJob, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.GroupID(); ok {
 		_spec.SetField(generationjob.FieldGroupID, field.TypeInt64, value)
 		_node.GroupID = &value
+	}
+	if value, ok := _c.mutation.ProductID(); ok {
+		_spec.SetField(generationjob.FieldProductID, field.TypeInt64, value)
+		_node.ProductID = &value
+	}
+	if value, ok := _c.mutation.OfferID(); ok {
+		_spec.SetField(generationjob.FieldOfferID, field.TypeInt64, value)
+		_node.OfferID = &value
+	}
+	if value, ok := _c.mutation.SourceGroupID(); ok {
+		_spec.SetField(generationjob.FieldSourceGroupID, field.TypeInt64, value)
+		_node.SourceGroupID = &value
+	}
+	if value, ok := _c.mutation.Operation(); ok {
+		_spec.SetField(generationjob.FieldOperation, field.TypeString, value)
+		_node.Operation = &value
+	}
+	if value, ok := _c.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(generationjob.FieldCustomerPriceVersion, field.TypeString, value)
+		_node.CustomerPriceVersion = &value
 	}
 	if value, ok := _c.mutation.AccountID(); ok {
 		_spec.SetField(generationjob.FieldAccountID, field.TypeInt64, value)
@@ -1022,6 +1122,114 @@ func (u *GenerationJobUpsert) AddGroupID(v int64) *GenerationJobUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *GenerationJobUpsert) ClearGroupID() *GenerationJobUpsert {
 	u.SetNull(generationjob.FieldGroupID)
+	return u
+}
+
+// SetProductID sets the "product_id" field.
+func (u *GenerationJobUpsert) SetProductID(v int64) *GenerationJobUpsert {
+	u.Set(generationjob.FieldProductID, v)
+	return u
+}
+
+// UpdateProductID sets the "product_id" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateProductID() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldProductID)
+	return u
+}
+
+// AddProductID adds v to the "product_id" field.
+func (u *GenerationJobUpsert) AddProductID(v int64) *GenerationJobUpsert {
+	u.Add(generationjob.FieldProductID, v)
+	return u
+}
+
+// ClearProductID clears the value of the "product_id" field.
+func (u *GenerationJobUpsert) ClearProductID() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldProductID)
+	return u
+}
+
+// SetOfferID sets the "offer_id" field.
+func (u *GenerationJobUpsert) SetOfferID(v int64) *GenerationJobUpsert {
+	u.Set(generationjob.FieldOfferID, v)
+	return u
+}
+
+// UpdateOfferID sets the "offer_id" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateOfferID() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldOfferID)
+	return u
+}
+
+// AddOfferID adds v to the "offer_id" field.
+func (u *GenerationJobUpsert) AddOfferID(v int64) *GenerationJobUpsert {
+	u.Add(generationjob.FieldOfferID, v)
+	return u
+}
+
+// ClearOfferID clears the value of the "offer_id" field.
+func (u *GenerationJobUpsert) ClearOfferID() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldOfferID)
+	return u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *GenerationJobUpsert) SetSourceGroupID(v int64) *GenerationJobUpsert {
+	u.Set(generationjob.FieldSourceGroupID, v)
+	return u
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateSourceGroupID() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldSourceGroupID)
+	return u
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *GenerationJobUpsert) AddSourceGroupID(v int64) *GenerationJobUpsert {
+	u.Add(generationjob.FieldSourceGroupID, v)
+	return u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *GenerationJobUpsert) ClearSourceGroupID() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldSourceGroupID)
+	return u
+}
+
+// SetOperation sets the "operation" field.
+func (u *GenerationJobUpsert) SetOperation(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldOperation, v)
+	return u
+}
+
+// UpdateOperation sets the "operation" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateOperation() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldOperation)
+	return u
+}
+
+// ClearOperation clears the value of the "operation" field.
+func (u *GenerationJobUpsert) ClearOperation() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldOperation)
+	return u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *GenerationJobUpsert) SetCustomerPriceVersion(v string) *GenerationJobUpsert {
+	u.Set(generationjob.FieldCustomerPriceVersion, v)
+	return u
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *GenerationJobUpsert) UpdateCustomerPriceVersion() *GenerationJobUpsert {
+	u.SetExcluded(generationjob.FieldCustomerPriceVersion)
+	return u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *GenerationJobUpsert) ClearCustomerPriceVersion() *GenerationJobUpsert {
+	u.SetNull(generationjob.FieldCustomerPriceVersion)
 	return u
 }
 
@@ -1713,6 +1921,132 @@ func (u *GenerationJobUpsertOne) UpdateGroupID() *GenerationJobUpsertOne {
 func (u *GenerationJobUpsertOne) ClearGroupID() *GenerationJobUpsertOne {
 	return u.Update(func(s *GenerationJobUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetProductID sets the "product_id" field.
+func (u *GenerationJobUpsertOne) SetProductID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetProductID(v)
+	})
+}
+
+// AddProductID adds v to the "product_id" field.
+func (u *GenerationJobUpsertOne) AddProductID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddProductID(v)
+	})
+}
+
+// UpdateProductID sets the "product_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateProductID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateProductID()
+	})
+}
+
+// ClearProductID clears the value of the "product_id" field.
+func (u *GenerationJobUpsertOne) ClearProductID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearProductID()
+	})
+}
+
+// SetOfferID sets the "offer_id" field.
+func (u *GenerationJobUpsertOne) SetOfferID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetOfferID(v)
+	})
+}
+
+// AddOfferID adds v to the "offer_id" field.
+func (u *GenerationJobUpsertOne) AddOfferID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddOfferID(v)
+	})
+}
+
+// UpdateOfferID sets the "offer_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateOfferID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateOfferID()
+	})
+}
+
+// ClearOfferID clears the value of the "offer_id" field.
+func (u *GenerationJobUpsertOne) ClearOfferID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearOfferID()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *GenerationJobUpsertOne) SetSourceGroupID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *GenerationJobUpsertOne) AddSourceGroupID(v int64) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateSourceGroupID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *GenerationJobUpsertOne) ClearSourceGroupID() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetOperation sets the "operation" field.
+func (u *GenerationJobUpsertOne) SetOperation(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetOperation(v)
+	})
+}
+
+// UpdateOperation sets the "operation" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateOperation() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateOperation()
+	})
+}
+
+// ClearOperation clears the value of the "operation" field.
+func (u *GenerationJobUpsertOne) ClearOperation() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearOperation()
+	})
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *GenerationJobUpsertOne) SetCustomerPriceVersion(v string) *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetCustomerPriceVersion(v)
+	})
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *GenerationJobUpsertOne) UpdateCustomerPriceVersion() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateCustomerPriceVersion()
+	})
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *GenerationJobUpsertOne) ClearCustomerPriceVersion() *GenerationJobUpsertOne {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearCustomerPriceVersion()
 	})
 }
 
@@ -2652,6 +2986,132 @@ func (u *GenerationJobUpsertBulk) UpdateGroupID() *GenerationJobUpsertBulk {
 func (u *GenerationJobUpsertBulk) ClearGroupID() *GenerationJobUpsertBulk {
 	return u.Update(func(s *GenerationJobUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetProductID sets the "product_id" field.
+func (u *GenerationJobUpsertBulk) SetProductID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetProductID(v)
+	})
+}
+
+// AddProductID adds v to the "product_id" field.
+func (u *GenerationJobUpsertBulk) AddProductID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddProductID(v)
+	})
+}
+
+// UpdateProductID sets the "product_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateProductID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateProductID()
+	})
+}
+
+// ClearProductID clears the value of the "product_id" field.
+func (u *GenerationJobUpsertBulk) ClearProductID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearProductID()
+	})
+}
+
+// SetOfferID sets the "offer_id" field.
+func (u *GenerationJobUpsertBulk) SetOfferID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetOfferID(v)
+	})
+}
+
+// AddOfferID adds v to the "offer_id" field.
+func (u *GenerationJobUpsertBulk) AddOfferID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddOfferID(v)
+	})
+}
+
+// UpdateOfferID sets the "offer_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateOfferID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateOfferID()
+	})
+}
+
+// ClearOfferID clears the value of the "offer_id" field.
+func (u *GenerationJobUpsertBulk) ClearOfferID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearOfferID()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *GenerationJobUpsertBulk) SetSourceGroupID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *GenerationJobUpsertBulk) AddSourceGroupID(v int64) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateSourceGroupID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *GenerationJobUpsertBulk) ClearSourceGroupID() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetOperation sets the "operation" field.
+func (u *GenerationJobUpsertBulk) SetOperation(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetOperation(v)
+	})
+}
+
+// UpdateOperation sets the "operation" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateOperation() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateOperation()
+	})
+}
+
+// ClearOperation clears the value of the "operation" field.
+func (u *GenerationJobUpsertBulk) ClearOperation() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearOperation()
+	})
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *GenerationJobUpsertBulk) SetCustomerPriceVersion(v string) *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.SetCustomerPriceVersion(v)
+	})
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *GenerationJobUpsertBulk) UpdateCustomerPriceVersion() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.UpdateCustomerPriceVersion()
+	})
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *GenerationJobUpsertBulk) ClearCustomerPriceVersion() *GenerationJobUpsertBulk {
+	return u.Update(func(s *GenerationJobUpsert) {
+		s.ClearCustomerPriceVersion()
 	})
 }
 

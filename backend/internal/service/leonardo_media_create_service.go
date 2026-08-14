@@ -63,6 +63,8 @@ func LeonardoDefaultVideoPriceRequest(model string) LeonardoVideoPriceRequest {
 }
 
 type LeonardoMediaCreateInput struct {
+	PublicID        string
+	AccountID       int64
 	IdempotencyKey  string
 	UserID          int64
 	APIKeyID        int64
@@ -169,6 +171,9 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	}
 	publicSum := sha256.Sum256([]byte("leonardo_media_create\n" + strconv.FormatInt(input.UserID, 10) + "\n" + key))
 	publicID := "gen_rq_" + hex.EncodeToString(publicSum[:16])
+	if strings.TrimSpace(input.PublicID) != "" {
+		publicID = strings.TrimSpace(input.PublicID)
+	}
 	fingerprint, err := json.Marshal(struct {
 		Model             string                    `json:"model"`
 		Modality          string                    `json:"modality"`
@@ -188,9 +193,18 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
 	hash := sha256.Sum256(fingerprint)
-	accounts, err := s.accounts.ListSchedulableByGroupIDAndPlatform(ctx, input.GroupID, PlatformLeonardo)
-	if err != nil {
-		return nil, err
+	accounts := []Account{}
+	if input.AccountID > 0 {
+		account, accountErr := s.accounts.GetByID(ctx, input.AccountID)
+		if accountErr != nil {
+			return nil, accountErr
+		}
+		accounts = append(accounts, *account)
+	} else {
+		accounts, err = s.accounts.ListSchedulableByGroupIDAndPlatform(ctx, input.GroupID, PlatformLeonardo)
+		if err != nil {
+			return nil, err
+		}
 	}
 	valid := make([]Account, 0, len(accounts))
 	for _, account := range accounts {

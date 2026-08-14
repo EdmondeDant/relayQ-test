@@ -213,6 +213,42 @@ func (f IdentityAdoptionDecisionFunc) Mutate(ctx context.Context, m ent.Mutation
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IdentityAdoptionDecisionMutation", m)
 }
 
+// The MediaOfferFunc type is an adapter to allow the use of ordinary
+// function as MediaOffer mutator.
+type MediaOfferFunc func(context.Context, *ent.MediaOfferMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MediaOfferFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MediaOfferMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MediaOfferMutation", m)
+}
+
+// The MediaProductFunc type is an adapter to allow the use of ordinary
+// function as MediaProduct mutator.
+type MediaProductFunc func(context.Context, *ent.MediaProductMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MediaProductFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MediaProductMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MediaProductMutation", m)
+}
+
+// The MediaProductPriceFunc type is an adapter to allow the use of ordinary
+// function as MediaProductPrice mutator.
+type MediaProductPriceFunc func(context.Context, *ent.MediaProductPriceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MediaProductPriceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MediaProductPriceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MediaProductPriceMutation", m)
+}
+
 // The PaymentAuditLogFunc type is an adapter to allow the use of ordinary
 // function as PaymentAuditLog mutator.
 type PaymentAuditLogFunc func(context.Context, *ent.PaymentAuditLogMutation) (ent.Value, error)

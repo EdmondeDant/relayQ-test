@@ -362,6 +362,25 @@ func TestLeonardoGenerationPollOrchestratorReconcilesStoredTerminalJobsWithoutNe
 	}
 }
 
+func TestLeonardoGenerationPollOrchestratorLeavesUnifiedTerminalBillingToMediaOrchestrator(t *testing.T) {
+	job := orchestratorJob(GenerationJobStatusSucceeded)
+	productID := int64(9)
+	job.ProductID = &productID
+	job.BillingStatus = GenerationJobBillingStatusSubmitted
+	job.CustomerCost = decimalPointer(decimal.RequireFromString("0.08"))
+	job.BillingReference = stringPointer("media_hold_1")
+	repository := &orchestratorRepositoryMock{job: job}
+	funds := &orchestratorFundsMock{}
+
+	result, err := NewLeonardoGenerationPollOrchestrator(repository, &orchestratorAccountLoaderMock{}, &orchestratorUpstreamMock{}, &config.Config{}, generationPollClockMock{now: time.Now()}, funds).Poll(context.Background(), job.PublicID)
+
+	require.NoError(t, err)
+	require.Equal(t, GenerationJobBillingStatusSubmitted, result.BillingStatus)
+	require.Zero(t, funds.settleCalls)
+	require.Zero(t, funds.releaseCalls)
+	require.Zero(t, repository.statusCASCalls)
+}
+
 func TestLeonardoGenerationPollOrchestratorDoesNotBillUnverified3DTerminalJob(t *testing.T) {
 	job := orchestratorJob(GenerationJobStatusSucceeded)
 	job.Modality = "3d"

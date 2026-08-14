@@ -155,6 +155,132 @@ func (_c *UsageLogCreate) SetNillableGroupID(v *int64) *UsageLogCreate {
 	return _c
 }
 
+// SetMediaProductID sets the "media_product_id" field.
+func (_c *UsageLogCreate) SetMediaProductID(v int64) *UsageLogCreate {
+	_c.mutation.SetMediaProductID(v)
+	return _c
+}
+
+// SetNillableMediaProductID sets the "media_product_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableMediaProductID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetMediaProductID(*v)
+	}
+	return _c
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (_c *UsageLogCreate) SetMediaOfferID(v int64) *UsageLogCreate {
+	_c.mutation.SetMediaOfferID(v)
+	return _c
+}
+
+// SetNillableMediaOfferID sets the "media_offer_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableMediaOfferID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetMediaOfferID(*v)
+	}
+	return _c
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (_c *UsageLogCreate) SetUpstreamPlatform(v string) *UsageLogCreate {
+	_c.mutation.SetUpstreamPlatform(v)
+	return _c
+}
+
+// SetNillableUpstreamPlatform sets the "upstream_platform" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableUpstreamPlatform(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetUpstreamPlatform(*v)
+	}
+	return _c
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (_c *UsageLogCreate) SetSourceGroupID(v int64) *UsageLogCreate {
+	_c.mutation.SetSourceGroupID(v)
+	return _c
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableSourceGroupID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetSourceGroupID(*v)
+	}
+	return _c
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (_c *UsageLogCreate) SetTrustedCostAmount(v float64) *UsageLogCreate {
+	_c.mutation.SetTrustedCostAmount(v)
+	return _c
+}
+
+// SetNillableTrustedCostAmount sets the "trusted_cost_amount" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableTrustedCostAmount(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetTrustedCostAmount(*v)
+	}
+	return _c
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (_c *UsageLogCreate) SetTrustedCostUnit(v string) *UsageLogCreate {
+	_c.mutation.SetTrustedCostUnit(v)
+	return _c
+}
+
+// SetNillableTrustedCostUnit sets the "trusted_cost_unit" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableTrustedCostUnit(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetTrustedCostUnit(*v)
+	}
+	return _c
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (_c *UsageLogCreate) SetTrustedCostSource(v string) *UsageLogCreate {
+	_c.mutation.SetTrustedCostSource(v)
+	return _c
+}
+
+// SetNillableTrustedCostSource sets the "trusted_cost_source" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableTrustedCostSource(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetTrustedCostSource(*v)
+	}
+	return _c
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (_c *UsageLogCreate) SetTrustedCostVersion(v string) *UsageLogCreate {
+	_c.mutation.SetTrustedCostVersion(v)
+	return _c
+}
+
+// SetNillableTrustedCostVersion sets the "trusted_cost_version" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableTrustedCostVersion(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetTrustedCostVersion(*v)
+	}
+	return _c
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (_c *UsageLogCreate) SetCustomerPriceVersion(v string) *UsageLogCreate {
+	_c.mutation.SetCustomerPriceVersion(v)
+	return _c
+}
+
+// SetNillableCustomerPriceVersion sets the "customer_price_version" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableCustomerPriceVersion(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetCustomerPriceVersion(*v)
+	}
+	return _c
+}
+
 // SetSubscriptionID sets the "subscription_id" field.
 func (_c *UsageLogCreate) SetSubscriptionID(v int64) *UsageLogCreate {
 	_c.mutation.SetSubscriptionID(v)
@@ -739,6 +865,31 @@ func (_c *UsageLogCreate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.UpstreamPlatform(); ok {
+		if err := usagelog.UpstreamPlatformValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_platform", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_platform": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.TrustedCostUnit(); ok {
+		if err := usagelog.TrustedCostUnitValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_unit", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_unit": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.TrustedCostSource(); ok {
+		if err := usagelog.TrustedCostSourceValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_source": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.TrustedCostVersion(); ok {
+		if err := usagelog.TrustedCostVersionValidator(v); err != nil {
+			return &ValidationError{Name: "trusted_cost_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.trusted_cost_version": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CustomerPriceVersion(); ok {
+		if err := usagelog.CustomerPriceVersionValidator(v); err != nil {
+			return &ValidationError{Name: "customer_price_version", err: fmt.Errorf(`ent: validator failed for field "UsageLog.customer_price_version": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		return &ValidationError{Name: "input_tokens", err: errors.New(`ent: missing required field "UsageLog.input_tokens"`)}
 	}
@@ -890,6 +1041,42 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
 		_node.BillingMode = &value
+	}
+	if value, ok := _c.mutation.MediaProductID(); ok {
+		_spec.SetField(usagelog.FieldMediaProductID, field.TypeInt64, value)
+		_node.MediaProductID = &value
+	}
+	if value, ok := _c.mutation.MediaOfferID(); ok {
+		_spec.SetField(usagelog.FieldMediaOfferID, field.TypeInt64, value)
+		_node.MediaOfferID = &value
+	}
+	if value, ok := _c.mutation.UpstreamPlatform(); ok {
+		_spec.SetField(usagelog.FieldUpstreamPlatform, field.TypeString, value)
+		_node.UpstreamPlatform = &value
+	}
+	if value, ok := _c.mutation.SourceGroupID(); ok {
+		_spec.SetField(usagelog.FieldSourceGroupID, field.TypeInt64, value)
+		_node.SourceGroupID = &value
+	}
+	if value, ok := _c.mutation.TrustedCostAmount(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostAmount, field.TypeFloat64, value)
+		_node.TrustedCostAmount = &value
+	}
+	if value, ok := _c.mutation.TrustedCostUnit(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostUnit, field.TypeString, value)
+		_node.TrustedCostUnit = &value
+	}
+	if value, ok := _c.mutation.TrustedCostSource(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostSource, field.TypeString, value)
+		_node.TrustedCostSource = &value
+	}
+	if value, ok := _c.mutation.TrustedCostVersion(); ok {
+		_spec.SetField(usagelog.FieldTrustedCostVersion, field.TypeString, value)
+		_node.TrustedCostVersion = &value
+	}
+	if value, ok := _c.mutation.CustomerPriceVersion(); ok {
+		_spec.SetField(usagelog.FieldCustomerPriceVersion, field.TypeString, value)
+		_node.CustomerPriceVersion = &value
 	}
 	if value, ok := _c.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1329,6 +1516,192 @@ func (u *UsageLogUpsert) UpdateGroupID() *UsageLogUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *UsageLogUpsert) ClearGroupID() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldGroupID)
+	return u
+}
+
+// SetMediaProductID sets the "media_product_id" field.
+func (u *UsageLogUpsert) SetMediaProductID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldMediaProductID, v)
+	return u
+}
+
+// UpdateMediaProductID sets the "media_product_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateMediaProductID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldMediaProductID)
+	return u
+}
+
+// AddMediaProductID adds v to the "media_product_id" field.
+func (u *UsageLogUpsert) AddMediaProductID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldMediaProductID, v)
+	return u
+}
+
+// ClearMediaProductID clears the value of the "media_product_id" field.
+func (u *UsageLogUpsert) ClearMediaProductID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldMediaProductID)
+	return u
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (u *UsageLogUpsert) SetMediaOfferID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldMediaOfferID, v)
+	return u
+}
+
+// UpdateMediaOfferID sets the "media_offer_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateMediaOfferID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldMediaOfferID)
+	return u
+}
+
+// AddMediaOfferID adds v to the "media_offer_id" field.
+func (u *UsageLogUpsert) AddMediaOfferID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldMediaOfferID, v)
+	return u
+}
+
+// ClearMediaOfferID clears the value of the "media_offer_id" field.
+func (u *UsageLogUpsert) ClearMediaOfferID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldMediaOfferID)
+	return u
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (u *UsageLogUpsert) SetUpstreamPlatform(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldUpstreamPlatform, v)
+	return u
+}
+
+// UpdateUpstreamPlatform sets the "upstream_platform" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateUpstreamPlatform() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldUpstreamPlatform)
+	return u
+}
+
+// ClearUpstreamPlatform clears the value of the "upstream_platform" field.
+func (u *UsageLogUpsert) ClearUpstreamPlatform() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldUpstreamPlatform)
+	return u
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *UsageLogUpsert) SetSourceGroupID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldSourceGroupID, v)
+	return u
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateSourceGroupID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldSourceGroupID)
+	return u
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *UsageLogUpsert) AddSourceGroupID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldSourceGroupID, v)
+	return u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *UsageLogUpsert) ClearSourceGroupID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldSourceGroupID)
+	return u
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (u *UsageLogUpsert) SetTrustedCostAmount(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldTrustedCostAmount, v)
+	return u
+}
+
+// UpdateTrustedCostAmount sets the "trusted_cost_amount" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateTrustedCostAmount() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldTrustedCostAmount)
+	return u
+}
+
+// AddTrustedCostAmount adds v to the "trusted_cost_amount" field.
+func (u *UsageLogUpsert) AddTrustedCostAmount(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldTrustedCostAmount, v)
+	return u
+}
+
+// ClearTrustedCostAmount clears the value of the "trusted_cost_amount" field.
+func (u *UsageLogUpsert) ClearTrustedCostAmount() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldTrustedCostAmount)
+	return u
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (u *UsageLogUpsert) SetTrustedCostUnit(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldTrustedCostUnit, v)
+	return u
+}
+
+// UpdateTrustedCostUnit sets the "trusted_cost_unit" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateTrustedCostUnit() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldTrustedCostUnit)
+	return u
+}
+
+// ClearTrustedCostUnit clears the value of the "trusted_cost_unit" field.
+func (u *UsageLogUpsert) ClearTrustedCostUnit() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldTrustedCostUnit)
+	return u
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (u *UsageLogUpsert) SetTrustedCostSource(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldTrustedCostSource, v)
+	return u
+}
+
+// UpdateTrustedCostSource sets the "trusted_cost_source" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateTrustedCostSource() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldTrustedCostSource)
+	return u
+}
+
+// ClearTrustedCostSource clears the value of the "trusted_cost_source" field.
+func (u *UsageLogUpsert) ClearTrustedCostSource() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldTrustedCostSource)
+	return u
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (u *UsageLogUpsert) SetTrustedCostVersion(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldTrustedCostVersion, v)
+	return u
+}
+
+// UpdateTrustedCostVersion sets the "trusted_cost_version" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateTrustedCostVersion() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldTrustedCostVersion)
+	return u
+}
+
+// ClearTrustedCostVersion clears the value of the "trusted_cost_version" field.
+func (u *UsageLogUpsert) ClearTrustedCostVersion() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldTrustedCostVersion)
+	return u
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *UsageLogUpsert) SetCustomerPriceVersion(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldCustomerPriceVersion, v)
+	return u
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCustomerPriceVersion() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCustomerPriceVersion)
+	return u
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *UsageLogUpsert) ClearCustomerPriceVersion() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldCustomerPriceVersion)
 	return u
 }
 
@@ -2108,6 +2481,223 @@ func (u *UsageLogUpsertOne) UpdateGroupID() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearGroupID() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetMediaProductID sets the "media_product_id" field.
+func (u *UsageLogUpsertOne) SetMediaProductID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetMediaProductID(v)
+	})
+}
+
+// AddMediaProductID adds v to the "media_product_id" field.
+func (u *UsageLogUpsertOne) AddMediaProductID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddMediaProductID(v)
+	})
+}
+
+// UpdateMediaProductID sets the "media_product_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateMediaProductID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateMediaProductID()
+	})
+}
+
+// ClearMediaProductID clears the value of the "media_product_id" field.
+func (u *UsageLogUpsertOne) ClearMediaProductID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearMediaProductID()
+	})
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (u *UsageLogUpsertOne) SetMediaOfferID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetMediaOfferID(v)
+	})
+}
+
+// AddMediaOfferID adds v to the "media_offer_id" field.
+func (u *UsageLogUpsertOne) AddMediaOfferID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddMediaOfferID(v)
+	})
+}
+
+// UpdateMediaOfferID sets the "media_offer_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateMediaOfferID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateMediaOfferID()
+	})
+}
+
+// ClearMediaOfferID clears the value of the "media_offer_id" field.
+func (u *UsageLogUpsertOne) ClearMediaOfferID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearMediaOfferID()
+	})
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (u *UsageLogUpsertOne) SetUpstreamPlatform(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetUpstreamPlatform(v)
+	})
+}
+
+// UpdateUpstreamPlatform sets the "upstream_platform" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateUpstreamPlatform() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateUpstreamPlatform()
+	})
+}
+
+// ClearUpstreamPlatform clears the value of the "upstream_platform" field.
+func (u *UsageLogUpsertOne) ClearUpstreamPlatform() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearUpstreamPlatform()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *UsageLogUpsertOne) SetSourceGroupID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *UsageLogUpsertOne) AddSourceGroupID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateSourceGroupID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *UsageLogUpsertOne) ClearSourceGroupID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (u *UsageLogUpsertOne) SetTrustedCostAmount(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostAmount(v)
+	})
+}
+
+// AddTrustedCostAmount adds v to the "trusted_cost_amount" field.
+func (u *UsageLogUpsertOne) AddTrustedCostAmount(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddTrustedCostAmount(v)
+	})
+}
+
+// UpdateTrustedCostAmount sets the "trusted_cost_amount" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateTrustedCostAmount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostAmount()
+	})
+}
+
+// ClearTrustedCostAmount clears the value of the "trusted_cost_amount" field.
+func (u *UsageLogUpsertOne) ClearTrustedCostAmount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostAmount()
+	})
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (u *UsageLogUpsertOne) SetTrustedCostUnit(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostUnit(v)
+	})
+}
+
+// UpdateTrustedCostUnit sets the "trusted_cost_unit" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateTrustedCostUnit() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostUnit()
+	})
+}
+
+// ClearTrustedCostUnit clears the value of the "trusted_cost_unit" field.
+func (u *UsageLogUpsertOne) ClearTrustedCostUnit() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostUnit()
+	})
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (u *UsageLogUpsertOne) SetTrustedCostSource(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostSource(v)
+	})
+}
+
+// UpdateTrustedCostSource sets the "trusted_cost_source" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateTrustedCostSource() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostSource()
+	})
+}
+
+// ClearTrustedCostSource clears the value of the "trusted_cost_source" field.
+func (u *UsageLogUpsertOne) ClearTrustedCostSource() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostSource()
+	})
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (u *UsageLogUpsertOne) SetTrustedCostVersion(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostVersion(v)
+	})
+}
+
+// UpdateTrustedCostVersion sets the "trusted_cost_version" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateTrustedCostVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostVersion()
+	})
+}
+
+// ClearTrustedCostVersion clears the value of the "trusted_cost_version" field.
+func (u *UsageLogUpsertOne) ClearTrustedCostVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostVersion()
+	})
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *UsageLogUpsertOne) SetCustomerPriceVersion(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCustomerPriceVersion(v)
+	})
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCustomerPriceVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCustomerPriceVersion()
+	})
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *UsageLogUpsertOne) ClearCustomerPriceVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCustomerPriceVersion()
 	})
 }
 
@@ -3138,6 +3728,223 @@ func (u *UsageLogUpsertBulk) UpdateGroupID() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearGroupID() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetMediaProductID sets the "media_product_id" field.
+func (u *UsageLogUpsertBulk) SetMediaProductID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetMediaProductID(v)
+	})
+}
+
+// AddMediaProductID adds v to the "media_product_id" field.
+func (u *UsageLogUpsertBulk) AddMediaProductID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddMediaProductID(v)
+	})
+}
+
+// UpdateMediaProductID sets the "media_product_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateMediaProductID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateMediaProductID()
+	})
+}
+
+// ClearMediaProductID clears the value of the "media_product_id" field.
+func (u *UsageLogUpsertBulk) ClearMediaProductID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearMediaProductID()
+	})
+}
+
+// SetMediaOfferID sets the "media_offer_id" field.
+func (u *UsageLogUpsertBulk) SetMediaOfferID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetMediaOfferID(v)
+	})
+}
+
+// AddMediaOfferID adds v to the "media_offer_id" field.
+func (u *UsageLogUpsertBulk) AddMediaOfferID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddMediaOfferID(v)
+	})
+}
+
+// UpdateMediaOfferID sets the "media_offer_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateMediaOfferID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateMediaOfferID()
+	})
+}
+
+// ClearMediaOfferID clears the value of the "media_offer_id" field.
+func (u *UsageLogUpsertBulk) ClearMediaOfferID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearMediaOfferID()
+	})
+}
+
+// SetUpstreamPlatform sets the "upstream_platform" field.
+func (u *UsageLogUpsertBulk) SetUpstreamPlatform(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetUpstreamPlatform(v)
+	})
+}
+
+// UpdateUpstreamPlatform sets the "upstream_platform" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateUpstreamPlatform() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateUpstreamPlatform()
+	})
+}
+
+// ClearUpstreamPlatform clears the value of the "upstream_platform" field.
+func (u *UsageLogUpsertBulk) ClearUpstreamPlatform() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearUpstreamPlatform()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *UsageLogUpsertBulk) SetSourceGroupID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *UsageLogUpsertBulk) AddSourceGroupID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateSourceGroupID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *UsageLogUpsertBulk) ClearSourceGroupID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetTrustedCostAmount sets the "trusted_cost_amount" field.
+func (u *UsageLogUpsertBulk) SetTrustedCostAmount(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostAmount(v)
+	})
+}
+
+// AddTrustedCostAmount adds v to the "trusted_cost_amount" field.
+func (u *UsageLogUpsertBulk) AddTrustedCostAmount(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddTrustedCostAmount(v)
+	})
+}
+
+// UpdateTrustedCostAmount sets the "trusted_cost_amount" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateTrustedCostAmount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostAmount()
+	})
+}
+
+// ClearTrustedCostAmount clears the value of the "trusted_cost_amount" field.
+func (u *UsageLogUpsertBulk) ClearTrustedCostAmount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostAmount()
+	})
+}
+
+// SetTrustedCostUnit sets the "trusted_cost_unit" field.
+func (u *UsageLogUpsertBulk) SetTrustedCostUnit(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostUnit(v)
+	})
+}
+
+// UpdateTrustedCostUnit sets the "trusted_cost_unit" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateTrustedCostUnit() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostUnit()
+	})
+}
+
+// ClearTrustedCostUnit clears the value of the "trusted_cost_unit" field.
+func (u *UsageLogUpsertBulk) ClearTrustedCostUnit() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostUnit()
+	})
+}
+
+// SetTrustedCostSource sets the "trusted_cost_source" field.
+func (u *UsageLogUpsertBulk) SetTrustedCostSource(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostSource(v)
+	})
+}
+
+// UpdateTrustedCostSource sets the "trusted_cost_source" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateTrustedCostSource() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostSource()
+	})
+}
+
+// ClearTrustedCostSource clears the value of the "trusted_cost_source" field.
+func (u *UsageLogUpsertBulk) ClearTrustedCostSource() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostSource()
+	})
+}
+
+// SetTrustedCostVersion sets the "trusted_cost_version" field.
+func (u *UsageLogUpsertBulk) SetTrustedCostVersion(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTrustedCostVersion(v)
+	})
+}
+
+// UpdateTrustedCostVersion sets the "trusted_cost_version" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateTrustedCostVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTrustedCostVersion()
+	})
+}
+
+// ClearTrustedCostVersion clears the value of the "trusted_cost_version" field.
+func (u *UsageLogUpsertBulk) ClearTrustedCostVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearTrustedCostVersion()
+	})
+}
+
+// SetCustomerPriceVersion sets the "customer_price_version" field.
+func (u *UsageLogUpsertBulk) SetCustomerPriceVersion(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCustomerPriceVersion(v)
+	})
+}
+
+// UpdateCustomerPriceVersion sets the "customer_price_version" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCustomerPriceVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCustomerPriceVersion()
+	})
+}
+
+// ClearCustomerPriceVersion clears the value of the "customer_price_version" field.
+func (u *UsageLogUpsertBulk) ClearCustomerPriceVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCustomerPriceVersion()
 	})
 }
 

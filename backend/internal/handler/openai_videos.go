@@ -47,7 +47,8 @@ func (h *OpenAIGatewayHandler) forwardXAIVideoSubmit(c *gin.Context, mode string
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
 		return
 	}
-	forwardBody, requestModel, err := service.NormalizeXAIVideoGenerationBodyForHandler(body)
+	// Infinite Canvas posts multipart/form-data; OpenAI/xAI upstream expects JSON.
+	forwardBody, requestModel, err := service.NormalizeVideoGenerationBodyForHandler(c.GetHeader("Content-Type"), body)
 	if err != nil {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return

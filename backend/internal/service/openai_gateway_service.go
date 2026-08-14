@@ -361,6 +361,7 @@ type OpenAIGatewayService struct {
 	balanceNotifyService  *BalanceNotifyService
 	settingService        *SettingService
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	canvasResourceRoutes  CanvasResourceRouteRepository
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -457,6 +458,10 @@ func (s *OpenAIGatewayService) SetXAIOAuthService(xaiOAuthService *XAIOAuthServi
 		return
 	}
 	s.xaiOAuthService = xaiOAuthService
+}
+
+func (s *OpenAIGatewayService) SetCanvasResourceRouteRepository(routes CanvasResourceRouteRepository) {
+	s.canvasResourceRoutes = routes
 }
 
 func (s *OpenAIGatewayService) maybeRefreshXAIOAuthAccount(ctx context.Context, account *Account) (string, error) {

@@ -34,6 +34,16 @@ const (
 	FieldAPIKeyID = "api_key_id"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldProductID holds the string denoting the product_id field in the database.
+	FieldProductID = "product_id"
+	// FieldOfferID holds the string denoting the offer_id field in the database.
+	FieldOfferID = "offer_id"
+	// FieldSourceGroupID holds the string denoting the source_group_id field in the database.
+	FieldSourceGroupID = "source_group_id"
+	// FieldOperation holds the string denoting the operation field in the database.
+	FieldOperation = "operation"
+	// FieldCustomerPriceVersion holds the string denoting the customer_price_version field in the database.
+	FieldCustomerPriceVersion = "customer_price_version"
 	// FieldAccountID holds the string denoting the account_id field in the database.
 	FieldAccountID = "account_id"
 	// FieldUpstreamGenerationID holds the string denoting the upstream_generation_id field in the database.
@@ -109,6 +119,11 @@ var Columns = []string{
 	FieldUserID,
 	FieldAPIKeyID,
 	FieldGroupID,
+	FieldProductID,
+	FieldOfferID,
+	FieldSourceGroupID,
+	FieldOperation,
+	FieldCustomerPriceVersion,
 	FieldAccountID,
 	FieldUpstreamGenerationID,
 	FieldStatus,
@@ -167,6 +182,10 @@ var (
 	ModelValidator func(string) error
 	// UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
 	UpstreamModelValidator func(string) error
+	// OperationValidator is a validator for the "operation" field. It is called by the builders before save.
+	OperationValidator func(string) error
+	// CustomerPriceVersionValidator is a validator for the "customer_price_version" field. It is called by the builders before save.
+	CustomerPriceVersionValidator func(string) error
 	// UpstreamGenerationIDValidator is a validator for the "upstream_generation_id" field. It is called by the builders before save.
 	UpstreamGenerationIDValidator func(string) error
 	// UpstreamStatusValidator is a validator for the "upstream_status" field. It is called by the builders before save.
@@ -320,6 +339,31 @@ func ByAPIKeyID(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByProductID orders the results by the product_id field.
+func ByProductID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProductID, opts...).ToFunc()
+}
+
+// ByOfferID orders the results by the offer_id field.
+func ByOfferID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOfferID, opts...).ToFunc()
+}
+
+// BySourceGroupID orders the results by the source_group_id field.
+func BySourceGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceGroupID, opts...).ToFunc()
+}
+
+// ByOperation orders the results by the operation field.
+func ByOperation(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOperation, opts...).ToFunc()
+}
+
+// ByCustomerPriceVersion orders the results by the customer_price_version field.
+func ByCustomerPriceVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCustomerPriceVersion, opts...).ToFunc()
 }
 
 // ByAccountID orders the results by the account_id field.

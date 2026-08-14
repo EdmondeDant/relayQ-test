@@ -123,8 +123,17 @@ type UsageLog struct {
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
 	UpstreamEndpoint *string
 
-	GroupID        *int64
-	SubscriptionID *int64
+	GroupID              *int64
+	MediaProductID       *int64
+	MediaOfferID         *int64
+	UpstreamPlatform     *string
+	SourceGroupID        *int64
+	TrustedCostAmount    *float64
+	TrustedCostUnit      *string
+	TrustedCostSource    *string
+	TrustedCostVersion   *string
+	CustomerPriceVersion *string
+	SubscriptionID       *int64
 
 	InputTokens         int
 	OutputTokens        int

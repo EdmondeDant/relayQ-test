@@ -352,6 +352,7 @@ export default {
     apiKeys: 'API 密钥',
     usage: '使用记录',
     modelTest: '在线体验',
+    canvas: '创意画布',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
@@ -363,6 +364,7 @@ export default {
     users: '用户管理',
     groups: '分组管理',
     channels: '渠道管理',
+    mediaProducts: '媒体商品',
     availableChannels: '模型价格',
     pricingCalculator: '价格计算器',
     subscriptions: '订阅管理',
@@ -401,6 +403,16 @@ export default {
   modelTest: {
     title: '在线体验',
     description: '视频 音频 图片的在线体验工具箱，推荐还是用本地agents调用api的模式使用'
+  },
+
+  canvas: {
+    title: '创意画布',
+    description: '使用 RelayQ 登录态、余额和模型能力进入 Infinite Canvas。',
+    retention: '生成的作品保质期为10天，如果中途过来看一眼，保质期刷新。',
+    connecting: '正在连接画布服务…',
+    open: '打开无线画布',
+    retry: '重试',
+    failed: '连接画布失败'
   },
 
   // Auth
@@ -2468,6 +2480,10 @@ export default {
         unitPerMillion: '/ 1M token',
         unitPerRequest: '/ 次'
       }
+    },
+
+    mediaProducts: {
+      title: '媒体商品', description: '统一管理公开模型、固定规格售价、入口分组与供应 Offer', create: '创建媒体商品', edit: '编辑媒体商品', empty: '暂无媒体商品', publicModel: '公开模型', modality: '模态', bindings: '入口分组', prices: '固定售价', productDescription: '商品描述', entryGroups: 'OpenAI 入口分组', specKey: '规范规格键', version: '版本', addPrice: '添加售价', addOffer: '添加 Offer', sourceGroup: '选择来源分组', upstreamModel: '上游模型', priority: '优先级', operations: '操作，逗号分隔', costSource: '成本来源', costVersion: '成本版本', capabilities: '能力 JSON', costRules: '成本规则 JSON', verifiedAt: '验证时间', expiresAt: '到期时间', invalidJSON: 'JSON 格式无效', needEntryGroup: '至少绑定一个 OpenAI 入口分组', needPrice: '至少配置一条固定售价', needOffer: '至少配置一个 Offer', invalidOffer: 'Offer 的来源分组、操作、成本来源、版本和有效期必须完整', disableConfirm: '确定停用媒体商品「{model}」吗？'
     },
 
     // Channel Management

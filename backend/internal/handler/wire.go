@@ -43,6 +43,7 @@ func ProvideAdminHandlers(
 	affiliateHandler *admin.AffiliateHandler,
 	retailGrokHandler *admin.RetailGrokHandler,
 	leonardoManualReviewHandler *admin.LeonardoManualReviewHandler,
+	mediaProductHandler *admin.MediaProductHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -79,6 +80,7 @@ func ProvideAdminHandlers(
 		Affiliate:              affiliateHandler,
 		RetailGrok:             retailGrokHandler,
 		LeonardoManualReview:   leonardoManualReviewHandler,
+		MediaProduct:           mediaProductHandler,
 	}
 }
 
@@ -106,6 +108,7 @@ func ProvideHandlers(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
 	apiKeyHandler *APIKeyHandler,
+	canvasHandler *CanvasHandler,
 	usageHandler *UsageHandler,
 	redeemHandler *RedeemHandler,
 	subscriptionHandler *SubscriptionHandler,
@@ -124,6 +127,7 @@ func ProvideHandlers(
 	playgroundHandler *PlaygroundHandler,
 	leonardoMediaHandler *LeonardoMediaHandler,
 	leonardoWebhookHandler *LeonardoWebhookHandler,
+	mediaHandler *MediaHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -131,6 +135,7 @@ func ProvideHandlers(
 		Auth:             authHandler,
 		User:             userHandler,
 		APIKey:           apiKeyHandler,
+		Canvas:           canvasHandler,
 		Usage:            usageHandler,
 		Redeem:           redeemHandler,
 		Subscription:     subscriptionHandler,
@@ -149,6 +154,7 @@ func ProvideHandlers(
 		Playground:       playgroundHandler,
 		LeonardoMedia:    leonardoMediaHandler,
 		LeonardoWebhook:  leonardoWebhookHandler,
+		Media:            mediaHandler,
 	}
 }
 
@@ -158,6 +164,7 @@ var ProviderSet = wire.NewSet(
 	NewAuthHandler,
 	NewUserHandler,
 	NewAPIKeyHandler,
+	NewCanvasHandler,
 	NewUsageHandler,
 	NewRedeemHandler,
 	NewSubscriptionHandler,
@@ -175,7 +182,9 @@ var ProviderSet = wire.NewSet(
 	NewPlaygroundHandler,
 	NewLeonardoMediaHandler,
 	NewLeonardoWebhookHandler,
+	NewMediaHandler,
 	admin.NewLeonardoManualReviewHandler,
+	admin.NewMediaProductHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

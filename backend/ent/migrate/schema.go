@@ -17,6 +17,9 @@ var (
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "key", Type: field.TypeString, Unique: true, Size: 128},
 		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "client_app", Type: field.TypeString, Size: 50, Default: "api"},
+		{Name: "managed", Type: field.TypeBool, Default: false},
+		{Name: "managed_purpose", Type: field.TypeString, Nullable: true, Size: 50},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
 		{Name: "ip_whitelist", Type: field.TypeJSON, Nullable: true},
@@ -44,13 +47,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "api_keys_groups_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[22]},
+				Columns:    []*schema.Column{APIKeysColumns[25]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "api_keys_users_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[23]},
+				Columns:    []*schema.Column{APIKeysColumns[26]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -59,17 +62,22 @@ var (
 			{
 				Name:    "apikey_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[23]},
+				Columns: []*schema.Column{APIKeysColumns[26]},
+			},
+			{
+				Name:    "apikey_user_id_client_app_managed_purpose",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeysColumns[26], APIKeysColumns[6], APIKeysColumns[8]},
 			},
 			{
 				Name:    "apikey_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[22]},
+				Columns: []*schema.Column{APIKeysColumns[25]},
 			},
 			{
 				Name:    "apikey_status",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[6]},
+				Columns: []*schema.Column{APIKeysColumns[9]},
 			},
 			{
 				Name:    "apikey_deleted_at",
@@ -79,17 +87,17 @@ var (
 			{
 				Name:    "apikey_last_used_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[7]},
+				Columns: []*schema.Column{APIKeysColumns[10]},
 			},
 			{
 				Name:    "apikey_quota_quota_used",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[10], APIKeysColumns[11]},
+				Columns: []*schema.Column{APIKeysColumns[13], APIKeysColumns[14]},
 			},
 			{
 				Name:    "apikey_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[12]},
+				Columns: []*schema.Column{APIKeysColumns[15]},
 			},
 		},
 	}
@@ -646,6 +654,11 @@ var (
 		{Name: "user_id", Type: field.TypeInt64},
 		{Name: "api_key_id", Type: field.TypeInt64},
 		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "product_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "offer_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "source_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "operation", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "customer_price_version", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "account_id", Type: field.TypeInt64},
 		{Name: "upstream_generation_id", Type: field.TypeString, Nullable: true, Size: 128},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"created", "submitting", "queued", "running", "succeeded", "failed", "cancelled", "unknown"}, Default: "created"},
@@ -708,34 +721,49 @@ var (
 				Columns: []*schema.Column{GenerationJobsColumns[10]},
 			},
 			{
-				Name:    "generationjob_account_id",
+				Name:    "generationjob_product_id",
 				Unique:  false,
 				Columns: []*schema.Column{GenerationJobsColumns[11]},
 			},
 			{
-				Name:    "generationjob_upstream_generation_id",
+				Name:    "generationjob_offer_id",
 				Unique:  false,
 				Columns: []*schema.Column{GenerationJobsColumns[12]},
 			},
 			{
-				Name:    "generationjob_status",
+				Name:    "generationjob_source_group_id",
 				Unique:  false,
 				Columns: []*schema.Column{GenerationJobsColumns[13]},
 			},
 			{
+				Name:    "generationjob_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[16]},
+			},
+			{
+				Name:    "generationjob_upstream_generation_id",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[17]},
+			},
+			{
+				Name:    "generationjob_status",
+				Unique:  false,
+				Columns: []*schema.Column{GenerationJobsColumns[18]},
+			},
+			{
 				Name:    "generationjob_next_poll_at",
 				Unique:  false,
-				Columns: []*schema.Column{GenerationJobsColumns[34]},
+				Columns: []*schema.Column{GenerationJobsColumns[39]},
 			},
 			{
 				Name:    "generationjob_status_next_poll_at",
 				Unique:  false,
-				Columns: []*schema.Column{GenerationJobsColumns[13], GenerationJobsColumns[34]},
+				Columns: []*schema.Column{GenerationJobsColumns[18], GenerationJobsColumns[39]},
 			},
 			{
 				Name:    "generationjob_billing_reference",
 				Unique:  true,
-				Columns: []*schema.Column{GenerationJobsColumns[32]},
+				Columns: []*schema.Column{GenerationJobsColumns[37]},
 			},
 			{
 				Name:    "generationjob_created_at",
@@ -932,6 +960,129 @@ var (
 				Name:    "identityadoptiondecision_identity_id",
 				Unique:  false,
 				Columns: []*schema.Column{IdentityAdoptionDecisionsColumns[6]},
+			},
+		},
+	}
+	// MediaOffersColumns holds the columns for the "media_offers" table.
+	MediaOffersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "provider", Type: field.TypeString, Size: 32},
+		{Name: "upstream_model", Type: field.TypeString, Size: 200},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "priority", Type: field.TypeInt, Default: 0},
+		{Name: "operations", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "capabilities", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "cost_rules", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "cost_source", Type: field.TypeString, Size: 500},
+		{Name: "cost_version", Type: field.TypeString, Size: 64},
+		{Name: "verified_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "source_group_id", Type: field.TypeInt64},
+		{Name: "product_id", Type: field.TypeInt64},
+	}
+	// MediaOffersTable holds the schema information for the "media_offers" table.
+	MediaOffersTable = &schema.Table{
+		Name:       "media_offers",
+		Columns:    MediaOffersColumns,
+		PrimaryKey: []*schema.Column{MediaOffersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "media_offers_groups_media_source_offers",
+				Columns:    []*schema.Column{MediaOffersColumns[14]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "media_offers_media_products_offers",
+				Columns:    []*schema.Column{MediaOffersColumns[15]},
+				RefColumns: []*schema.Column{MediaProductsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "mediaoffer_product_id_provider_source_group_id_upstream_model",
+				Unique:  true,
+				Columns: []*schema.Column{MediaOffersColumns[15], MediaOffersColumns[3], MediaOffersColumns[14], MediaOffersColumns[4]},
+			},
+			{
+				Name:    "mediaoffer_product_id_enabled_expires_at_priority",
+				Unique:  false,
+				Columns: []*schema.Column{MediaOffersColumns[15], MediaOffersColumns[5], MediaOffersColumns[13], MediaOffersColumns[6]},
+			},
+			{
+				Name:    "mediaoffer_source_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{MediaOffersColumns[14]},
+			},
+		},
+	}
+	// MediaProductsColumns holds the columns for the "media_products" table.
+	MediaProductsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_model", Type: field.TypeString, Size: 200},
+		{Name: "modality", Type: field.TypeEnum, Enums: []string{"image", "video"}},
+		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+	}
+	// MediaProductsTable holds the schema information for the "media_products" table.
+	MediaProductsTable = &schema.Table{
+		Name:       "media_products",
+		Columns:    MediaProductsColumns,
+		PrimaryKey: []*schema.Column{MediaProductsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "mediaproduct_public_model_modality",
+				Unique:  true,
+				Columns: []*schema.Column{MediaProductsColumns[3], MediaProductsColumns[4]},
+			},
+			{
+				Name:    "mediaproduct_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{MediaProductsColumns[5]},
+			},
+		},
+	}
+	// MediaProductPricesColumns holds the columns for the "media_product_prices" table.
+	MediaProductPricesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "operation", Type: field.TypeString, Size: 32},
+		{Name: "spec_key", Type: field.TypeString, Size: 500},
+		{Name: "unit_price_usd", Type: field.TypeOther, SchemaType: map[string]string{"postgres": "decimal(20,10)", "sqlite3": "numeric"}},
+		{Name: "currency", Type: field.TypeString, Size: 8, Default: "USD"},
+		{Name: "version", Type: field.TypeString, Size: 64},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "product_id", Type: field.TypeInt64},
+	}
+	// MediaProductPricesTable holds the schema information for the "media_product_prices" table.
+	MediaProductPricesTable = &schema.Table{
+		Name:       "media_product_prices",
+		Columns:    MediaProductPricesColumns,
+		PrimaryKey: []*schema.Column{MediaProductPricesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "media_product_prices_media_products_prices",
+				Columns:    []*schema.Column{MediaProductPricesColumns[9]},
+				RefColumns: []*schema.Column{MediaProductsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "mediaproductprice_product_id_operation_spec_key_version",
+				Unique:  true,
+				Columns: []*schema.Column{MediaProductPricesColumns[9], MediaProductPricesColumns[3], MediaProductPricesColumns[4], MediaProductPricesColumns[7]},
+			},
+			{
+				Name:    "mediaproductprice_product_id_operation_spec_key_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{MediaProductPricesColumns[9], MediaProductPricesColumns[3], MediaProductPricesColumns[4], MediaProductPricesColumns[8]},
 			},
 		},
 	}
@@ -1459,6 +1610,15 @@ var (
 		{Name: "model_mapping_chain", Type: field.TypeString, Nullable: true, Size: 500},
 		{Name: "billing_tier", Type: field.TypeString, Nullable: true, Size: 50},
 		{Name: "billing_mode", Type: field.TypeString, Nullable: true, Size: 20},
+		{Name: "media_product_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "media_offer_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "upstream_platform", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "source_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "trusted_cost_amount", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "trusted_cost_unit", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "trusted_cost_source", Type: field.TypeString, Nullable: true, Size: 500},
+		{Name: "trusted_cost_version", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "customer_price_version", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "input_tokens", Type: field.TypeInt, Default: 0},
 		{Name: "output_tokens", Type: field.TypeInt, Default: 0},
 		{Name: "cache_creation_tokens", Type: field.TypeInt, Default: 0},
@@ -1501,31 +1661,31 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "usage_logs_api_keys_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[37]},
+				Columns:    []*schema.Column{UsageLogsColumns[46]},
 				RefColumns: []*schema.Column{APIKeysColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "usage_logs_accounts_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[38]},
+				Columns:    []*schema.Column{UsageLogsColumns[47]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "usage_logs_groups_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[39]},
+				Columns:    []*schema.Column{UsageLogsColumns[48]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "usage_logs_users_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[40]},
+				Columns:    []*schema.Column{UsageLogsColumns[49]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "usage_logs_user_subscriptions_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[41]},
+				Columns:    []*schema.Column{UsageLogsColumns[50]},
 				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1534,32 +1694,32 @@ var (
 			{
 				Name:    "usagelog_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[40]},
+				Columns: []*schema.Column{UsageLogsColumns[49]},
 			},
 			{
 				Name:    "usagelog_api_key_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[37]},
+				Columns: []*schema.Column{UsageLogsColumns[46]},
 			},
 			{
 				Name:    "usagelog_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[38]},
+				Columns: []*schema.Column{UsageLogsColumns[47]},
 			},
 			{
 				Name:    "usagelog_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[39]},
+				Columns: []*schema.Column{UsageLogsColumns[48]},
 			},
 			{
 				Name:    "usagelog_subscription_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[41]},
+				Columns: []*schema.Column{UsageLogsColumns[50]},
 			},
 			{
 				Name:    "usagelog_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[36]},
+				Columns: []*schema.Column{UsageLogsColumns[45]},
 			},
 			{
 				Name:    "usagelog_model",
@@ -1579,17 +1739,17 @@ var (
 			{
 				Name:    "usagelog_user_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[40], UsageLogsColumns[36]},
+				Columns: []*schema.Column{UsageLogsColumns[49], UsageLogsColumns[45]},
 			},
 			{
 				Name:    "usagelog_api_key_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[37], UsageLogsColumns[36]},
+				Columns: []*schema.Column{UsageLogsColumns[46], UsageLogsColumns[45]},
 			},
 			{
 				Name:    "usagelog_group_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[39], UsageLogsColumns[36]},
+				Columns: []*schema.Column{UsageLogsColumns[48], UsageLogsColumns[45]},
 			},
 		},
 	}
@@ -1893,6 +2053,31 @@ var (
 			},
 		},
 	}
+	// MediaProductGroupBindingsColumns holds the columns for the "media_product_group_bindings" table.
+	MediaProductGroupBindingsColumns = []*schema.Column{
+		{Name: "group_id", Type: field.TypeInt},
+		{Name: "product_id", Type: field.TypeInt},
+	}
+	// MediaProductGroupBindingsTable holds the schema information for the "media_product_group_bindings" table.
+	MediaProductGroupBindingsTable = &schema.Table{
+		Name:       "media_product_group_bindings",
+		Columns:    MediaProductGroupBindingsColumns,
+		PrimaryKey: []*schema.Column{MediaProductGroupBindingsColumns[0], MediaProductGroupBindingsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "media_product_group_bindings_group_id",
+				Columns:    []*schema.Column{MediaProductGroupBindingsColumns[0]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "media_product_group_bindings_product_id",
+				Columns:    []*schema.Column{MediaProductGroupBindingsColumns[1]},
+				RefColumns: []*schema.Column{MediaProductsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
@@ -1912,6 +2097,9 @@ var (
 		AiIdeaMessagesTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
+		MediaOffersTable,
+		MediaProductsTable,
+		MediaProductPricesTable,
 		PaymentAuditLogsTable,
 		PaymentOrdersTable,
 		PaymentProviderInstancesTable,
@@ -1932,6 +2120,7 @@ var (
 		UserAttributeValuesTable,
 		UserPlatformQuotasTable,
 		UserSubscriptionsTable,
+		MediaProductGroupBindingsTable,
 	}
 )
 
@@ -2000,6 +2189,18 @@ func init() {
 	IdentityAdoptionDecisionsTable.ForeignKeys[1].RefTable = PendingAuthSessionsTable
 	IdentityAdoptionDecisionsTable.Annotation = &entsql.Annotation{
 		Table: "identity_adoption_decisions",
+	}
+	MediaOffersTable.ForeignKeys[0].RefTable = GroupsTable
+	MediaOffersTable.ForeignKeys[1].RefTable = MediaProductsTable
+	MediaOffersTable.Annotation = &entsql.Annotation{
+		Table: "media_offers",
+	}
+	MediaProductsTable.Annotation = &entsql.Annotation{
+		Table: "media_products",
+	}
+	MediaProductPricesTable.ForeignKeys[0].RefTable = MediaProductsTable
+	MediaProductPricesTable.Annotation = &entsql.Annotation{
+		Table: "media_product_prices",
 	}
 	PaymentAuditLogsTable.Annotation = &entsql.Annotation{
 		Table: "payment_audit_logs",
@@ -2080,4 +2281,6 @@ func init() {
 	UserSubscriptionsTable.Annotation = &entsql.Annotation{
 		Table: "user_subscriptions",
 	}
+	MediaProductGroupBindingsTable.ForeignKeys[0].RefTable = GroupsTable
+	MediaProductGroupBindingsTable.ForeignKeys[1].RefTable = MediaProductsTable
 }

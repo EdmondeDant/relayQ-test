@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -55,6 +56,11 @@ type GenerationJob struct {
 	UserID                      int64
 	APIKeyID                    int64
 	GroupID                     *int64
+	ProductID                   *int64
+	OfferID                     *int64
+	SourceGroupID               *int64
+	Operation                   *string
+	CustomerPriceVersion        *string
 	AccountID                   int64
 	UpstreamGenerationID        *string
 	Status                      GenerationJobStatus
@@ -115,6 +121,36 @@ func NormalizeGenerationJob(job *GenerationJob) {
 	job.ActualUpstreamCostUnit = nil
 	job.GrossMargin = nil
 	job.CostVariance = nil
+}
+
+// NormalizeMediaStatusToken lowercases/trims status strings from internal jobs
+// and OpenAI-compatible media APIs so callers can compare aliases uniformly.
+func NormalizeMediaStatusToken(status string) string {
+	return strings.ToLower(strings.TrimSpace(status))
+}
+
+// IsTerminalMediaSuccessStatus accepts both internal ("succeeded") and
+// OpenAI-compatible ("completed") success labels for image/video/audio media.
+func IsTerminalMediaSuccessStatus(status string) bool {
+	switch NormalizeMediaStatusToken(status) {
+	case string(GenerationJobStatusSucceeded), "completed", "ready", "done":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTerminalMediaFailureStatus accepts internal and OpenAI-compatible failure /
+// cancel labels for image/video/audio media polling and sync wait loops.
+func IsTerminalMediaFailureStatus(status string) bool {
+	switch NormalizeMediaStatusToken(status) {
+	case string(GenerationJobStatusFailed), string(GenerationJobStatusUnknown), string(GenerationJobStatusCancelled),
+		"error", "canceled", "rejected", "expired":
+		// GenerationJobStatusCancelled already covers "cancelled".
+		return true
+	default:
+		return false
+	}
 }
 
 func CanTransitionGenerationJobStatus(from, to GenerationJobStatus) bool {

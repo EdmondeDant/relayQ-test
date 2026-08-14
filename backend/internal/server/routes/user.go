@@ -80,6 +80,11 @@ func RegisterUserRoutes(
 			groups.GET("/rates", h.APIKey.GetUserGroupRates)
 		}
 
+		canvas := authenticated.Group("/canvas")
+		{
+			canvas.POST("/bootstrap", h.Canvas.Bootstrap)
+		}
+
 		// 用户可用渠道（非管理员接口）
 		channels := authenticated.Group("/channels")
 		{

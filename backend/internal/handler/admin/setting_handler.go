@@ -491,15 +491,15 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                `json:"site_name"`
-	SiteLogo                    string                `json:"site_logo"`
-	SiteSubtitle                string                `json:"site_subtitle"`
-	APIBaseURL                  string                `json:"api_base_url"`
-	ContactInfo                 string                `json:"contact_info"`
-	ContactGroupQR              string                `json:"contact_group_qr"`
-	DocURL                      string                `json:"doc_url"`
-	HomeContent                 string                `json:"home_content"`
-	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
+	SiteName                    *string               `json:"site_name"`
+	SiteLogo                    *string               `json:"site_logo"`
+	SiteSubtitle                *string               `json:"site_subtitle"`
+	APIBaseURL                  *string               `json:"api_base_url"`
+	ContactInfo                 *string               `json:"contact_info"`
+	ContactGroupQR              *string               `json:"contact_group_qr"`
+	DocURL                      *string               `json:"doc_url"`
+	HomeContent                 *string               `json:"home_content"`
+	HideCcsImportButton         *bool                 `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
 	TableDefaultPageSize        int                   `json:"table_default_page_size"`
@@ -680,6 +680,42 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
+	}
+	siteName := previousSettings.SiteName
+	if req.SiteName != nil {
+		siteName = *req.SiteName
+	}
+	siteLogo := previousSettings.SiteLogo
+	if req.SiteLogo != nil {
+		siteLogo = *req.SiteLogo
+	}
+	siteSubtitle := previousSettings.SiteSubtitle
+	if req.SiteSubtitle != nil {
+		siteSubtitle = *req.SiteSubtitle
+	}
+	apiBaseURL := previousSettings.APIBaseURL
+	if req.APIBaseURL != nil {
+		apiBaseURL = *req.APIBaseURL
+	}
+	contactInfo := previousSettings.ContactInfo
+	if req.ContactInfo != nil {
+		contactInfo = *req.ContactInfo
+	}
+	contactGroupQR := previousSettings.ContactGroupQR
+	if req.ContactGroupQR != nil {
+		contactGroupQR = *req.ContactGroupQR
+	}
+	docURL := previousSettings.DocURL
+	if req.DocURL != nil {
+		docURL = *req.DocURL
+	}
+	homeContent := previousSettings.HomeContent
+	if req.HomeContent != nil {
+		homeContent = *req.HomeContent
+	}
+	hideCcsImportButton := previousSettings.HideCcsImportButton
+	if req.HideCcsImportButton != nil {
+		hideCcsImportButton = *req.HideCcsImportButton
 	}
 
 	// 验证参数
@@ -1560,15 +1596,15 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GoogleOAuthClientSecret:                req.GoogleOAuthClientSecret,
 		GoogleOAuthRedirectURL:                 req.GoogleOAuthRedirectURL,
 		GoogleOAuthFrontendRedirectURL:         req.GoogleOAuthFrontendRedirectURL,
-		SiteName:                               req.SiteName,
-		SiteLogo:                               req.SiteLogo,
-		SiteSubtitle:                           req.SiteSubtitle,
-		APIBaseURL:                             req.APIBaseURL,
-		ContactInfo:                            req.ContactInfo,
-		ContactGroupQR:                         req.ContactGroupQR,
-		DocURL:                                 req.DocURL,
-		HomeContent:                            req.HomeContent,
-		HideCcsImportButton:                    req.HideCcsImportButton,
+		SiteName:                               siteName,
+		SiteLogo:                               siteLogo,
+		SiteSubtitle:                           siteSubtitle,
+		APIBaseURL:                             apiBaseURL,
+		ContactInfo:                            contactInfo,
+		ContactGroupQR:                         contactGroupQR,
+		DocURL:                                 docURL,
+		HomeContent:                            homeContent,
+		HideCcsImportButton:                    hideCcsImportButton,
 		PurchaseSubscriptionEnabled:            purchaseEnabled,
 		PurchaseSubscriptionURL:                purchaseURL,
 		TableDefaultPageSize:                   req.TableDefaultPageSize,

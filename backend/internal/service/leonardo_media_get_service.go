@@ -31,6 +31,9 @@ var (
 const (
 	leonardoImageContentMaxBytes = 50 << 20
 	leonardoVideoContentMaxBytes = 500 << 20
+	// Keep CDN content downloads short so OpenAI-compatible sync endpoints can
+	// fall back to returning the remote URL instead of hanging forever.
+	leonardoCDNContentTimeout = 12 * time.Second
 )
 
 type LeonardoMediaGetInput struct {
@@ -80,6 +83,17 @@ type LeonardoMediaGetResult struct {
 	Error       *LeonardoMediaGetError  `json:"error"`
 	Data        []LeonardoMediaGetImage `json:"data"`
 	Videos      []LeonardoMediaGetVideo `json:"videos,omitempty"`
+	// OpenAI/Sora-compatible aliases consumed by Infinite Canvas polling.
+	// Canvas only treats top-level video_url/url (or status=completed + /content) as ready.
+	VideoURL  string                     `json:"video_url,omitempty"`
+	URL       string                     `json:"url,omitempty"`
+	ResultURL string                     `json:"result_url,omitempty"`
+	Content   *LeonardoMediaGetURLBundle `json:"content,omitempty"`
+}
+
+type LeonardoMediaGetURLBundle struct {
+	VideoURL string `json:"video_url,omitempty"`
+	URL      string `json:"url,omitempty"`
 }
 
 type LeonardoMediaGetError struct {
@@ -186,7 +200,10 @@ func (s *LeonardoMediaGetService) Content(ctx context.Context, input LeonardoMed
 }
 
 func (s *LeonardoMediaGetService) ContentBase64(ctx context.Context, input LeonardoMediaContentInput) (string, error) {
-	content, err := s.Content(ctx, input)
+	// Bound CDN fetch tightly; callers should fall back to URL on timeout/failure.
+	downloadCtx, cancel := context.WithTimeout(ctx, leonardoCDNContentTimeout)
+	defer cancel()
+	content, err := s.Content(downloadCtx, input)
 	if err != nil {
 		return "", err
 	}
@@ -202,7 +219,10 @@ func (s *LeonardoMediaGetService) downloadContent(ctx context.Context, rawURL, m
 	if s == nil || s.content == nil || apicompat.IsPotentiallyUnsafeRemoteMediaURL(rawURL) || !strings.HasPrefix(rawURL, "https://") {
 		return nil, ErrLeonardoMediaContentFailed
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	// Always enforce a short download timeout even if the parent context is long-lived.
+	downloadCtx, cancel := context.WithTimeout(ctx, leonardoCDNContentTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, ErrLeonardoMediaContentFailed
 	}
@@ -285,7 +305,7 @@ func ownsLeonardoMediaJob(job *GenerationJob, input LeonardoMediaGetInput) bool 
 }
 
 func newLeonardoMediaGetResult(job *GenerationJob) *LeonardoMediaGetResult {
-	result := &LeonardoMediaGetResult{ID: job.PublicID, Object: "media.generation", Provider: job.Provider, Model: job.Model, Modality: job.Modality, Status: string(job.Status), Data: []LeonardoMediaGetImage{}, Videos: []LeonardoMediaGetVideo{}}
+	result := &LeonardoMediaGetResult{ID: job.PublicID, Object: "media.generation", Provider: job.Provider, Model: job.Model, Modality: job.Modality, Status: openAICompatibleMediaStatus(job.Status), Data: []LeonardoMediaGetImage{}, Videos: []LeonardoMediaGetVideo{}}
 	if !job.CreatedAt.IsZero() {
 		result.CreatedAt = job.CreatedAt.Unix()
 	}
@@ -300,7 +320,36 @@ func newLeonardoMediaGetResult(job *GenerationJob) *LeonardoMediaGetResult {
 	}
 	result.Data = leonardoMediaImages(job.ResultPayload)
 	result.Videos = leonardoMediaVideos(job.ResultPayload)
+	if len(result.Videos) > 0 {
+		videoURL := strings.TrimSpace(result.Videos[0].URL)
+		if videoURL != "" {
+			result.VideoURL = videoURL
+			result.URL = videoURL
+			result.ResultURL = videoURL
+			result.Content = &LeonardoMediaGetURLBundle{VideoURL: videoURL, URL: videoURL}
+		}
+	}
 	return result
+}
+
+// openAICompatibleMediaStatus maps internal generation statuses to the
+// OpenAI Videos / Infinite Canvas contract. Canvas only leaves the poll loop
+// when status is "completed" (and/or a top-level video URL is present).
+func openAICompatibleMediaStatus(status GenerationJobStatus) string {
+	switch status {
+	case GenerationJobStatusSucceeded:
+		return "completed"
+	case GenerationJobStatusFailed:
+		return "failed"
+	case GenerationJobStatusCancelled:
+		return "cancelled"
+	case GenerationJobStatusQueued, GenerationJobStatusCreated, GenerationJobStatusSubmitting:
+		return "queued"
+	case GenerationJobStatusRunning:
+		return "in_progress"
+	default:
+		return string(status)
+	}
 }
 
 func leonardoMediaOutputURLs(job *GenerationJob) []string {

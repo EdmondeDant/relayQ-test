@@ -181,7 +181,7 @@ func (o *LeonardoGenerationPollOrchestrator) ApplyWebhook(ctx context.Context, a
 }
 
 func terminalLeonardoGenerationJob(job *GenerationJob) bool {
-	return job != nil && job.BillingStatus == GenerationJobBillingStatusSubmitted && (job.Status == GenerationJobStatusSucceeded || job.Status == GenerationJobStatusFailed)
+	return job != nil && job.ProductID == nil && job.BillingStatus == GenerationJobBillingStatusSubmitted && (job.Status == GenerationJobStatusSucceeded || job.Status == GenerationJobStatusFailed)
 }
 
 func (o *LeonardoGenerationPollOrchestrator) reconcileBilling(ctx context.Context, job *GenerationJob) (*GenerationJob, error) {

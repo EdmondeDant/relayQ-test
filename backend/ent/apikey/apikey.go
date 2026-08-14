@@ -27,6 +27,12 @@ const (
 	FieldKey = "key"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldClientApp holds the string denoting the client_app field in the database.
+	FieldClientApp = "client_app"
+	// FieldManaged holds the string denoting the managed field in the database.
+	FieldManaged = "managed"
+	// FieldManagedPurpose holds the string denoting the managed_purpose field in the database.
+	FieldManagedPurpose = "managed_purpose"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -101,6 +107,9 @@ var Columns = []string{
 	FieldUserID,
 	FieldKey,
 	FieldName,
+	FieldClientApp,
+	FieldManaged,
+	FieldManagedPurpose,
 	FieldGroupID,
 	FieldStatus,
 	FieldLastUsedAt,
@@ -148,6 +157,14 @@ var (
 	KeyValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultClientApp holds the default value on creation for the "client_app" field.
+	DefaultClientApp string
+	// ClientAppValidator is a validator for the "client_app" field. It is called by the builders before save.
+	ClientAppValidator func(string) error
+	// DefaultManaged holds the default value on creation for the "managed" field.
+	DefaultManaged bool
+	// ManagedPurposeValidator is a validator for the "managed_purpose" field. It is called by the builders before save.
+	ManagedPurposeValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -206,6 +223,21 @@ func ByKey(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByClientApp orders the results by the client_app field.
+func ByClientApp(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClientApp, opts...).ToFunc()
+}
+
+// ByManaged orders the results by the managed field.
+func ByManaged(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManaged, opts...).ToFunc()
+}
+
+// ByManagedPurpose orders the results by the managed_purpose field.
+func ByManagedPurpose(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedPurpose, opts...).ToFunc()
 }
 
 // ByGroupID orders the results by the group_id field.

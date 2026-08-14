@@ -32,6 +32,12 @@ type APIKey struct {
 	Key string `json:"key,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// ClientApp holds the value of the "client_app" field.
+	ClientApp string `json:"client_app,omitempty"`
+	// Managed holds the value of the "managed" field.
+	Managed bool `json:"managed,omitempty"`
+	// ManagedPurpose holds the value of the "managed_purpose" field.
+	ManagedPurpose *string `json:"managed_purpose,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID *int64 `json:"group_id,omitempty"`
 	// Status holds the value of the "status" field.
@@ -123,11 +129,13 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case apikey.FieldIPWhitelist, apikey.FieldIPBlacklist:
 			values[i] = new([]byte)
+		case apikey.FieldManaged:
+			values[i] = new(sql.NullBool)
 		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
 		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldStatus:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldClientApp, apikey.FieldManagedPurpose, apikey.FieldStatus:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -188,6 +196,25 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case apikey.FieldClientApp:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field client_app", values[i])
+			} else if value.Valid {
+				_m.ClientApp = value.String
+			}
+		case apikey.FieldManaged:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field managed", values[i])
+			} else if value.Valid {
+				_m.Managed = value.Bool
+			}
+		case apikey.FieldManagedPurpose:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_purpose", values[i])
+			} else if value.Valid {
+				_m.ManagedPurpose = new(string)
+				*_m.ManagedPurpose = value.String
 			}
 		case apikey.FieldGroupID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -371,6 +398,17 @@ func (_m *APIKey) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("client_app=")
+	builder.WriteString(_m.ClientApp)
+	builder.WriteString(", ")
+	builder.WriteString("managed=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Managed))
+	builder.WriteString(", ")
+	if v := _m.ManagedPurpose; v != nil {
+		builder.WriteString("managed_purpose=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	if v := _m.GroupID; v != nil {
 		builder.WriteString("group_id=")

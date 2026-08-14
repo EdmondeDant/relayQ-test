@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
+	"mime/multipart"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -104,6 +106,18 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
 				return
 			}
+		}
+		if service.IsCanvasAPIKey(apiKey) && c.Request.URL.Path != "/v1/models" && c.Request.URL.Path != "/v1/usage" {
+			route, routeErr := resolveCanvasAPIKeyRoute(c, apiKeyService, apiKey)
+			if routeErr != nil {
+				abortCanvasRouteError(c, routeErr)
+				return
+			}
+			resolved := *apiKey
+			groupID := route.Group.ID
+			resolved.GroupID = &groupID
+			resolved.Group = route.Group
+			apiKey = &resolved
 		}
 
 		// ── 3. 基础鉴权（始终执行） ─────────────────────────────────
@@ -254,6 +268,66 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 
 		c.Next()
+	}
+}
+
+func resolveCanvasAPIKeyRoute(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey) (*service.CanvasRoute, error) {
+	var model string
+	if c.Request.Body != nil {
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			return nil, err
+		}
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		model = canvasModelFromBody(c.GetHeader("Content-Type"), body)
+	}
+	if model == "" {
+		modelAction := strings.TrimPrefix(strings.TrimSpace(c.Param("modelAction")), "/")
+		if separator := strings.IndexByte(modelAction, ':'); separator > 0 {
+			model = modelAction[:separator]
+		}
+	}
+	resourceID := strings.TrimSpace(c.Param("request_id"))
+	if resourceID == "" {
+		resourceID = strings.TrimSpace(c.Param("id"))
+	}
+	return apiKeyService.ResolveCanvasRoute(c.Request.Context(), service.CanvasRouteRequest{
+		UserID: apiKey.UserID, APIKeyID: apiKey.ID, Method: c.Request.Method, Endpoint: c.Request.URL.Path, Model: model, ResourceID: resourceID,
+	})
+}
+
+func canvasModelFromBody(contentType string, body []byte) string {
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err == nil && mediaType == "multipart/form-data" {
+		reader := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+		for {
+			part, partErr := reader.NextPart()
+			if partErr != nil {
+				return ""
+			}
+			if part.FormName() != "model" {
+				_ = part.Close()
+				continue
+			}
+			value, readErr := io.ReadAll(io.LimitReader(part, 1024))
+			_ = part.Close()
+			if readErr != nil {
+				return ""
+			}
+			return strings.TrimSpace(string(value))
+		}
+	}
+	return strings.TrimSpace(gjson.GetBytes(body, "model").String())
+}
+
+func abortCanvasRouteError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrCanvasRouteAmbiguous):
+		AbortWithError(c, 409, "CANVAS_ROUTE_AMBIGUOUS", "Multiple routes have the same priority")
+	case errors.Is(err, service.ErrCanvasPricingUnavailable):
+		AbortWithError(c, 422, "CANVAS_PRICING_UNAVAILABLE", "No billable pricing is available for this model")
+	default:
+		AbortWithError(c, 404, "CANVAS_ROUTE_NOT_FOUND", "No available route for this model and endpoint")
 	}
 }
 

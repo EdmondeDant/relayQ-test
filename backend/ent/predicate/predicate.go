@@ -57,6 +57,15 @@ type IdempotencyRecord func(*sql.Selector)
 // IdentityAdoptionDecision is the predicate function for identityadoptiondecision builders.
 type IdentityAdoptionDecision func(*sql.Selector)
 
+// MediaOffer is the predicate function for mediaoffer builders.
+type MediaOffer func(*sql.Selector)
+
+// MediaProduct is the predicate function for mediaproduct builders.
+type MediaProduct func(*sql.Selector)
+
+// MediaProductPrice is the predicate function for mediaproductprice builders.
+type MediaProductPrice func(*sql.Selector)
+
 // PaymentAuditLog is the predicate function for paymentauditlog builders.
 type PaymentAuditLog func(*sql.Selector)
 

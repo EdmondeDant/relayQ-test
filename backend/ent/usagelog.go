@@ -47,6 +47,24 @@ type UsageLog struct {
 	BillingMode *string `json:"billing_mode,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID *int64 `json:"group_id,omitempty"`
+	// MediaProductID holds the value of the "media_product_id" field.
+	MediaProductID *int64 `json:"media_product_id,omitempty"`
+	// MediaOfferID holds the value of the "media_offer_id" field.
+	MediaOfferID *int64 `json:"media_offer_id,omitempty"`
+	// UpstreamPlatform holds the value of the "upstream_platform" field.
+	UpstreamPlatform *string `json:"upstream_platform,omitempty"`
+	// SourceGroupID holds the value of the "source_group_id" field.
+	SourceGroupID *int64 `json:"source_group_id,omitempty"`
+	// TrustedCostAmount holds the value of the "trusted_cost_amount" field.
+	TrustedCostAmount *float64 `json:"trusted_cost_amount,omitempty"`
+	// TrustedCostUnit holds the value of the "trusted_cost_unit" field.
+	TrustedCostUnit *string `json:"trusted_cost_unit,omitempty"`
+	// TrustedCostSource holds the value of the "trusted_cost_source" field.
+	TrustedCostSource *string `json:"trusted_cost_source,omitempty"`
+	// TrustedCostVersion holds the value of the "trusted_cost_version" field.
+	TrustedCostVersion *string `json:"trusted_cost_version,omitempty"`
+	// CustomerPriceVersion holds the value of the "customer_price_version" field.
+	CustomerPriceVersion *string `json:"customer_price_version,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
 	SubscriptionID *int64 `json:"subscription_id,omitempty"`
 	// InputTokens holds the value of the "input_tokens" field.
@@ -192,11 +210,11 @@ func (*UsageLog) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case usagelog.FieldStream, usagelog.FieldCacheTTLOverridden:
 			values[i] = new(sql.NullBool)
-		case usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
+		case usagelog.FieldTrustedCostAmount, usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount:
+		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldMediaProductID, usagelog.FieldMediaOfferID, usagelog.FieldSourceGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount:
 			values[i] = new(sql.NullInt64)
-		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource:
+		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUpstreamPlatform, usagelog.FieldTrustedCostUnit, usagelog.FieldTrustedCostSource, usagelog.FieldTrustedCostVersion, usagelog.FieldCustomerPriceVersion, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource:
 			values[i] = new(sql.NullString)
 		case usagelog.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -299,6 +317,69 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.GroupID = new(int64)
 				*_m.GroupID = value.Int64
+			}
+		case usagelog.FieldMediaProductID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field media_product_id", values[i])
+			} else if value.Valid {
+				_m.MediaProductID = new(int64)
+				*_m.MediaProductID = value.Int64
+			}
+		case usagelog.FieldMediaOfferID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field media_offer_id", values[i])
+			} else if value.Valid {
+				_m.MediaOfferID = new(int64)
+				*_m.MediaOfferID = value.Int64
+			}
+		case usagelog.FieldUpstreamPlatform:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field upstream_platform", values[i])
+			} else if value.Valid {
+				_m.UpstreamPlatform = new(string)
+				*_m.UpstreamPlatform = value.String
+			}
+		case usagelog.FieldSourceGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field source_group_id", values[i])
+			} else if value.Valid {
+				_m.SourceGroupID = new(int64)
+				*_m.SourceGroupID = value.Int64
+			}
+		case usagelog.FieldTrustedCostAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field trusted_cost_amount", values[i])
+			} else if value.Valid {
+				_m.TrustedCostAmount = new(float64)
+				*_m.TrustedCostAmount = value.Float64
+			}
+		case usagelog.FieldTrustedCostUnit:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field trusted_cost_unit", values[i])
+			} else if value.Valid {
+				_m.TrustedCostUnit = new(string)
+				*_m.TrustedCostUnit = value.String
+			}
+		case usagelog.FieldTrustedCostSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field trusted_cost_source", values[i])
+			} else if value.Valid {
+				_m.TrustedCostSource = new(string)
+				*_m.TrustedCostSource = value.String
+			}
+		case usagelog.FieldTrustedCostVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field trusted_cost_version", values[i])
+			} else if value.Valid {
+				_m.TrustedCostVersion = new(string)
+				*_m.TrustedCostVersion = value.String
+			}
+		case usagelog.FieldCustomerPriceVersion:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field customer_price_version", values[i])
+			} else if value.Valid {
+				_m.CustomerPriceVersion = new(string)
+				*_m.CustomerPriceVersion = value.String
 			}
 		case usagelog.FieldSubscriptionID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -595,6 +676,51 @@ func (_m *UsageLog) String() string {
 	if v := _m.GroupID; v != nil {
 		builder.WriteString("group_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.MediaProductID; v != nil {
+		builder.WriteString("media_product_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.MediaOfferID; v != nil {
+		builder.WriteString("media_offer_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.UpstreamPlatform; v != nil {
+		builder.WriteString("upstream_platform=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.SourceGroupID; v != nil {
+		builder.WriteString("source_group_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.TrustedCostAmount; v != nil {
+		builder.WriteString("trusted_cost_amount=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.TrustedCostUnit; v != nil {
+		builder.WriteString("trusted_cost_unit=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.TrustedCostSource; v != nil {
+		builder.WriteString("trusted_cost_source=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.TrustedCostVersion; v != nil {
+		builder.WriteString("trusted_cost_version=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.CustomerPriceVersion; v != nil {
+		builder.WriteString("customer_price_version=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	if v := _m.SubscriptionID; v != nil {
