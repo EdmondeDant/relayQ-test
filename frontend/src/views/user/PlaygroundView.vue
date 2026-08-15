@@ -468,10 +468,15 @@ const watermarkAssetTypeOptions = [{ value: 'text', label: '文字水印' }, { v
 const watermarkPositionOptions = [{ value: '右下角', label: '右下角' }, { value: '右上角', label: '右上角' }, { value: '左下角', label: '左下角' }, { value: '居中', label: '居中' }]
 const watermarkStyleOptions = [{ value: '半透明白字', label: '半透明白字' }, { value: '半透明黑字', label: '半透明黑字' }, { value: '浅色描边', label: '浅色描边' }, { value: '品牌签名', label: '品牌签名' }]
 const videoRatioOptions = [{ value: '16:9', label: '横屏 16:9' }, { value: '9:16', label: '竖屏 9:16' }, { value: '1:1', label: '方形 1:1' }]
+const seedance2Models = new Set(['seedance-2.0', 'seedance-2.0-fast', 'seedance-2.0-mini'])
+const klingFixedDurationModels = new Set(['kling-2.1', 'kling-2.5', 'kling-2.5-turbo-standard', 'kling-2.6'])
+const klingRangeDurationModels = new Set(['kling-3.0', 'kling-3.0-turbo', 'kling-video-o-3'])
+const leonardoFirstFrameModels = new Set([...seedance2Models, ...klingFixedDurationModels, ...klingRangeDurationModels, 'kling-video-o-1', 'seedance-1.0-pro-fast', 'seedance-1.0-pro', 'wan-2.7', 'motion_2.0-fast'])
+const leonardoRequiredFirstFrameModels = new Set(['kling-2.1', 'kling-2.5-turbo-standard'])
 const videoRatioSelectOptions = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
 	if (model === 'minimax-h3') return [{ value: '16:9', label: '上游固定画幅' }]
-	if (model === 'kling-video-o-3') return videoRatioOptions
+	if (model === 'kling-2.1') return videoRatioOptions.filter(option => option.value !== '1:1')
   if (model === 'motion_2.0-fast') return [{ value: '16:9', label: '横屏 16:9' }, { value: '9:16', label: '竖屏 9:16' }, { value: '2:3', label: '竖屏 2:3' }, { value: '4:5', label: '竖屏 4:5' }]
   if (model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro') return [...videoRatioOptions, { value: '4:3', label: '横屏 4:3' }, { value: '3:4', label: '竖屏 3:4' }, { value: '21:9', label: '超宽屏 21:9' }]
   return videoRatioOptions
@@ -480,7 +485,10 @@ const videoDurationOptions = computed(() => {
   const model = selectedVideoModel.value
   if (model === 'motion_2.0-fast') return [{ value: '0', label: '固定时长' }]
 	if (model === 'minimax-h3') return [{ value: '5', label: '5 秒' }]
-	if (model === 'kling-video-o-3') return Array.from({ length: 13 }, (_, index) => ({ value: String(index + 3), label: `${index + 3} 秒` }))
+	if (seedance2Models.has(String(model))) return Array.from({ length: 12 }, (_, index) => ({ value: String(index + 4), label: `${index + 4} 秒` }))
+	if (klingFixedDurationModels.has(String(model))) return [5, 10].map(value => ({ value: String(value), label: `${value} 秒` }))
+	if (klingRangeDurationModels.has(String(model))) return Array.from({ length: 13 }, (_, index) => ({ value: String(index + 3), label: `${index + 3} 秒` }))
+	if (model === 'kling-video-o-1') return [5, 10].map(value => ({ value: String(value), label: `${value} 秒` }))
   if (model === 'wan-2.7') return Array.from({ length: 9 }, (_, index) => ({ value: String(index + 2), label: `${index + 2} 秒` }))
   if (model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro') return [4, 6, 8, 10].map(value => ({ value: String(value), label: `${value} 秒` }))
 	if (String(model).startsWith('grok-imagine-video')) return [5, 10, 15].map(value => ({ value: String(value), label: `${value} 秒` }))
@@ -491,7 +499,11 @@ const videoResolutionSelectOptions = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
   if (model === 'motion_2.0-fast') return videoResolutionOptions.filter((option) => option.value !== '1080p')
   if (model === 'wan-2.7') return videoResolutionOptions.filter((option) => option.value !== '480p')
-	if (model === 'kling-video-o-3') return [...videoResolutionOptions.filter((option) => option.value !== '480p'), { value: '2160p', label: '2160p 4K' }]
+	if (model === 'seedance-2.0' || model === 'kling-3.0' || model === 'kling-video-o-3') return [...videoResolutionOptions, { value: '2160p', label: '2160p 4K' }]
+	if (model === 'seedance-2.0-fast' || model === 'seedance-2.0-mini') return videoResolutionOptions.filter(option => option.value !== '1080p')
+	if (model === 'kling-2.1' || model === 'kling-2.6' || model === 'kling-video-o-1') return videoResolutionOptions.filter(option => option.value === '1080p')
+	if (model === 'kling-2.5-turbo-standard') return videoResolutionOptions.filter(option => option.value === '720p')
+	if (model === 'kling-2.5' || model === 'kling-3.0-turbo') return videoResolutionOptions.filter(option => option.value !== '480p')
   if (model.startsWith('grok-imagine-video')) {
     return videoResolutionOptions.filter((option) => option.value !== '1080p')
   }
@@ -499,7 +511,7 @@ const videoResolutionSelectOptions = computed(() => {
 })
 const videoSupportsFirstFrame = computed(() => {
   const model = String(selectedVideoModel.value || '').trim().toLowerCase()
-  return model === 'seedance-1.0-pro-fast' || model === 'seedance-1.0-pro' || model === 'wan-2.7' || model === 'motion_2.0-fast' || model === 'kling-video-o-3' || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro' || model === 'minimax-h3'
+  return leonardoFirstFrameModels.has(model) || model.startsWith('grok-imagine-video') || model === 'sora-2' || model === 'sora-2-pro' || model === 'minimax-h3'
 })
 const copywritingPlatformOptions = [{ value: '电商详情页', label: '电商详情页' }, { value: '小红书', label: '小红书' }, { value: '抖音', label: '抖音' }, { value: '亚马逊', label: '亚马逊' }]
 const languageOptions = [
@@ -561,6 +573,18 @@ watch(selectedVideoModel, (model) => {
 	} else if (normalized === 'kling-video-o-3') {
 		videoDuration.value = '3'
 		videoResolution.value = '720p'
+	} else if (seedance2Models.has(normalized)) {
+		videoDuration.value = '4'
+		videoResolution.value = '480p'
+	} else if (klingFixedDurationModels.has(normalized)) {
+		videoDuration.value = '5'
+		videoResolution.value = normalized === 'kling-2.5' || normalized === 'kling-2.5-turbo-standard' ? '720p' : '1080p'
+	} else if (normalized === 'kling-3.0' || normalized === 'kling-3.0-turbo') {
+		videoDuration.value = '3'
+		videoResolution.value = '720p'
+	} else if (normalized === 'kling-video-o-1') {
+		videoDuration.value = '5'
+		videoResolution.value = '1080p'
 	}
   if (!videoSupportsFirstFrame.value) videoImage.value = ''
   if (normalized.startsWith('grok-imagine-video') && videoResolution.value === '1080p') {
@@ -1552,6 +1576,7 @@ async function submitVideo() {
   try {
     const model = selectedVideoModel.value
     if (!model) throw new Error('当前 API Key 所属分组没有可用的视频模型。')
+    if (leonardoRequiredFirstFrameModels.has(model) && !videoImage.value) throw new Error('当前视频模型必须上传首帧图片。')
     const requestPayload: Record<string, unknown> = {
       title: 'AI 视频',
       asset_kind: 'video',

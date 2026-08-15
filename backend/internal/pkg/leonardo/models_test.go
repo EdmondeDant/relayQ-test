@@ -7,8 +7,8 @@ import (
 
 func TestListVerifiedModels(t *testing.T) {
 	models := ListVerifiedModels()
-	if len(models) != 13 {
-		t.Fatalf("ListVerifiedModels() returned %d models, want 13", len(models))
+	if len(models) != 23 {
+		t.Fatalf("ListVerifiedModels() returned %d models, want 23", len(models))
 	}
 	want := VerifiedModel{
 		DisplayName:      "FLUX Schnell",
@@ -105,11 +105,21 @@ func TestValidateSyncedModelRequiresStrictSchema(t *testing.T) {
 func TestListVerifiedVideoModels(t *testing.T) {
 	models := ListVerifiedVideoModels()
 	want := map[string]string{
-		"seedance-1.0-pro-fast": "b959ecc2-a7f0-4618-9877-1bc45fc27570",
-		"motion_2.0-fast":       "0a7a3eb2-3905-480b-a89a-2f3ffff545e7",
-		"seedance-1.0-pro":      "728c9eac-b17d-47fe-b382-b9a28687fa85",
-		"wan-2.7":               "52884d8c-e2b9-4bb1-8ed5-927d390fe53a",
-		"kling-video-o-3":       "0d5109cf-d256-4720-86d3-d8e5ff5a3ce2",
+		"seedance-1.0-pro-fast":    "b959ecc2-a7f0-4618-9877-1bc45fc27570",
+		"motion_2.0-fast":          "0a7a3eb2-3905-480b-a89a-2f3ffff545e7",
+		"seedance-1.0-pro":         "728c9eac-b17d-47fe-b382-b9a28687fa85",
+		"wan-2.7":                  "52884d8c-e2b9-4bb1-8ed5-927d390fe53a",
+		"kling-video-o-3":          "0d5109cf-d256-4720-86d3-d8e5ff5a3ce2",
+		"seedance-2.0":             "d30c33b2-c845-4734-8292-a638891332f9",
+		"seedance-2.0-fast":        "696cdf87-86ba-4b31-b00b-afd7041697d8",
+		"seedance-2.0-mini":        "43dc2a43-c0f1-4ab9-9eac-a1e56f2282e5",
+		"kling-2.1":                "564204e1-996f-455b-a85b-fd35379da714",
+		"kling-2.5":                "803f541e-35b1-4ac7-99d0-bd9b089feded",
+		"kling-2.5-turbo-standard": "0340954a-1d54-4930-b648-7d4c052ba029",
+		"kling-2.6":                "de8e0850-9511-492f-bd34-0a43e6b65a20",
+		"kling-3.0":                "6c904469-5291-4043-b610-f53b50dfd6ff",
+		"kling-3.0-turbo":          "b49a5ad1-e98b-4637-ab8c-d6e665b48c28",
+		"kling-video-o-1":          "898c7f67-106c-42cd-9554-030572eda8b7",
 	}
 	if len(models) != len(want) {
 		t.Fatalf("ListVerifiedVideoModels() returned %#v", models)

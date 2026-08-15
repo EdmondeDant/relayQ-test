@@ -380,8 +380,15 @@ func (s *AccountTestService) testLeonardoPaidGeneration(c *gin.Context, client *
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: modelID})
 	parameters := map[string]any{"prompt": prompt, "width": 896, "height": 896, "quantity": 1}
 	if model.Modality == leonardo.ModelModalityVideo {
+		if modelID == "kling-2.1" || modelID == "kling-2.5-turbo-standard" {
+			return s.sendErrorAndEnd(c, "Leonardo paid account test cannot test this model without its required first-frame image; use Playground or the video API")
+		}
 		defaults := LeonardoDefaultVideoPriceRequest(modelID)
-		parameters, _ = LeonardoVideoGenerationParameters(modelID, prompt, defaults.Duration, defaults.Width, defaults.Height, defaults.Quantity)
+		var err error
+		parameters, err = LeonardoVideoGenerationParameters(modelID, prompt, defaults.Duration, defaults.Width, defaults.Height, defaults.Quantity)
+		if err != nil {
+			return s.sendErrorAndEnd(c, "Leonardo paid account test price or capability evidence is unavailable")
+		}
 	} else if model.Modality != leonardo.ModelModalityImage {
 		return s.sendErrorAndEnd(c, "Leonardo paid test model modality is not supported")
 	} else if modelID == "kino-xl" || modelID == "concept-art" || modelID == "graphic-design" || modelID == "illustrative-albedo" {

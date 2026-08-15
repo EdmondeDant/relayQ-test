@@ -811,15 +811,20 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		return
 	}
 	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances}
-	if req.Modality == "video" && strings.TrimSpace(req.Parameters.StartFrameSource) != "" {
-		if req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" && req.Model != "kling-video-o-3" {
+	startFrame := strings.TrimSpace(req.Parameters.StartFrameSource)
+	if req.Modality == "video" && (req.Model == "kling-2.1" || req.Model == "kling-2.5-turbo-standard") && startFrame == "" {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	if req.Modality == "video" && startFrame != "" {
+		if !service.SupportsLeonardoVideoStartFrame(req.Model) {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 			return
 		}
 		input.RawBody, err = json.Marshal(map[string]any{
 			"model":      req.Model,
 			"public":     req.Public,
-			"parameters": mergeLeonardoVideoStartFrameParameters(req, strings.TrimSpace(req.Parameters.StartFrameSource)),
+			"parameters": mergeLeonardoVideoStartFrameParameters(req, startFrame),
 		})
 		if err != nil {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)

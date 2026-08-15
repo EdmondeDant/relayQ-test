@@ -136,3 +136,44 @@ func TestLeonardoVideoGenerationParametersAreModelSpecific(t *testing.T) {
 	require.Equal(t, "RESOLUTION_720", kling["mode"])
 	require.NotContains(t, kling, "prompt_enhance")
 }
+
+func TestLeonardoVideoPriceResolverExpandedCatalog(t *testing.T) {
+	tests := []struct {
+		model                   string
+		duration, width, height int
+		price                   string
+	}{
+		{"seedance-2.0-mini", 4, 864, 496, "0.3588"},
+		{"seedance-2.0-fast", 15, 1280, 720, "5.4239"},
+		{"seedance-2.0", 4, 3840, 2160, "11.3859"},
+		{"kling-2.1", 5, 1920, 1080, "0.613"},
+		{"kling-2.5", 10, 1280, 720, "0.7027"},
+		{"kling-2.5-turbo-standard", 5, 1280, 720, "0.2841"},
+		{"kling-2.6", 10, 1440, 1440, "1.806"},
+		{"kling-3.0", 3, 1280, 720, "0.5651"},
+		{"kling-3.0-turbo", 15, 1920, 1080, "3.588"},
+		{"kling-video-o-1", 5, 1920, 1080, "0.755"},
+	}
+	for _, test := range tests {
+		estimate, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: test.model, Duration: test.duration, Width: test.width, Height: test.height, Quantity: 1})
+		require.NoError(t, err)
+		require.Equal(t, test.price, estimate.EstimatedCostUSD.String())
+	}
+	_, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: "bytedance/seedance-2.5", Duration: 4, Width: 1280, Height: 720, Quantity: 1})
+	require.ErrorIs(t, err, ErrLeonardoVideoPricingEvidenceUnavailable)
+}
+
+func TestLeonardoVideoExpandedParameters(t *testing.T) {
+	seedance, err := LeonardoVideoGenerationParameters("seedance-2.0-mini", "prompt", 4, 864, 496, 1)
+	require.NoError(t, err)
+	require.NotContains(t, seedance, "mode")
+	require.Equal(t, false, seedance["motion_has_audio"])
+
+	kling, err := LeonardoVideoGenerationParameters("kling-3.0", "prompt", 3, 1280, 720, 1)
+	require.NoError(t, err)
+	require.Equal(t, "RESOLUTION_720", kling["mode"])
+	require.NotContains(t, kling, "prompt_enhance")
+
+	require.True(t, SupportsLeonardoVideoStartFrame("kling-2.1"))
+	require.False(t, SupportsLeonardoVideoStartFrame("unknown"))
+}

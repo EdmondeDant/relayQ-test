@@ -87,6 +87,16 @@ var verifiedModels = []VerifiedModel{
 	{DisplayName: "Motion 2.0 Fast", ProviderModelID: "0a7a3eb2-3905-480b-a89a-2f3ffff545e7", RequestModelSlug: "motion_2.0-fast", Modality: ModelModalityVideo},
 	{DisplayName: "Seedance 1.0 Pro", ProviderModelID: "728c9eac-b17d-47fe-b382-b9a28687fa85", RequestModelSlug: "seedance-1.0-pro", Modality: ModelModalityVideo},
 	{DisplayName: "Wan 2.7", ProviderModelID: "52884d8c-e2b9-4bb1-8ed5-927d390fe53a", RequestModelSlug: "wan-2.7", Modality: ModelModalityVideo},
+	{DisplayName: "Seedance 2.0", ProviderModelID: "d30c33b2-c845-4734-8292-a638891332f9", RequestModelSlug: "seedance-2.0", Modality: ModelModalityVideo},
+	{DisplayName: "Seedance 2.0 Fast", ProviderModelID: "696cdf87-86ba-4b31-b00b-afd7041697d8", RequestModelSlug: "seedance-2.0-fast", Modality: ModelModalityVideo},
+	{DisplayName: "Seedance 2.0 Mini", ProviderModelID: "43dc2a43-c0f1-4ab9-9eac-a1e56f2282e5", RequestModelSlug: "seedance-2.0-mini", Modality: ModelModalityVideo},
+	{DisplayName: "Kling 2.1 Pro", ProviderModelID: "564204e1-996f-455b-a85b-fd35379da714", RequestModelSlug: "kling-2.1", Modality: ModelModalityVideo},
+	{DisplayName: "Kling 2.5 Turbo", ProviderModelID: "803f541e-35b1-4ac7-99d0-bd9b089feded", RequestModelSlug: "kling-2.5", Modality: ModelModalityVideo},
+	{DisplayName: "Kling 2.5 Turbo Standard", ProviderModelID: "0340954a-1d54-4930-b648-7d4c052ba029", RequestModelSlug: "kling-2.5-turbo-standard", Modality: ModelModalityVideo},
+	{DisplayName: "Kling 2.6", ProviderModelID: "de8e0850-9511-492f-bd34-0a43e6b65a20", RequestModelSlug: "kling-2.6", Modality: ModelModalityVideo},
+	{DisplayName: "Kling Video 3.0", ProviderModelID: "6c904469-5291-4043-b610-f53b50dfd6ff", RequestModelSlug: "kling-3.0", Modality: ModelModalityVideo},
+	{DisplayName: "Kling 3.0 Turbo", ProviderModelID: "b49a5ad1-e98b-4637-ab8c-d6e665b48c28", RequestModelSlug: "kling-3.0-turbo", Modality: ModelModalityVideo},
+	{DisplayName: "Kling O1 Video Model", ProviderModelID: "898c7f67-106c-42cd-9554-030572eda8b7", RequestModelSlug: "kling-video-o-1", Modality: ModelModalityVideo},
 	{DisplayName: "Kling Video O3 Omni", ProviderModelID: "0d5109cf-d256-4720-86d3-d8e5ff5a3ce2", RequestModelSlug: "kling-video-o-3", Modality: ModelModalityVideo},
 }
 

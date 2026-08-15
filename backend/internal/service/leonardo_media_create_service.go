@@ -59,6 +59,16 @@ func LeonardoDefaultVideoPriceRequest(model string) LeonardoVideoPriceRequest {
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 2, Width: 1280, Height: 720, Quantity: 1}
 	case "kling-video-o-3":
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 3, Width: 1280, Height: 720, Quantity: 1}
+	case "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 4, Width: 864, Height: 496, Quantity: 1}
+	case "kling-2.1":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 5, Width: 1920, Height: 1080, Quantity: 1}
+	case "kling-2.5", "kling-2.5-turbo-standard":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 5, Width: 1280, Height: 720, Quantity: 1}
+	case "kling-2.6", "kling-video-o-1":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 5, Width: 1920, Height: 1080, Quantity: 1}
+	case "kling-3.0", "kling-3.0-turbo":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 3, Width: 1280, Height: 720, Quantity: 1}
 	default:
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Quantity: 1}
 	}

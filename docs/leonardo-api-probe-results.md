@@ -1,5 +1,15 @@
 # Leonardo Production API Probe Results
 
+## Seedance 2.0 与 Kling 系列目录复验（2026-08-15）
+
+- 使用 RelayQ 已配置的 Leonardo Production API 账号执行一次只读 `GET /api/rest/v2/models`，返回 74 个模型；创建 POST 为 0，费用为 0，凭据未打印或落盘。
+- 已验证并进入 Registry：`seedance-2.0`、`seedance-2.0-fast`、`seedance-2.0-mini`、`kling-2.1`、`kling-2.5`、`kling-2.5-turbo-standard`、`kling-2.6`、`kling-3.0`、`kling-3.0-turbo`、`kling-video-o-1`；`kling-video-o-3` 已在上一轮完成真实闭环。
+- 当前 Production Schema 证明 Kling 2.1/2.5 已统一走 `POST /api/rest/v2/generations`，不再使用旧版大写 model 名和 v1 图生视频入口。
+- `kling-2.1` 与 `kling-2.5-turbo-standard` 的 `guidances.start_frame` 为必填；账号连接测试没有上传控件，因此在付费 POST 前明确阻断，Playground 和视频 API 可携带首帧。
+- Seedance 2.0 系列按官方定价器端点价格进行逐秒线性计算；Kling 固定时长或连续时长按认证 USD 快照计算，客户价格继续使用本地成本乘以 7.1，未知组合 fail closed。
+- `bytedance/seedance-2.5` 的 UUID 与 Schema 已验证，但认证 USD 价格证据尚未取得，因此不进入 Verified Registry、不出现在渠道或在线体验中，也不允许付费创建。
+- 本轮未对新增模型发送真实付费探针；上线状态表示注册、路由、参数、价格、产品面和自动化验证完成，不代表每个新增型号已完成上游 MP4 与账务实探。真实探针必须逐型号使用最低合法规格且每个模型仅发送一次创建 POST。
+
 ## LEO-901 只读鉴权复验（2026-08-05）
 
 ### 执行边界

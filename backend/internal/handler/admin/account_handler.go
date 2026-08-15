@@ -1976,10 +1976,9 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 	if account.Platform == service.PlatformLeonardo {
 		models := leonardo.ListVerifiedModels()
-		mapping := account.GetModelMapping()
 		result := make([]map[string]string, 0, len(models))
 		for _, model := range models {
-			if mapped, ok := mapping[model.RequestModelSlug]; !ok || mapped != model.RequestModelSlug {
+			if !account.IsModelSupported(model.RequestModelSlug) {
 				continue
 			}
 			result = append(result, map[string]string{

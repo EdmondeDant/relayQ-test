@@ -13,7 +13,7 @@
       <section id="authentication" class="doc-card"><h2>认证</h2><p>所有请求使用 RelayQ API Key。Base URL 可以包含 /v1，请勿重复拼接。</p><CodeBlock :code="authExample" /></section>
       <section id="models" class="doc-card"><h2>模型列表</h2><p>返回当前 API Key 入口分组已授权且可用的统一媒体商品，不暴露 Provider 或来源 Group。</p><Endpoint method="GET" path="/v1/models" /><CodeBlock :code="modelsExample" /></section>
       <section id="images" class="doc-card"><h2>图片生成与编辑</h2><Endpoint method="POST" path="/v1/images/generations" /><CodeBlock :code="imageExample" /><Endpoint method="POST" path="/v1/images/edits" /><CodeBlock :code="imageEditExample" /></section>
-      <section id="videos" class="doc-card"><h2>视频生成、编辑与扩展</h2><p>创建类请求必须携带稳定 Idempotency-Key。重试同一业务请求时复用该值。</p><p class="mt-2">Kling Video O3 Omni（<code>kling-video-o-3</code>）擅长复杂场景、多主体一致性和原生音频，支持 3–15 秒、720p/1080p/2160p、16:9/1:1/9:16 及首帧图片。当前账号未开放 Seedance 2.0 全系列和其他 Kling 型号，因此不会返回未验证的模型。</p><Endpoint method="POST" path="/v1/videos" /><Endpoint method="POST" path="/v1/videos/generations" /><CodeBlock :code="videoExample" /><Endpoint method="POST" path="/v1/videos/edits" /><Endpoint method="POST" path="/v1/videos/extensions" /></section>
+      <section id="videos" class="doc-card"><h2>视频生成、编辑与扩展</h2><p>创建类请求必须携带稳定 Idempotency-Key。重试同一业务请求时复用该值。</p><p class="mt-2">Seedance 2.0、Fast、Mini 支持 4–15 秒；Kling 2.1/2.5/2.6 支持 5 或 10 秒，Kling 3.0/O3 支持 3–15 秒，O1 当前开放有价格证据的 5/10 秒。分辨率按模型提供 480p、720p、1080p 或 2160p。<code>kling-2.1</code> 和 <code>kling-2.5-turbo-standard</code> 必须上传首帧。Seedance 2.5 已验证目录与 Schema，但价格证据未就绪，暂不接受付费创建。</p><Endpoint method="POST" path="/v1/videos" /><Endpoint method="POST" path="/v1/videos/generations" /><CodeBlock :code="videoExample" /><Endpoint method="POST" path="/v1/videos/edits" /><Endpoint method="POST" path="/v1/videos/extensions" /></section>
       <section id="tasks" class="doc-card"><h2>任务查询与内容下载</h2><Endpoint method="GET" path="/v1/videos/{task_id}" /><Endpoint method="GET" path="/v1/videos/{task_id}/content" /><CodeBlock :code="taskExample" /></section>
       <section id="errors" class="doc-card"><h2>错误响应</h2><p>统一返回 OpenAI 风格 error 对象。不会将未知价格按零价处理，也不会在付费请求副作用未知时自动重发。</p><CodeBlock :code="errorExample" /><div class="mt-4 grid gap-2 md:grid-cols-2"><code v-for="code in errorCodes" :key="code" class="rounded bg-gray-100 p-2 dark:bg-dark-700">{{ code }}</code></div></section>
     </div>
@@ -32,7 +32,11 @@ const authExample = `Authorization: Bearer sk-your-relayq-api-key\nContent-Type:
 const modelsExample = `curl ${baseUrl}/models \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key"`
 const imageExample = `curl ${baseUrl}/images/generations \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key" \\\n+  -H "Content-Type: application/json" \\\n+  -d '{"model":"gpt-image-2","prompt":"电影感产品摄影","size":"1024x1024","quality":"low","n":1}'`
 const imageEditExample = `curl ${baseUrl}/images/edits \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key" \\\n+  -F "model=gpt-image-2" -F "prompt=把背景改成夜景" \\\n+  -F "image=@input.png" -F "size=1024x1024"`
-const videoExample = `curl ${baseUrl}/videos/generations \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key" \\\n+  -H "Idempotency-Key: video-request-001" \\\n+  -H "Content-Type: application/json" \\\n+  -d '{"model":"seedance-1.0-pro-fast","prompt":"海边日落延时摄影","seconds":4,"size":"1280x720"}'`
+const videoExample = `curl ${baseUrl}/videos/generations \
++  -H "Authorization: Bearer sk-your-relayq-api-key" \
++  -H "Idempotency-Key: video-request-001" \
++  -H "Content-Type: application/json" \
++  -d '{"model":"seedance-2.0-mini","prompt":"海边日落延时摄影","seconds":4,"size":"864x496"}'`
 const taskExample = `curl ${baseUrl}/videos/task_123 \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key"\n\ncurl ${baseUrl}/videos/task_123/content \\\n+  -H "Authorization: Bearer sk-your-relayq-api-key" -o result.mp4`
 const errorExample = `{"error":{"message":"No fixed price matches the requested specification","type":"invalid_request_error","code":"media_product_price_unavailable"}}`
 async function copy(value: string) { await navigator.clipboard.writeText(value); copied.value = true; window.setTimeout(() => { copied.value = false }, 1500) }
