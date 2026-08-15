@@ -1,5 +1,5 @@
 diff --git a/web/src/components/canvas/canvas-top-bar.tsx b/web/src/components/canvas/canvas-top-bar.tsx
-index cd2b8fc..35fe92c 100644
+index cd2b8fc..3eb3461 100644
 --- a/web/src/components/canvas/canvas-top-bar.tsx
 +++ b/web/src/components/canvas/canvas-top-bar.tsx
 @@ -1,5 +1,5 @@
@@ -29,15 +29,14 @@ index cd2b8fc..35fe92c 100644
                  </div>
  
                  <div className="pointer-events-auto flex items-center gap-1.5">
--                    <UserStatusActions variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
 +                    {relayq.managed ? <a href={relayq.usageUrl} className="inline-flex items-center gap-1 text-sm" style={{ color: theme.node.text }}><Wallet className="size-4" />{relayq.balance === null ? "--" : `$${relayq.balance.toFixed(2)}`}</a> : null}
-+                    <UserStatusActions showConfig={!relayq.managed} variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
+                     <UserStatusActions variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
 +                    {relayq.managed ? <Button type="text" style={{ color: theme.node.text }} icon={<LogOut className="size-4" />} onClick={relayq.exit}>退出无线画布</Button> : null}
                      <span className="h-6 w-px" style={{ background: theme.toolbar.border }} />
                      <Button
                          type="text"
 diff --git a/web/src/components/layout/app-top-nav.tsx b/web/src/components/layout/app-top-nav.tsx
-index 28a85e7..3d874ae 100644
+index 28a85e7..6e1997c 100644
 --- a/web/src/components/layout/app-top-nav.tsx
 +++ b/web/src/components/layout/app-top-nav.tsx
 @@ -1,4 +1,4 @@
@@ -62,16 +61,7 @@ index 28a85e7..3d874ae 100644
      const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
      const slug = pathname.split("/").filter(Boolean)[0];
      const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
-@@ -60,7 +62,7 @@ export function AppTopNav() {
-                             </button>
- 
-                             <nav className="hide-scrollbar ml-8 hidden h-14 min-w-0 items-center gap-7 overflow-x-auto md:flex">
--                                {navigationTools.map((tool) => {
-+                                {navigationTools.filter((tool) => !relayq.managed || tool.slug !== "config").map((tool) => {
-                                     const Icon = tool.icon;
-                                     const active = tool.slug === activeToolSlug;
-                                     return (
-@@ -83,17 +85,19 @@ export function AppTopNav() {
+@@ -83,10 +85,12 @@ export function AppTopNav() {
                          </div>
  
                          <div className="my-auto flex h-9 min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
@@ -79,21 +69,11 @@ index 28a85e7..3d874ae 100644
                              <Tooltip title={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}>
                                  <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" icon={<Bot className="size-4" />} onClick={togglePanel} aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")} />
                              </Tooltip>
--                            <UserStatusActions />
-+                            <UserStatusActions showConfig={!relayq.managed} />
+                             <UserStatusActions />
 +                            {relayq.managed ? <Button type="text" icon={<LogOut className="size-4" />} onClick={relayq.exit}>退出无线画布</Button> : null}
                          </div>
                      </div>
                  </header>
-             ) : null}
- 
--            <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} />
--            <AppConfigModal />
-+            <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} managed={relayq.managed} />
-+            {!relayq.managed ? <AppConfigModal /> : null}
-         </>
-     );
- }
 diff --git a/web/src/components/layout/client-root-init.tsx b/web/src/components/layout/client-root-init.tsx
 index 576d387..69dd1d3 100644
 --- a/web/src/components/layout/client-root-init.tsx
@@ -176,29 +156,6 @@ index 576d387..69dd1d3 100644
      }, [config.channels, message, openConfigDialog, t, updateConfig]);
  
      return <>{children}</>;
-diff --git a/web/src/components/layout/mobile-nav-drawer.tsx b/web/src/components/layout/mobile-nav-drawer.tsx
-index 18a5d44..e3fa334 100644
---- a/web/src/components/layout/mobile-nav-drawer.tsx
-+++ b/web/src/components/layout/mobile-nav-drawer.tsx
-@@ -9,15 +9,16 @@ type MobileNavDrawerProps = {
-     open: boolean;
-     activeToolSlug?: NavigationToolSlug;
-     onClose: () => void;
-+    managed?: boolean;
- };
- 
--export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDrawerProps) {
-+export function MobileNavDrawer({ open, activeToolSlug, onClose, managed }: MobileNavDrawerProps) {
-     const { t } = useTranslation();
- 
-     return (
-         <Drawer title={t("topNav.navigation")} placement="left" size={280} open={open} onClose={onClose} className="md:hidden">
-             <div className="space-y-1">
--                {navigationTools.map((tool) => {
-+                {navigationTools.filter((tool) => !managed || tool.slug !== "config").map((tool) => {
-                     const Icon = tool.icon;
-                     const active = tool.slug === activeToolSlug;
-                     return (
 diff --git a/web/src/lib/relayq-integration.ts b/web/src/lib/relayq-integration.ts
 new file mode 100644
 index 0000000..4316349
@@ -288,31 +245,6 @@ index ef64651..ed98776 100644
              }
          },
          [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest, t],
-diff --git a/web/src/pages/config/index.tsx b/web/src/pages/config/index.tsx
-index ee1294b..a3659c7 100644
---- a/web/src/pages/config/index.tsx
-+++ b/web/src/pages/config/index.tsx
-@@ -1,9 +1,20 @@
-+import { useEffect } from "react";
- import { useTranslation } from "react-i18next";
-+import { Navigate } from "react-router-dom";
- 
- import { AppConfigPanel } from "@/components/layout/app-config-modal";
- 
- export default function ConfigPage() {
-     const { t } = useTranslation();
-+    const managed = Boolean(window.sessionStorage.getItem("relayq_canvas_bootstrap"));
-+    const relayqEntry = !managed && window.location.port === "3001" ? `${window.location.protocol}//${window.location.hostname}:3000/canvas` : "";
-+
-+    useEffect(() => {
-+        if (relayqEntry) window.location.replace(relayqEntry);
-+    }, [relayqEntry]);
-+
-+    if (managed) return <Navigate to="/" replace />;
-+    if (relayqEntry) return null;
- 
-     return (
-         <main className="h-full overflow-y-auto bg-background">
 diff --git a/web/src/router.tsx b/web/src/router.tsx
 index 69e19db..a43df64 100644
 --- a/web/src/router.tsx
@@ -324,7 +256,7 @@ index 69e19db..a43df64 100644
 -]);
 +], { basename: "/canvas-app" });
 diff --git a/web/src/services/api/image.ts b/web/src/services/api/image.ts
-index e062a09..6567514 100644
+index e062a09..e87a23a 100644
 --- a/web/src/services/api/image.ts
 +++ b/web/src/services/api/image.ts
 @@ -339,6 +339,8 @@ function aiApiUrl(config: AiConfig, path: string) {
@@ -336,7 +268,7 @@ index e062a09..6567514 100644
          ...(contentType ? { "Content-Type": contentType } : {}),
      };
  }
-@@ -917,7 +919,7 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
+@@ -915,7 +917,7 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
                  .filter((id): id is string => Boolean(id))
                  .sort((a, b) => a.localeCompare(b));
          }
@@ -346,7 +278,7 @@ index e062a09..6567514 100644
                  Authorization: `Bearer ${config.apiKey}`,
              },
 diff --git a/web/src/services/api/video.ts b/web/src/services/api/video.ts
-index d81d1f7..167658b 100644
+index d81d1f7..eeed945 100644
 --- a/web/src/services/api/video.ts
 +++ b/web/src/services/api/video.ts
 @@ -11,7 +11,7 @@ import { runModelPlugin } from "./model-plugin";
@@ -367,7 +299,7 @@ index d81d1f7..167658b 100644
          ...(contentType ? { "Content-Type": contentType } : {}),
      };
  }
-@@ -155,10 +159,12 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: str
+@@ -144,10 +146,12 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
      body.append("preset", "normal");
      const files = await Promise.all(references.slice(0, 7).map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
      files.forEach((file) => body.append("input_reference[]", file));
@@ -383,7 +315,7 @@ index d81d1f7..167658b 100644
      } catch (error) {
          throw new Error(readAxiosError(error, apiText("videoTaskCreateFailed")));
      }
-@@ -197,8 +203,9 @@ async function createSeedanceTask(config: AiConfig, model: string, prompt: string
+@@ -188,8 +192,9 @@ async function createSeedanceTask(config: AiConfig, model: string, prompt: strin
          watermark: boolConfig(config.videoWatermark, false),
      };
  
@@ -394,7 +326,7 @@ index d81d1f7..167658b 100644
          if (!created.id) throw new Error(apiText("seedanceNoTaskId"));
          return { id: created.id, provider: "seedance", model };
      } catch (error) {
-@@ -326,6 +333,10 @@ function unwrapVideoResponse(payload: ApiVideoResponse) {
+@@ -319,6 +324,10 @@ function unwrapVideoResponse(payload: ApiVideoResponse) {
      return unwrapEnvelope(payload, apiText("noVideoTask"));
  }
  
@@ -406,22 +338,10 @@ index d81d1f7..167658b 100644
      return unwrapEnvelope(payload, apiText("seedanceNoTask"));
  }
 diff --git a/web/src/stores/use-config-store.ts b/web/src/stores/use-config-store.ts
-index d00e32e..51e0050 100644
+index d00e32e..ce4bfd7 100644
 --- a/web/src/stores/use-config-store.ts
 +++ b/web/src/stores/use-config-store.ts
-@@ -209,7 +209,10 @@ export const useConfigStore = create<ConfigStore>()(
-                     },
-                 })),
-             isAiConfigReady: (config, model) => isAiConfigReady(config, model),
--            openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
-+            openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => {
-+                if (window.sessionStorage.getItem("relayq_canvas_bootstrap")) return;
-+                set({ isConfigOpen: true, shouldPromptContinue, configTab });
-+            },
-             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
-             clearPromptContinue: () => set({ shouldPromptContinue: false }),
-         }),
-@@ -389,7 +392,8 @@ export function buildApiUrl(baseUrl: string, path: string) {
+@@ -389,7 +389,8 @@ export function buildApiUrl(baseUrl: string, path: string) {
      normalizedBaseUrl = normalizeArkPlanBaseUrl(normalizedBaseUrl);
      const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
      const apiBaseUrl = lowerBaseUrl.endsWith("/v1") || lowerBaseUrl.endsWith("/api/v3") || lowerBaseUrl.endsWith("/api/plan/v3") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;

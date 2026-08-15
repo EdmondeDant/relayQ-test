@@ -29,4 +29,8 @@ func TestInfiniteCanvasProductionSourceAndGatewayContract(t *testing.T) {
 	require.Equal(t, 2, strings.Count(contract, `const idempotencyKey = `+"`canvas-video-${nanoid()}`"))
 	require.Equal(t, 2, strings.Count(contract, `"Idempotency-Key": idempotencyKey`))
 	require.Contains(t, contract, `[payload.request_id, payload.job_id, payload.id]`)
+	require.NotContains(t, contract, `showConfig={!relayq.managed}`)
+	require.NotContains(t, contract, `tool.slug !== "config"`)
+	require.NotContains(t, contract, `if (window.sessionStorage.getItem("relayq_canvas_bootstrap")) return`)
+	require.NotContains(t, contract, `if (managed) return <Navigate to="/" replace />`)
 }
