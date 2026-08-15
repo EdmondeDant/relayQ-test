@@ -13,6 +13,19 @@
 
 services:
   # ===========================================================================
+  # Infinite Canvas Application (独立无限画布, 监听 3000)
+  # nginx 负责把 /canvas-app/ 前缀剥离后转发到这里
+  # ===========================================================================
+  infinite-canvas:
+    image: infinite-canvas:local
+    container_name: infinite-canvas
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CANVAS_PORT:-3000}:3000"
+    networks:
+      - sub2api-network
+
+  # ===========================================================================
   # Sub2API Application
   # ===========================================================================
   sub2api:
