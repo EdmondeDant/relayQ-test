@@ -315,15 +315,7 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 	}
 	var estimate *LeonardoVideoPriceEstimate
 	var err error
-	if model == "minimax-h3" {
-		if request.Duration < 5 || request.Duration > 15 || request.Width != 1376 || request.Height != 768 || request.Quantity != 1 {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		cost := interpolateLeonardoVideoPrice("0.897", "2.691", request.Duration, 5, 15)
-		estimate = &LeonardoVideoPriceEstimate{EstimatedCostUSD: cost, PricingVersion: LeonardoVideoPricingPolicyVersion, PricingSource: "leonardo_authenticated_pricing_calculator", MatchType: "model_duration_resolution_exact"}
-	} else {
-		estimate, err = NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: request.Duration, Width: request.Width, Height: request.Height, Quantity: request.Quantity})
-	}
+	estimate, err = NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: request.Duration, Width: request.Width, Height: request.Height, Quantity: request.Quantity})
 	if err != nil || estimate == nil || !request.CustomerQuoteUSD.Equal(estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)) {
 		return nil, ErrLeonardoVideoPricingEvidenceUnavailable
 	}

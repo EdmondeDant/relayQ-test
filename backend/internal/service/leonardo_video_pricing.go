@@ -79,6 +79,11 @@ func (LeonardoVideoPriceResolver) Estimate(ctx context.Context, request Leonardo
 			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
 		}
 		price = decimal.RequireFromString("0.1645").Add(decimal.NewFromInt(int64(request.Duration - 2)).Mul(decimal.RequireFromString("0.082225")))
+	case "minimax-h3":
+		if request.Duration < 5 || request.Duration > 15 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		price = interpolateLeonardoVideoPrice("0.897", "2.691", request.Duration, 5, 15)
 	case "kling-video-o-3":
 		if request.Duration < 3 || request.Duration > 15 {
 			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
@@ -133,6 +138,7 @@ func LeonardoVideoResolution(model string, width, height int) (int, bool) {
 		"seedance-1.0-pro":         {{864, 480}: 480, {736, 544}: 480, {640, 640}: 480, {544, 736}: 480, {480, 864}: 480, {960, 416}: 480, {1248, 704}: 720, {1120, 832}: 720, {960, 960}: 720, {832, 1120}: 720, {704, 1248}: 720, {1504, 640}: 720, {1920, 1088}: 1080, {1664, 1248}: 1080, {1440, 1440}: 1080, {1248, 1664}: 1080, {1088, 1920}: 1080, {2176, 928}: 1080},
 		"motion_2.0-fast":          {{832, 480}: 480, {480, 832}: 480, {512, 768}: 480, {576, 720}: 480, {1280, 720}: 720, {720, 1152}: 720, {768, 1152}: 720, {864, 1024}: 720},
 		"wan-2.7":                  {{1280, 720}: 720, {960, 960}: 720, {720, 1280}: 720, {1920, 1080}: 1080, {1440, 1440}: 1080, {1080, 1920}: 1080},
+		"minimax-h3":               {{1376, 768}: 768},
 		"kling-video-o-3":          {{1280, 720}: 720, {960, 960}: 720, {720, 1280}: 720, {1920, 1080}: 1080, {1440, 1440}: 1080, {1080, 1920}: 1080, {3840, 2160}: 2160, {2880, 2880}: 2160, {2160, 3840}: 2160},
 		"seedance-2.0":             {{864, 496}: 480, {496, 864}: 480, {640, 640}: 480, {1280, 720}: 720, {720, 1280}: 720, {960, 960}: 720, {1920, 1080}: 1080, {1080, 1920}: 1080, {1440, 1440}: 1080, {3840, 2160}: 2160, {2160, 3840}: 2160, {2880, 2880}: 2160},
 		"seedance-2.0-fast":        {{864, 496}: 480, {496, 864}: 480, {640, 640}: 480, {1280, 720}: 720, {720, 1280}: 720, {960, 960}: 720},

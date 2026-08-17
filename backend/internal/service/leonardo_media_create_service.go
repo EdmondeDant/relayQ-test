@@ -168,15 +168,11 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	var quote decimal.Decimal
 	var err error
 	if modality == "video" {
-		if model == "minimax-h3" {
-			quote = interpolateLeonardoVideoPrice("0.897", "2.691", input.Duration, 5, 15).Mul(leonardoMediaCustomerPriceRate)
-		} else {
-			estimate, priceErr := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: input.Duration, Width: input.Width, Height: input.Height, Quantity: input.Quantity})
-			if priceErr != nil {
-				return nil, priceErr
-			}
-			quote = estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)
+		estimate, priceErr := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: input.Duration, Width: input.Width, Height: input.Height, Quantity: input.Quantity})
+		if priceErr != nil {
+			return nil, priceErr
 		}
+		quote = estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)
 	} else {
 		quote, err = s.EstimateQualityQuote(ctx, model, input.Width, input.Height, input.Quantity, input.QualityTier)
 	}
