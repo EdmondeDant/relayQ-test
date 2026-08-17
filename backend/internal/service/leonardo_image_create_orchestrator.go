@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -313,6 +314,7 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 		return nil, ErrLeonardoImageCreateRequestInvalid
 	}
 	var estimate *LeonardoVideoPriceEstimate
+	var err error
 	if model == "minimax-h3" {
 		if request.Duration < 5 || request.Duration > 15 || request.Width != 1376 || request.Height != 768 || request.Quantity != 1 {
 			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
