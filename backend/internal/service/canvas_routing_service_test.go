@@ -35,6 +35,15 @@ func (canvasRoutingAccountRepo) ListSchedulableByGroupID(context.Context, int64)
 	return nil, nil
 }
 
+type canvasRoutingAccountRepoWithModels struct {
+	AccountRepository
+	accounts []Account
+}
+
+func (r canvasRoutingAccountRepoWithModels) ListSchedulableByGroupID(context.Context, int64) ([]Account, error) {
+	return append([]Account(nil), r.accounts...), nil
+}
+
 type canvasRoutingMediaRepo struct {
 	MediaProductRepository
 	models []MediaRuntimeModel
@@ -63,6 +72,34 @@ func TestCanvasRoutingCatalogPreservesRuntimeModalities(t *testing.T) {
 	require.Equal(t, []CanvasModel{
 		{ID: "shared-model", Modality: "image", Platform: PlatformOpenAI, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}},
 		{ID: "shared-model", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos"}},
+	}, models)
+}
+
+func TestCanvasRoutingCatalogUsesChannelPricingForCustomModels(t *testing.T) {
+	price := 0.01
+	group := Group{ID: 4, Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true}
+	accounts := canvasRoutingAccountRepoWithModels{accounts: []Account{{Credentials: map[string]any{"model_mapping": map[string]any{
+		"flux-2-klein-9b-kv": "flux-2-klein-9b-kv",
+		"minimax-h3":         "minimax-h3",
+	}}}}}
+	channelRepo := &mockChannelRepository{
+		listAllFn: func(context.Context) ([]Channel, error) {
+			return []Channel{{ID: 8, Status: StatusActive, GroupIDs: []int64{group.ID}, ModelPricing: []ChannelModelPricing{{
+				Platform: PlatformOpenAI, Models: []string{"flux-2-klein-9b-kv", "minimax-h3"}, PerRequestPrice: &price,
+			}}}}, nil
+		},
+		getGroupPlatformsFn: func(context.Context, []int64) (map[int64]string, error) {
+			return map[int64]string{group.ID: PlatformOpenAI}, nil
+		},
+	}
+	routing := NewCanvasRoutingService(canvasRoutingUserRepo{}, canvasRoutingGroupRepo{groups: []Group{group}}, canvasRoutingSubscriptionRepo{}, accounts, nil, nil)
+	routing.SetChannelService(NewChannelService(channelRepo, nil, nil, nil))
+
+	models, err := routing.Catalog(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, []CanvasModel{
+		{ID: "flux-2-klein-9b-kv", Modality: "image", Platform: PlatformOpenAI, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}},
+		{ID: "minimax-h3", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
 	}, models)
 }
 

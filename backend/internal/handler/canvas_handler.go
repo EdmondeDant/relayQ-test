@@ -29,13 +29,13 @@ func canvasModelFor(id string) canvasModel {
 }
 
 type CanvasHandler struct {
-	apiKeyService  *service.APIKeyService
-	userService    *service.UserService
-	gatewayService *service.GatewayService
+	apiKeyService *service.APIKeyService
+	userService   *service.UserService
 }
 
-func NewCanvasHandler(apiKeyService *service.APIKeyService, userService *service.UserService, gatewayService *service.GatewayService) *CanvasHandler {
-	return &CanvasHandler{apiKeyService: apiKeyService, userService: userService, gatewayService: gatewayService}
+func NewCanvasHandler(apiKeyService *service.APIKeyService, userService *service.UserService, canvasRouting *service.CanvasRoutingService, channelService *service.ChannelService) *CanvasHandler {
+	canvasRouting.SetChannelService(channelService)
+	return &CanvasHandler{apiKeyService: apiKeyService, userService: userService}
 }
 
 func (h *CanvasHandler) Bootstrap(c *gin.Context) {
