@@ -185,6 +185,12 @@ func SupportsLeonardoVideoStartFrame(model string) bool {
 }
 
 func LeonardoVideoGenerationParameters(model, prompt string, duration, width, height, quantity int) (map[string]any, error) {
+	if model == "minimax-h3" {
+		if duration < 5 || duration > 15 || quantity != 1 || width != 1376 || height != 768 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		return map[string]any{"prompt": prompt, "width": width, "height": height, "quantity": quantity, "duration": duration, "resolution": "768p", "motion_has_audio": true}, nil
+	}
 	if _, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: model, Duration: duration, Width: width, Height: height, Quantity: quantity}); err != nil {
 		return nil, err
 	}

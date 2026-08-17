@@ -44,6 +44,15 @@ func (r canvasRoutingAccountRepoWithModels) ListSchedulableByGroupID(context.Con
 	return append([]Account(nil), r.accounts...), nil
 }
 
+type canvasRoutingAccountRepoByGroup struct {
+	AccountRepository
+	accounts map[int64][]Account
+}
+
+func (r canvasRoutingAccountRepoByGroup) ListSchedulableByGroupID(_ context.Context, groupID int64) ([]Account, error) {
+	return append([]Account(nil), r.accounts[groupID]...), nil
+}
+
 type canvasRoutingMediaRepo struct {
 	MediaProductRepository
 	models []MediaRuntimeModel
@@ -101,6 +110,26 @@ func TestCanvasRoutingCatalogUsesChannelPricingForCustomModels(t *testing.T) {
 		{ID: "flux-2-klein-9b-kv", Modality: "image", Platform: PlatformOpenAI, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}},
 		{ID: "minimax-h3", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
 	}, models)
+}
+
+func TestCanvasRoutingUsesExplicitVideoModelPlatforms(t *testing.T) {
+	leonardoGroup := Group{ID: 4, Platform: PlatformLeonardo, Status: StatusActive, SortOrder: 10}
+	openAIGroup := Group{ID: 5, Platform: PlatformOpenAI, Status: StatusActive, SortOrder: 1}
+	accounts := canvasRoutingAccountRepoByGroup{accounts: map[int64][]Account{
+		4: {{Credentials: map[string]any{"model_mapping": map[string]any{"wan-2.7": "wan-2.7", "minimax-h3": "hailuo-03"}}}},
+		5: {{Credentials: map[string]any{"model_mapping": map[string]any{"wan-2.7": "wan-2.7"}}}},
+	}}
+	routing := NewCanvasRoutingService(canvasRoutingUserRepo{}, canvasRoutingGroupRepo{groups: []Group{leonardoGroup, openAIGroup}}, canvasRoutingSubscriptionRepo{}, accounts, nil, nil)
+
+	wan, err := routing.Resolve(context.Background(), CanvasRouteRequest{UserID: 1, APIKeyID: 7, Endpoint: "/v1/videos/generations", Model: "wan-2.7"})
+	require.NoError(t, err)
+	require.Equal(t, PlatformLeonardo, wan.Platform)
+	require.Equal(t, int64(4), wan.Group.ID)
+
+	h3, err := routing.Resolve(context.Background(), CanvasRouteRequest{UserID: 1, APIKeyID: 7, Endpoint: "/v1/videos/generations", Model: "minimax-h3"})
+	require.NoError(t, err)
+	require.Equal(t, PlatformLeonardo, h3.Platform)
+	require.Equal(t, int64(4), h3.Group.ID)
 }
 
 func TestCanvasRoutingResolvesGenerationJobEntryGroup(t *testing.T) {

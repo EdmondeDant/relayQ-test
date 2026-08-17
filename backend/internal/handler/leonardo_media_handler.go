@@ -37,6 +37,7 @@ type leonardoMediaCreateHTTPRequest struct {
 	Prompt     string                       `json:"prompt"`
 	Public     bool                         `json:"public"`
 	Parameters leonardoMediaImageParameters `json:"parameters"`
+	V2Request  json.RawMessage              `json:"v2_request,omitempty"`
 }
 
 type leonardoMediaImageParameters struct {
@@ -95,6 +96,15 @@ type leonardoOpenAIVideoRequest struct {
 	InputReference *struct {
 		ImageURL string `json:"image_url"`
 	} `json:"input_reference,omitempty"`
+	FirstFrame *struct {
+		ImageURL string `json:"image_url"`
+	} `json:"first_frame,omitempty"`
+	LastFrame *struct {
+		ImageURL string `json:"image_url"`
+	} `json:"last_frame,omitempty"`
+	ReferenceImages []struct {
+		URL string `json:"url"`
+	} `json:"reference_images,omitempty"`
 }
 
 type leonardoRawVideoRequest struct {
@@ -195,15 +205,22 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
-	startFrameSource := ""
+	references := service.LeonardoVideoV1References{}
 	if req.InputReference != nil {
-		startFrameSource = strings.TrimSpace(req.InputReference.ImageURL)
-		if startFrameSource == "" || (req.Model != "seedance-1.0-pro-fast" && req.Model != "seedance-1.0-pro" && req.Model != "wan-2.7" && req.Model != "motion_2.0-fast" && req.Model != "kling-video-o-3") {
-			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
-			return
+		references.StartFrame = strings.TrimSpace(req.InputReference.ImageURL)
+	}
+	if req.FirstFrame != nil {
+		references.StartFrame = strings.TrimSpace(req.FirstFrame.ImageURL)
+	}
+	if req.LastFrame != nil {
+		references.EndFrame = strings.TrimSpace(req.LastFrame.ImageURL)
+	}
+	for _, reference := range req.ReferenceImages {
+		if source := strings.TrimSpace(reference.URL); source != "" {
+			references.ReferenceImages = append(references.ReferenceImages, source)
 		}
 	}
-	body, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Prompt, Parameters: leonardoMediaImageParameters{Width: width, Height: height, Quantity: 1, Duration: req.Seconds, StartFrameSource: startFrameSource}})
+	body, err := service.BuildLeonardoVideoV2Request(req.Model, req.Prompt, req.Seconds, width, height, 1, false, references)
 	if err != nil {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
@@ -218,7 +235,7 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
-	h.Create(c)
+	h.leonardoRawVideoGenerations(c, body)
 }
 
 func (h *LeonardoMediaHandler) leonardoRawVideoGenerations(c *gin.Context, body []byte) {
@@ -234,7 +251,7 @@ func (h *LeonardoMediaHandler) leonardoRawVideoGenerations(c *gin.Context, body 
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
-	mediaBody, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Parameters.Prompt, Public: req.Public, Parameters: leonardoMediaImageParameters{Width: req.Parameters.Width, Height: req.Parameters.Height, Quantity: req.Parameters.Quantity, Duration: req.Parameters.Duration}})
+	mediaBody, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Parameters.Prompt, Public: req.Public, Parameters: leonardoMediaImageParameters{Width: req.Parameters.Width, Height: req.Parameters.Height, Quantity: req.Parameters.Quantity, Duration: req.Parameters.Duration}, V2Request: body})
 	if err != nil {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
@@ -810,7 +827,7 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrIdempotencyStoreUnavail)
 		return
 	}
-	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances}
+	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances, RawBody: req.V2Request}
 	startFrame := strings.TrimSpace(req.Parameters.StartFrameSource)
 	if req.Modality == "video" && (req.Model == "kling-2.1" || req.Model == "kling-2.5-turbo-standard") && startFrame == "" {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)

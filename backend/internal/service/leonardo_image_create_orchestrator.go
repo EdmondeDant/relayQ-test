@@ -312,7 +312,16 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 	if publicID == "" || requestHash == "" || request.UserID <= 0 || request.APIKeyID <= 0 || request.AccountID <= 0 || prompt == "" || request.CustomerQuoteUSD.Sign() <= 0 {
 		return nil, ErrLeonardoImageCreateRequestInvalid
 	}
-	estimate, err := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: request.Duration, Width: request.Width, Height: request.Height, Quantity: request.Quantity})
+	var estimate *LeonardoVideoPriceEstimate
+	if model == "minimax-h3" {
+		if request.Duration < 5 || request.Duration > 15 || request.Width != 1376 || request.Height != 768 || request.Quantity != 1 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		cost := interpolateLeonardoVideoPrice("0.897", "2.691", request.Duration, 5, 15)
+		estimate = &LeonardoVideoPriceEstimate{EstimatedCostUSD: cost, PricingVersion: LeonardoVideoPricingPolicyVersion, PricingSource: "leonardo_authenticated_pricing_calculator", MatchType: "model_duration_resolution_exact"}
+	} else {
+		estimate, err = NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: request.Duration, Width: request.Width, Height: request.Height, Quantity: request.Quantity})
+	}
 	if err != nil || estimate == nil || !request.CustomerQuoteUSD.Equal(estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)) {
 		return nil, ErrLeonardoVideoPricingEvidenceUnavailable
 	}
@@ -355,25 +364,37 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 	}
 	if len(request.RawBody) > 0 {
 		body := request.RawBody
+		if upstreamModel := LeonardoVideoUpstreamModel(model); upstreamModel != model {
+			var payload map[string]any
+			if json.Unmarshal(body, &payload) != nil {
+				return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_request_invalid"))
+			}
+			payload["model"] = upstreamModel
+			body, _ = json.Marshal(payload)
+		}
 		sources, sourceErr := ParseLeonardoRawImageSources(body)
-		if sourceErr != nil || len(sources) != 1 || sources[0].Section != "start_frame" {
-			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_start_frame_invalid"))
+		if sourceErr != nil || ValidateLeonardoVideoV2Sources(model, sources) != nil {
+			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
 		}
-		uploadClient, ok := client.(LeonardoInitImageClient)
-		if !ok || o.uploads == nil {
-			return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
-		}
-		input, resolveErr := ResolveLeonardoRawImageSource(ctx, sources[0].Value, nil, 20<<20)
-		if resolveErr != nil {
-			return nil, errors.Join(resolveErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
-		}
-		uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, input)
-		if uploadErr != nil {
-			return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
-		}
-		body, sourceErr = SetLeonardoRawImageID(body, sources[0], uploadedID)
-		if sourceErr != nil {
-			return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_start_frame_invalid"))
+		if len(sources) > 0 {
+			uploadClient, ok := client.(LeonardoInitImageClient)
+			if !ok || o.uploads == nil {
+				return nil, errors.Join(ErrLeonardoImageUploadInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+			}
+			for _, source := range sources {
+				input, resolveErr := ResolveLeonardoRawImageSource(ctx, source.Value, nil, 20<<20)
+				if resolveErr != nil {
+					return nil, errors.Join(resolveErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+				}
+				uploadedID, uploadErr := o.uploads.Upload(ctx, account.ID, uploadClient, input)
+				if uploadErr != nil {
+					return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
+				}
+				body, sourceErr = SetLeonardoRawImageID(body, source, uploadedID)
+				if sourceErr != nil {
+					return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
+				}
+			}
 		}
 		result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGenerationRaw(ctx, job, body)
 		return o.finish(ctx, result, submitErr, request.UserID, publicID, reference, customerCost)

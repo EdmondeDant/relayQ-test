@@ -94,6 +94,11 @@ func (s *CanvasRoutingService) Resolve(ctx context.Context, req CanvasRouteReque
 	if err != nil {
 		return nil, err
 	}
+	if req.ResourceID == "" && strings.Contains(strings.ToLower(req.Endpoint), "/videos") {
+		if platform := ExplicitCanvasVideoPlatform(req.Model); platform != "" {
+			return s.resolveExplicitVideoRoute(ctx, groups, req, platform)
+		}
+	}
 	if req.ResourceID != "" && s.jobs != nil {
 		job, jobErr := s.jobs.GetByPublicID(ctx, req.ResourceID)
 		if jobErr == nil && job.UserID == req.UserID && job.APIKeyID == req.APIKeyID && job.GroupID != nil {
@@ -196,6 +201,32 @@ func (s *CanvasRoutingService) Resolve(ctx context.Context, req CanvasRouteReque
 	return &CanvasRoute{Group: &group, Platform: group.Platform, Model: req.Model, Protocol: canvasProtocol(group.Platform, req.Endpoint)}, nil
 }
 
+func (s *CanvasRoutingService) resolveExplicitVideoRoute(ctx context.Context, groups []Group, req CanvasRouteRequest, platform string) (*CanvasRoute, error) {
+	candidates := make([]Group, 0, 1)
+	for i := range groups {
+		group := groups[i]
+		if group.Platform != platform || !canvasPlatformSupportsEndpoint(group.Platform, req.Endpoint) {
+			continue
+		}
+		accounts, err := s.accounts.ListSchedulableByGroupID(ctx, group.ID)
+		if err != nil {
+			return nil, err
+		}
+		for j := range accounts {
+			if accounts[j].IsModelSupported(req.Model) {
+				candidates = append(candidates, group)
+				break
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, ErrCanvasRouteNotFound
+	}
+	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].SortOrder < candidates[j].SortOrder })
+	group := candidates[0]
+	return &CanvasRoute{Group: &group, Platform: platform, Model: req.Model, Protocol: canvasProtocol(platform, req.Endpoint)}, nil
+}
+
 func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]CanvasModel, error) {
 	groups, err := s.availableGroups(ctx, userID)
 	if err != nil {
@@ -248,6 +279,9 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 			}
 		}
 		for model := range groupModels {
+			if modality := canvasModelForPlatform(model, groups[i].Platform).Modality; modality == "video" && IsExplicitCanvasVideoModel(model) && ExplicitCanvasVideoPlatform(model) != groups[i].Platform {
+				continue
+			}
 			if _, ok := trustedMediaModels[groups[i].Platform+"\x00"+model]; ok {
 				continue
 			}

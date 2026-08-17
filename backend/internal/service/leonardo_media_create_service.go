@@ -57,6 +57,8 @@ func LeonardoDefaultVideoPriceRequest(model string) LeonardoVideoPriceRequest {
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Width: 832, Height: 480, Quantity: 1}
 	case "wan-2.7":
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 2, Width: 1280, Height: 720, Quantity: 1}
+	case "minimax-h3":
+		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 5, Width: 1376, Height: 768, Quantity: 1}
 	case "kling-video-o-3":
 		return LeonardoVideoPriceRequest{Model: strings.TrimSpace(model), Duration: 3, Width: 1280, Height: 720, Quantity: 1}
 	case "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini":
@@ -166,11 +168,15 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	var quote decimal.Decimal
 	var err error
 	if modality == "video" {
-		estimate, priceErr := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: input.Duration, Width: input.Width, Height: input.Height, Quantity: input.Quantity})
-		if priceErr != nil {
-			return nil, priceErr
+		if model == "minimax-h3" {
+			quote = interpolateLeonardoVideoPrice("0.897", "2.691", input.Duration, 5, 15).Mul(leonardoMediaCustomerPriceRate)
+		} else {
+			estimate, priceErr := NewLeonardoVideoPriceResolver().Estimate(ctx, LeonardoVideoPriceRequest{Model: model, Duration: input.Duration, Width: input.Width, Height: input.Height, Quantity: input.Quantity})
+			if priceErr != nil {
+				return nil, priceErr
+			}
+			quote = estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)
 		}
-		quote = estimate.EstimatedCostUSD.Mul(leonardoMediaCustomerPriceRate)
 	} else {
 		quote, err = s.EstimateQualityQuote(ctx, model, input.Width, input.Height, input.Quantity, input.QualityTier)
 	}

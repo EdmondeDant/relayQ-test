@@ -85,7 +85,7 @@ func CanvasVideoMultipartToJSON(contentType string, body []byte) ([]byte, error)
 	}
 
 	values := map[string]string{}
-	var referenceDataURLs []string
+	var firstFrameDataURLs, lastFrameDataURLs, referenceDataURLs []string
 	reader := multipart.NewReader(bytes.NewReader(body), boundary)
 	for {
 		part, partErr := reader.NextPart()
@@ -106,20 +106,27 @@ func CanvasVideoMultipartToJSON(contentType string, body []byte) ([]byte, error)
 			if len(bytes.TrimSpace(data)) == 0 {
 				continue
 			}
+			var reference string
 			if looksLikeTextReference(data) {
-				if ref := strings.TrimSpace(string(data)); ref != "" {
-					referenceDataURLs = append(referenceDataURLs, ref)
+				reference = strings.TrimSpace(string(data))
+			} else {
+				mimeType := strings.TrimSpace(part.Header.Get("Content-Type"))
+				if mimeType == "" || mimeType == "application/octet-stream" {
+					mimeType = inferImageMIMEFromName(filename)
 				}
-				continue
+				if mimeType == "" {
+					mimeType = "application/octet-stream"
+				}
+				reference = "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data)
 			}
-			mimeType := strings.TrimSpace(part.Header.Get("Content-Type"))
-			if mimeType == "" || mimeType == "application/octet-stream" {
-				mimeType = inferImageMIMEFromName(filename)
+			switch canvasVideoReferenceRole(name) {
+			case "first_frame":
+				firstFrameDataURLs = append(firstFrameDataURLs, reference)
+			case "last_frame":
+				lastFrameDataURLs = append(lastFrameDataURLs, reference)
+			default:
+				referenceDataURLs = append(referenceDataURLs, reference)
 			}
-			if mimeType == "" {
-				mimeType = "application/octet-stream"
-			}
-			referenceDataURLs = append(referenceDataURLs, "data:"+mimeType+";base64,"+base64.StdEncoding.EncodeToString(data))
 			continue
 		}
 		value, readErr := io.ReadAll(io.LimitReader(part, 1<<20))
@@ -161,6 +168,12 @@ func CanvasVideoMultipartToJSON(contentType string, body []byte) ([]byte, error)
 	if mode := firstNonEmptyString(values["mode"], values["preset"]); mode != "" && !strings.EqualFold(mode, "normal") {
 		payload["mode"] = mode
 	}
+	if len(firstFrameDataURLs) > 0 {
+		payload["first_frame"] = map[string]string{"image_url": firstFrameDataURLs[0]}
+	}
+	if len(lastFrameDataURLs) > 0 {
+		payload["last_frame"] = map[string]string{"image_url": lastFrameDataURLs[0]}
+	}
 	if len(referenceDataURLs) == 1 {
 		payload["input_reference"] = map[string]string{"image_url": referenceDataURLs[0]}
 	} else if len(referenceDataURLs) > 1 {
@@ -181,9 +194,20 @@ func CanvasVideoMultipartToJSON(contentType string, body []byte) ([]byte, error)
 	return encoded, nil
 }
 
+func canvasVideoReferenceRole(name string) string {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "first_frame", "first_frame[]", "start_frame", "start_frame[]":
+		return "first_frame"
+	case "last_frame", "last_frame[]", "end_frame", "end_frame[]":
+		return "last_frame"
+	default:
+		return "reference"
+	}
+}
+
 func isCanvasVideoReferenceField(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "input_reference", "input_reference[]", "image", "image[]", "reference_image", "reference_images", "reference_images[]":
+	case "input_reference", "input_reference[]", "image", "image[]", "reference_image", "reference_images", "reference_images[]", "first_frame", "first_frame[]", "start_frame", "start_frame[]", "last_frame", "last_frame[]", "end_frame", "end_frame[]":
 		return true
 	default:
 		return false
@@ -448,8 +472,8 @@ func normalizeMiniMaxH3VideoBody(body []byte, mode string) ([]byte, error) {
 	}
 
 	// Official H3 only needs content[]. Do NOT also attach image/reference_images
-// with the same base64 payload — that doubles request size and can stall the
-// private gateway for many minutes before it even returns a task id.
+	// with the same base64 payload — that doubles request size and can stall the
+	// private gateway for many minutes before it even returns a task id.
 	out := body
 	out, _ = sjson.SetBytes(out, "model", "minimax-h3")
 	out, _ = sjson.SetBytes(out, "prompt", prompt)
