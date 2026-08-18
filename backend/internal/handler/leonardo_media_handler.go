@@ -202,7 +202,7 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 		return
 	}
 	if _, err := service.NewLeonardoVideoPriceResolver().Estimate(c.Request.Context(), service.LeonardoVideoPriceRequest{Model: req.Model, Duration: req.Seconds, Width: width, Height: height, Quantity: 1}); err != nil {
-		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		response.BadRequest(c, err.Error())
 		return
 	}
 	references := service.LeonardoVideoV1References{}
@@ -222,7 +222,7 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 	}
 	body, err := service.BuildLeonardoVideoV2Request(req.Model, req.Prompt, req.Seconds, width, height, 1, false, references)
 	if err != nil {
-		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		response.BadRequest(c, err.Error())
 		return
 	}
 	if strings.TrimSpace(c.GetHeader("Idempotency-Key")) == "" {
