@@ -21,7 +21,10 @@ func ParseLeonardoRawImageSources(body []byte) ([]LeonardoRawImageSource, error)
 	if !ok {
 		return nil, ErrLeonardoImageInputInvalid
 	}
-	guidances, _ := parameters["guidances"].(map[string]any)
+	guidances, hasGuidances := parameters["guidances"].(map[string]any)
+	if !hasGuidances {
+		return []LeonardoRawImageSource{}, nil
+	}
 	sources := []LeonardoRawImageSource{}
 	for _, section := range []string{"content", "style", "image_reference", "start_frame", "end_frame"} {
 		values, _ := guidances[section].([]any)
