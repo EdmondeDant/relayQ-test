@@ -366,9 +366,18 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 			payload["model"] = upstreamModel
 			body, _ = json.Marshal(payload)
 		}
-		sources, sourceErr := ParseLeonardoRawImageSources(body)
-		if sourceErr != nil || ValidateLeonardoVideoV2Sources(model, sources) != nil {
-			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
+		sources := []LeonardoRawImageSource{}
+		var envelope map[string]any
+		if json.Unmarshal(body, &envelope) != nil {
+			return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_request_invalid"))
+		}
+		parametersMap, _ := envelope["parameters"].(map[string]any)
+		if _, hasGuidances := parametersMap["guidances"]; hasGuidances {
+			var sourceErr error
+			sources, sourceErr = ParseLeonardoRawImageSources(body)
+			if sourceErr != nil || ValidateLeonardoVideoV2Sources(model, sources) != nil {
+				return nil, errors.Join(ErrLeonardoImageReferenceInvalid, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
+			}
 		}
 		if len(sources) > 0 {
 			uploadClient, ok := client.(LeonardoInitImageClient)
@@ -384,10 +393,11 @@ func (o *LeonardoImageCreateOrchestrator) CreateVideo(ctx context.Context, reque
 				if uploadErr != nil {
 					return nil, errors.Join(uploadErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "image_upload_failed"))
 				}
-				body, sourceErr = SetLeonardoRawImageID(body, source, uploadedID)
-				if sourceErr != nil {
-					return nil, errors.Join(sourceErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
+				nextBody, setErr := SetLeonardoRawImageID(body, source, uploadedID)
+				if setErr != nil {
+					return nil, errors.Join(setErr, o.release(ctx, request.UserID, publicID, reference, customerCost, "video_guidance_invalid"))
 				}
+				body = nextBody
 			}
 		}
 		result, submitErr := NewLeonardoGenerationService(o.jobs, client).CreateGenerationRaw(ctx, job, body)
