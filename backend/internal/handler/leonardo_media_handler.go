@@ -786,10 +786,11 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.Unauthorized(c, "Invalid authentication context")
 		return
 	}
-	if apiKey.GroupID == nil || apiKey.Group == nil || apiKey.Group.ID != *apiKey.GroupID || apiKey.Group.Platform != service.PlatformLeonardo {
+	if apiKey.Group == nil || apiKey.Group.ID <= 0 || apiKey.Group.Platform != service.PlatformLeonardo {
 		response.BadRequest(c, "Invalid Leonardo group binding")
 		return
 	}
+	groupID := apiKey.Group.ID
 	mediaType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
@@ -827,7 +828,7 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 		response.ErrorFrom(c, service.ErrIdempotencyStoreUnavail)
 		return
 	}
-	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: *apiKey.GroupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances, RawBody: req.V2Request}
+	input := service.LeonardoMediaCreateInput{IdempotencyKey: idempotencyKey, UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: groupID, Model: req.Model, Modality: req.Modality, Prompt: req.Prompt, Public: req.Public, Width: req.Parameters.Width, Height: req.Parameters.Height, Duration: req.Parameters.Duration, Quantity: req.Parameters.Quantity, FluxGuidances: req.Parameters.Guidances, RawBody: req.V2Request}
 	startFrame := strings.TrimSpace(req.Parameters.StartFrameSource)
 	if req.Modality == "video" && (req.Model == "kling-2.1" || req.Model == "kling-2.5-turbo-standard") && startFrame == "" {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
