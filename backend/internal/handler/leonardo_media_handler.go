@@ -856,7 +856,14 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	executeUserIdempotentJSON(c, "leonardo_media_create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) { return h.create.Create(ctx, input) })
+	executeUserIdempotentJSON(c, "leonardo_media_create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		result, createErr := h.create.Create(ctx, input)
+		var apiErr *leonardo.LeonardoError
+		if errors.As(createErr, &apiErr) && apiErr.SubmissionRejected {
+			return nil, infraerrors.ServiceUnavailable("LEONARDO_VIDEO_UPSTREAM_REJECTED", apiErr.Message)
+		}
+		return result, createErr
+	})
 }
 
 func mergeLeonardoVideoStartFrameParameters(req leonardoMediaCreateHTTPRequest, source string) map[string]any {
