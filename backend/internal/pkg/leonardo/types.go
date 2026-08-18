@@ -98,21 +98,22 @@ type generationResponse struct {
 }
 
 type LeonardoError struct {
-	Class            string
-	StatusCode       int
-	Code             string
-	Message          string
-	Path             string
-	RequestID        string
-	RetryAfter       time.Duration
-	BodySHA256       string
-	BodySize         int64
-	BodyTruncated    bool
-	RetryableRead    bool
-	SubmissionStatus string
-	SideEffectStatus string
-	SafeToRetry      bool
-	cause            error
+	Class              string
+	StatusCode         int
+	Code               string
+	Message            string
+	Path               string
+	RequestID          string
+	RetryAfter         time.Duration
+	BodySHA256         string
+	BodySize           int64
+	BodyTruncated      bool
+	RetryableRead      bool
+	SubmissionStatus   string
+	SideEffectStatus   string
+	SafeToRetry        bool
+	SubmissionRejected bool
+	cause              error
 }
 
 func (e *LeonardoError) Error() string {

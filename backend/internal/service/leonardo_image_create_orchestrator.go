@@ -416,8 +416,14 @@ func (o *LeonardoImageCreateOrchestrator) finish(ctx context.Context, job *Gener
 		reason = "job_create_failed"
 	} else if job.Status == GenerationJobStatusCreated {
 		reason = "job_submit_gate_failed"
-	} else if job.Status == GenerationJobStatusFailed && errors.Is(submitErr, ErrLeonardoGenerationRequestNotWritten) {
-		reason = "request_not_written"
+	} else if job.Status == GenerationJobStatusFailed {
+		var apiErr *leonardo.LeonardoError
+		switch {
+		case errors.Is(submitErr, ErrLeonardoGenerationRequestNotWritten):
+			reason = "request_not_written"
+		case errors.As(submitErr, &apiErr) && apiErr.SubmissionRejected:
+			reason = "upstream_rejected"
+		}
 	}
 	if reason == "" {
 		if job != nil && job.Status == GenerationJobStatusSubmitting {

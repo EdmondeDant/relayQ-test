@@ -193,6 +193,23 @@ func (c *Client) CreateGeneration(ctx context.Context, request CreateGenerationR
 	return c.CreateGenerationRaw(ctx, body)
 }
 
+type generationAPIErrorItem struct {
+	Extensions struct {
+		Code    string `json:"code"`
+		Details string `json:"details"`
+	} `json:"extensions"`
+	Message string   `json:"message"`
+	Path    []string `json:"path"`
+}
+
+func decodeGenerationAPIError(body []byte) (string, string, bool) {
+	var items []generationAPIErrorItem
+	if json.Unmarshal(body, &items) != nil || len(items) == 0 || strings.TrimSpace(items[0].Message) == "" {
+		return "", "", false
+	}
+	return strings.TrimSpace(items[0].Extensions.Code), strings.TrimSpace(items[0].Message), true
+}
+
 func (c *Client) CreateGenerationRaw(ctx context.Context, body []byte) (*CreateGenerationResponse, error) {
 	if len(body) == 0 || !json.Valid(body) {
 		return nil, &LeonardoError{Class: GenerationErrorClassRequestNotWritten, Message: "leonardo: invalid generation request", SafeToRetry: true, cause: ErrGenerationRequestNotWritten}
@@ -232,6 +249,15 @@ func (c *Client) CreateGenerationRaw(ctx context.Context, body []byte) (*CreateG
 		apiErr.SubmissionStatus = SubmissionUnknown
 		apiErr.SideEffectStatus = SideEffectUnknown
 		return nil, apiErr
+	}
+	if code, message, ok := decodeGenerationAPIError(responseBody); ok {
+		return nil, &LeonardoError{
+			Class: GenerationErrorClassUpstreamNon2xx, StatusCode: resp.StatusCode,
+			Code: c.sanitize(code), Message: c.sanitize(message),
+			RequestID:  sanitizeHeader(c.sanitize(resp.Header.Get("X-Request-ID"))),
+			BodySHA256: bodySHA256(responseBody), BodySize: int64(len(responseBody)),
+			RetryableRead: false, SafeToRetry: false, SubmissionRejected: true,
+		}
 	}
 	type generationCreateEnvelope struct {
 		GenerationID    string          `json:"generationId"`

@@ -123,6 +123,18 @@ func (s *LeonardoGenerationService) CreateGenerationRaw(ctx context.Context, job
 }
 
 func (s *LeonardoGenerationService) storeSubmissionError(ctx context.Context, submitting *GenerationJob, submissionErr error) (*GenerationJob, error) {
+	var apiErr *leonardo.LeonardoError
+	if errors.As(submissionErr, &apiErr) && apiErr.SubmissionRejected {
+		failed := *submitting
+		failed.Status = GenerationJobStatusFailed
+		failed.ErrorCode = stringPointer(firstNonEmptyString(apiErr.Code, "upstream_rejected"))
+		failed.ErrorMessage = stringPointer(firstNonEmptyString(apiErr.Message, "leonardo generation request was rejected"))
+		failed.FailedAt = timePointerValue(time.Now().UTC())
+		if err := s.repository.CompareAndSwapStatus(ctx, submitting.PublicID, GenerationJobStatusSubmitting, &failed); err != nil {
+			return submitting, errors.Join(submissionErr, err)
+		}
+		return &failed, submissionErr
+	}
 	if !errors.Is(submissionErr, ErrLeonardoGenerationRequestNotWritten) {
 		return s.storeSubmissionUnknown(ctx, submitting, leonardoSubmissionDiagnostic(submissionErr))
 	}
