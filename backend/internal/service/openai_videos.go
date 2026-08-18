@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -496,11 +497,10 @@ func normalizeMiniMaxH3VideoBody(body []byte, mode string) ([]byte, error) {
 	resolution := normalizeMiniMaxH3Resolution(gjson.GetBytes(out, "resolution").String())
 	out, _ = sjson.SetBytes(out, "resolution", resolution)
 
-	ratio := firstNonEmptyString(
+	ratio := normalizeMiniMaxH3Ratio(firstNonEmptyString(
 		gjson.GetBytes(out, "ratio").String(),
 		gjson.GetBytes(out, "aspect_ratio").String(),
-	)
-	ratio = strings.TrimSpace(ratio)
+	))
 	if len(referenceURLs) > 0 {
 		if ratio == "" {
 			ratio = "adaptive"
@@ -570,6 +570,48 @@ func ensureMiniMaxH3ReferencePrompt(prompt string, imageCount int) string {
 		binding,
 		prompt,
 	)
+}
+
+// miniMaxH3Ratios are the ratio values the in-house H3 gateway accepts.
+var miniMaxH3Ratios = []struct{ ratio string; width, height float64 }{
+	{"21:9", 21, 9}, {"16:9", 16, 9}, {"4:3", 4, 3},
+	{"1:1", 1, 1}, {"3:4", 3, 4}, {"9:16", 9, 16},
+}
+
+// normalizeMiniMaxH3Ratio maps an arbitrary aspect ratio string (e.g. a gcd of a
+// 1376x768 size producing "86:48") to the nearest ratio the in-house H3 gateway
+// accepts. Empty/unknown input falls back to 16:9.
+func normalizeMiniMaxH3Ratio(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		// Empty: let the caller decide (e.g. reference-image mode uses adaptive).
+		return ""
+	}
+	for _, allowed := range []string{"adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"} {
+		if strings.EqualFold(value, allowed) {
+			return allowed
+		}
+	}
+	var w, h float64
+	var err error
+	if colon := strings.IndexByte(value, ':'); colon > 0 {
+		w, err = strconv.ParseFloat(strings.TrimSpace(value[:colon]), 64)
+		h, _ = strconv.ParseFloat(strings.TrimSpace(value[colon+1:]), 64)
+	}
+	_ = err
+	if w <= 0 || h <= 0 {
+		return "16:9"
+	}
+	best := "16:9"
+	bestDiff := math.Inf(1)
+	target := w / h
+	for _, m := range miniMaxH3Ratios {
+		if d := math.Abs(target - m.width/m.height); d < bestDiff {
+			bestDiff = d
+			best = m.ratio
+		}
+	}
+	return best
 }
 
 func normalizeMiniMaxH3Resolution(value string) string {
