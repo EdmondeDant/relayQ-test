@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/shopspring/decimal"
 )
@@ -190,43 +191,122 @@ func SupportsLeonardoVideoStartFrame(model string) bool {
 	}
 }
 
+// LeonardoVideoGenerationParameters builds the REST v2 `parameters` object for a
+// video model, replicating the official Leonardo schema 1:1 per model.
+// It returns the model's official model identifier via LeonardoVideoUpstreamModel
+// only when the caller needs it; here it always builds with the public model slug
+// (the v2 envelope `model` field is mapped separately by the orchestrator).
+// sliceContains reports whether value is present in the int slice.
+func sliceContains(value int, allowed []int) bool {
+	for _, v := range allowed {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveVideoResolutionTier maps width/height to a "720p"/"1080p"/"2160p" tier
+// for models (wan-2.7) that use the `resolution` string field instead of `mode`.
+func resolveVideoResolutionTier(width, height int) int {
+	max := width
+	if height > max {
+		max = height
+	}
+	switch {
+	case max <= 720:
+		return 720
+	case max <= 1080:
+		return 1080
+	default:
+		return 2160
+	}
+}
+
 func LeonardoVideoGenerationParameters(model, prompt string, duration, width, height, quantity int) (map[string]any, error) {
-	if model == "minimax-h3" {
-		if duration < 5 || duration > 15 || quantity != 1 || width != 1376 || height != 768 {
+	model = strings.TrimSpace(model)
+	if strings.TrimSpace(prompt) == "" || quantity <= 0 {
+		return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+	}
+	base := map[string]any{"prompt": prompt, "quantity": quantity}
+
+	// Validate and build per official v2 docs (docs.leonardo.ai/reference/creategeneration-1).
+	switch model {
+	case "wan-2.7": // prompt req; duration 2-10; width/height -> 1280x720; resolution 720p/1080p; no audio
+		if duration < 2 || duration > 10 {
 			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
 		}
-		return map[string]any{"prompt": prompt, "width": width, "height": height, "quantity": quantity, "duration": duration, "resolution": "768p", "motion_has_audio": true}, nil
-	}
-	if _, err := NewLeonardoVideoPriceResolver().Estimate(context.Background(), LeonardoVideoPriceRequest{Model: model, Duration: duration, Width: width, Height: height, Quantity: quantity}); err != nil {
-		return nil, err
-	}
-	parameters := map[string]any{"prompt": prompt, "width": width, "height": height, "quantity": quantity}
-	resolution, _ := LeonardoVideoResolution(model, width, height)
-	switch model {
-	case "motion_2.0-fast":
-		parameters["mode"] = fmt.Sprintf("RESOLUTION_%d", resolution)
-	case "wan-2.7":
-		parameters["duration"] = duration
-		parameters["resolution"] = fmt.Sprintf("%dp", resolution)
-	case "kling-video-o-3", "kling-3.0":
-		parameters["duration"] = duration
-		parameters["mode"] = fmt.Sprintf("RESOLUTION_%d", resolution)
-	case "seedance-2.0":
-		parameters["duration"] = duration
-		parameters["mode"] = fmt.Sprintf("RESOLUTION_%d", resolution)
-		parameters["motion_has_audio"] = false
-	case "seedance-2.0-fast", "seedance-2.0-mini", "kling-3.0-turbo":
-		parameters["duration"] = duration
-		parameters["motion_has_audio"] = false
-	case "kling-2.1", "kling-2.5", "kling-2.5-turbo-standard", "kling-2.6", "kling-video-o-1":
-		parameters["duration"] = duration
-		if model == "kling-2.6" {
-			parameters["motion_has_audio"] = false
+		if width == 0 || height == 0 {
+			width, height = 1280, 720
 		}
+		base["width"] = width
+		base["height"] = height
+		base["duration"] = duration
+		if resolution := fmt.Sprintf("%dp", resolveVideoResolutionTier(width, height)); resolution != "0p" {
+			base["resolution"] = resolution
+		}
+		return base, nil
+
+	case "motion_2.0-fast": // prompt req; width/height required enum [512,768]; NO duration; mode deprecated; controls/elements optional
+		if width == 0 || height == 0 {
+			width, height = 512, 768
+		}
+		base["width"] = width
+		base["height"] = height
+		return base, nil
+
+	case "seedance-1.0-pro", "seedance-1.0-pro-fast": // duration enum 4/6/8/10; width/height default 1248x704; seed -1; quantity req
+		if !sliceContains(duration, []int{4, 6, 8, 10}) {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		if width == 0 || height == 0 {
+			width, height = 1248, 704
+		}
+		base["width"] = width
+		base["height"] = height
+		base["duration"] = duration
+		base["seed"] = -1
+		return base, nil
+
+	case "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini": // duration 4-15; width/height default 1280x720; motion_has_audio default true
+		if duration < 4 || duration > 15 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		if width == 0 || height == 0 {
+			width, height = 1280, 720
+		}
+		base["width"] = width
+		base["height"] = height
+		base["duration"] = duration
+		base["seed"] = -1
+		return base, nil
+
+	case "kling-video-o-3": // prompt req; width/height default 1920x1080; duration 3-15; motion_has_audio default true
+		if duration < 3 || duration > 15 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		if width == 0 || height == 0 {
+			width, height = 1920, 1080
+		}
+		base["width"] = width
+		base["height"] = height
+		base["duration"] = duration
+		return base, nil
+
+	case "minimax-h3": // official upstream identifier hailuo-03; prompt req(<=2000); duration 5-15; width/height default 1376x768; audio forced true
+		if duration < 5 || duration > 15 {
+			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+		}
+		if width == 0 || height == 0 {
+			width, height = 1376, 768
+		}
+		base["width"] = width
+		base["height"] = height
+		base["duration"] = duration
+		base["motion_has_audio"] = true
+		return base, nil
+
 	default:
-		parameters["duration"] = duration
-		parameters["mode"] = fmt.Sprintf("RESOLUTION_%d", resolution)
-		parameters["prompt_enhance"] = "OFF"
+		return nil, fmt.Errorf("%w: unsupported video model %s", ErrLeonardoVideoPricingEvidenceUnavailable, model)
 	}
-	return parameters, nil
 }

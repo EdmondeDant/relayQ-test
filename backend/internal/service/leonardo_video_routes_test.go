@@ -65,3 +65,61 @@ func TestBuildLeonardoVideoV2RequestRejectsUnsupportedGuidance(t *testing.T) {
 	_, err := BuildLeonardoVideoV2Request("motion_2.0-fast", "test", 0, 832, 480, 1, false, LeonardoVideoV1References{EndFrame: "https://example.com/end.png"})
 	require.ErrorIs(t, err, ErrLeonardoVideoParameterUnsupported)
 }
+
+func TestLeonardoVideoGenerationParametersMatchOfficialV2Schema(t *testing.T) {
+	t.Run("motion_2.0-fast has no duration", func(t *testing.T) {
+		p, err := LeonardoVideoGenerationParameters("motion_2.0-fast", "hello", 8, 512, 768, 1)
+		require.NoError(t, err)
+		_, hasDuration := p["duration"]
+		require.False(t, hasDuration, "motion_2.0-fast must not emit duration")
+		require.Equal(t, 512, p["width"])
+		require.Equal(t, 768, p["height"])
+		_, hasMode := p["mode"]
+		require.False(t, hasMode, "mode is deprecated; width/height are canonical")
+	})
+
+	t.Run("seedance-1.0-pro uses duration enum", func(t *testing.T) {
+		p, err := LeonardoVideoGenerationParameters("seedance-1.0-pro", "hello", 6, 0, 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 6, p["duration"])
+		require.Equal(t, 1248, p["width"])
+		require.Equal(t, 704, p["height"])
+		require.Equal(t, -1, p["seed"])
+		_, hasMode := p["mode"]
+		require.False(t, hasMode)
+	})
+
+	t.Run("seedance-2.0 keeps motion_has_audio default true", func(t *testing.T) {
+		p, err := LeonardoVideoGenerationParameters("seedance-2.0", "hello", 4, 0, 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 4, p["duration"])
+		require.Equal(t, 1280, p["width"])
+		require.Equal(t, 720, p["height"])
+		_, hasAudio := p["motion_has_audio"]
+		require.False(t, hasAudio, "must not force motion_has_audio:false; official default is true")
+	})
+
+	t.Run("kling-video-o-3", func(t *testing.T) {
+		p, err := LeonardoVideoGenerationParameters("kling-video-o-3", "hello", 3, 0, 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 3, p["duration"])
+		require.Equal(t, 1920, p["width"])
+		require.Equal(t, 1080, p["height"])
+		_, hasMode := p["mode"]
+		require.False(t, hasMode)
+	})
+
+	t.Run("minimax-h3 forces audio true", func(t *testing.T) {
+		p, err := LeonardoVideoGenerationParameters("minimax-h3", "hello", 5, 0, 0, 1)
+		require.NoError(t, err)
+		require.Equal(t, true, p["motion_has_audio"])
+		require.Equal(t, 1376, p["width"])
+		require.Equal(t, 768, p["height"])
+		require.Equal(t, 5, p["duration"])
+	})
+
+	t.Run("rejects out-of-range duration", func(t *testing.T) {
+		_, err := LeonardoVideoGenerationParameters("seedance-1.0-pro", "hello", 5, 0, 0, 1)
+		require.Error(t, err, "seedance-1.0-pro only allows 4/6/8/10")
+	})
+}

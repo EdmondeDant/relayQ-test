@@ -201,10 +201,6 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
-	if _, err := service.NewLeonardoVideoPriceResolver().Estimate(c.Request.Context(), service.LeonardoVideoPriceRequest{Model: req.Model, Duration: req.Seconds, Width: width, Height: height, Quantity: 1}); err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
 	references := service.LeonardoVideoV1References{}
 	if req.InputReference != nil {
 		references.StartFrame = strings.TrimSpace(req.InputReference.ImageURL)

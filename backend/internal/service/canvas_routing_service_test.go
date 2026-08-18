@@ -1,3 +1,5 @@
+//go:build unit
+
 package service
 
 import (
@@ -106,9 +108,10 @@ func TestCanvasRoutingCatalogUsesChannelPricingForCustomModels(t *testing.T) {
 
 	models, err := routing.Catalog(context.Background(), 1)
 	require.NoError(t, err)
+	// minimax-h3 is an explicit Leonardo video model, so it is filtered out of
+	// the OpenAI group catalog here (it belongs to the Leonardo platform group).
 	require.Equal(t, []CanvasModel{
 		{ID: "flux-2-klein-9b-kv", Modality: "image", Platform: PlatformOpenAI, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}},
-		{ID: "minimax-h3", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
 	}, models)
 }
 
