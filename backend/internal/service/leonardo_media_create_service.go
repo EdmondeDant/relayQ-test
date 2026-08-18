@@ -154,7 +154,13 @@ func (s *LeonardoMediaCreateService) Create(ctx context.Context, input LeonardoM
 	if input.UserID <= 0 || input.APIKeyID <= 0 || input.GroupID <= 0 || (modality != "image" && modality != "video") || model == "" || prompt == "" || len(prompt) > 4000 || (!matchReferenceSize && (input.Width <= 0 || input.Height <= 0)) || input.Quantity <= 0 || (modality == "video" && input.Duration <= 0 && model != "motion_2.0-fast") {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
-	verified, ok := leonardo.ResolveByRequestModelSlug(model)
+	verifiedModel := model
+	if modality == "video" {
+		// Public canvas slug (e.g. minimax-h3) may differ from the official
+		// Leonardo verification slug (hailuo-03); resolve the upstream alias first.
+		verifiedModel = LeonardoVideoUpstreamModel(model)
+	}
+	verified, ok := leonardo.ResolveByRequestModelSlug(verifiedModel)
 	if !ok || (modality == "image" && verified.Modality != leonardo.ModelModalityImage) || (modality == "video" && verified.Modality != leonardo.ModelModalityVideo) {
 		return nil, ErrLeonardoMediaCreateInputInvalid
 	}
