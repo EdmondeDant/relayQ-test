@@ -575,24 +575,20 @@ func ensureMiniMaxH3ReferencePrompt(prompt string, imageCount int) string {
 func normalizeMiniMaxH3Resolution(value string) string {
 	v := strings.ToLower(strings.TrimSpace(value))
 	switch v {
-	case "", "480", "480p", "sd":
-		// Current private gateway path is fixed around 480p for this model.
-		return "480p"
 	case "768", "768p":
 		return "768P"
 	case "2k", "1080", "1080p", "fhd", "fullhd":
 		return "2K"
-	case "720", "720p", "hd":
-		// Gateway currently maps non-official mid tiers down to 480p.
-		return "480p"
 	default:
+		// In-house H3 gateway only accepts 768P or 2K; treat unknown/missing
+		// and any other non-official value as the minimum supported 768P.
 		if strings.EqualFold(strings.TrimSpace(value), "768P") {
 			return "768P"
 		}
 		if strings.EqualFold(strings.TrimSpace(value), "2K") {
 			return "2K"
 		}
-		return "480p"
+		return "768P"
 	}
 }
 
