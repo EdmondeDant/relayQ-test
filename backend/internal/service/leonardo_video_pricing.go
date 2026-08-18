@@ -206,20 +206,21 @@ func sliceContains(value int, allowed []int) bool {
 	return false
 }
 
-// resolveVideoResolutionTier maps width/height to a "720p"/"1080p"/"2160p" tier
-// for models (wan-2.7) that use the `resolution` string field instead of `mode`.
-func resolveVideoResolutionTier(width, height int) int {
-	max := width
-	if height > max {
-		max = height
-	}
+// wanVideoResolution maps the official Wan 2.7 width/height enum to the matching
+// `resolution` tier (validation is silent otherwise). Returns "" when no known
+// combination matches, in which case the caller omits the resolution field.
+func wanVideoResolution(width, height int) string {
 	switch {
-	case max <= 720:
-		return 720
-	case max <= 1080:
-		return 1080
+	case width == 1280 && height == 720,
+		width == 960 && height == 960,
+		width == 720 && height == 1280:
+		return "720p"
+	case width == 1920 && height == 1080,
+		width == 1440 && height == 1440,
+		width == 1080 && height == 1920:
+		return "1080p"
 	default:
-		return 2160
+		return ""
 	}
 }
 
@@ -242,7 +243,7 @@ func LeonardoVideoGenerationParameters(model, prompt string, duration, width, he
 		base["width"] = width
 		base["height"] = height
 		base["duration"] = duration
-		if resolution := fmt.Sprintf("%dp", resolveVideoResolutionTier(width, height)); resolution != "0p" {
+		if resolution := wanVideoResolution(width, height); resolution != "" {
 			base["resolution"] = resolution
 		}
 		return base, nil

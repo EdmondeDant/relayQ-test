@@ -111,10 +111,12 @@ func TestLeonardoVideoPriceResolverNewModelMinimums(t *testing.T) {
 }
 
 func TestLeonardoVideoGenerationParametersAreModelSpecific(t *testing.T) {
-	motion, err := LeonardoVideoGenerationParameters("motion_2.0-fast", "prompt", 0, 832, 480, 1)
+	motion, err := LeonardoVideoGenerationParameters("motion_2.0-fast", "prompt", 0, 512, 768, 1)
 	require.NoError(t, err)
 	require.NotContains(t, motion, "duration")
-	require.Equal(t, "RESOLUTION_480", motion["mode"])
+	require.NotContains(t, motion, "mode")
+	require.Equal(t, 512, motion["width"])
+	require.Equal(t, 768, motion["height"])
 
 	wan, err := LeonardoVideoGenerationParameters("wan-2.7", "prompt", 2, 1280, 720, 1)
 	require.NoError(t, err)
@@ -122,19 +124,22 @@ func TestLeonardoVideoGenerationParametersAreModelSpecific(t *testing.T) {
 	require.Equal(t, "720p", wan["resolution"])
 	require.NotContains(t, wan, "mode")
 
-	motion720, err := LeonardoVideoGenerationParameters("motion_2.0-fast", "prompt", 0, 1280, 720, 1)
-	require.NoError(t, err)
-	require.Equal(t, "RESOLUTION_720", motion720["mode"])
-
 	wan1080, err := LeonardoVideoGenerationParameters("wan-2.7", "prompt", 10, 1920, 1080, 1)
 	require.NoError(t, err)
 	require.Equal(t, "1080p", wan1080["resolution"])
 
-	kling, err := LeonardoVideoGenerationParameters("kling-video-o-3", "prompt", 3, 1280, 720, 1)
+	kling, err := LeonardoVideoGenerationParameters("kling-video-o-3", "prompt", 3, 1920, 1080, 1)
 	require.NoError(t, err)
 	require.Equal(t, 3, kling["duration"])
-	require.Equal(t, "RESOLUTION_720", kling["mode"])
-	require.NotContains(t, kling, "prompt_enhance")
+	require.NotContains(t, kling, "mode")
+	require.Equal(t, 1920, kling["width"])
+	require.Equal(t, 1080, kling["height"])
+
+	seed, err := LeonardoVideoGenerationParameters("seedance-1.0-pro", "prompt", 6, 1248, 704, 1)
+	require.NoError(t, err)
+	require.Equal(t, 6, seed["duration"])
+	require.NotContains(t, seed, "mode")
+	require.Equal(t, -1, seed["seed"])
 }
 
 func TestLeonardoVideoPriceResolverExpandedCatalog(t *testing.T) {

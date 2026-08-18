@@ -24,7 +24,6 @@ var leonardoVideoRoutes = map[string]LeonardoVideoRoute{
 	"seedance-2.0-fast":     {Model: "seedance-2.0-fast", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
 	"seedance-2.0-mini":     {Model: "seedance-2.0-mini", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
 	"wan-2.7":               {Model: "wan-2.7", Durations: integerRange(2, 10), StartFrame: true, EndFrame: true, MaxReferenceImages: 6},
-	"minimax-h3":            {Model: "minimax-h3", UpstreamModel: "hailuo-03", Durations: integerRange(5, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 5},
 }
 
 func integerRange(first, last int) []int {
@@ -48,12 +47,20 @@ func LeonardoVideoUpstreamModel(model string) string {
 	return strings.TrimSpace(model)
 }
 
+// IsExplicitCanvasVideoModel reports whether the model has an explicit video
+// routing rule with a well-known platform.
 func IsExplicitCanvasVideoModel(model string) bool {
-	_, ok := LeonardoVideoRouteFor(model)
-	return ok
+	return ExplicitCanvasVideoPlatform(model) != ""
 }
 
+// ExplicitCanvasVideoPlatform returns the platform a video model must be routed
+// to. minimax-h3 is served in-house over the OpenAI-compatible video API
+// (account 73, local kai gateway), so it routes to PlatformOpenAI; all other
+// explicit video models route to Leonardo REST v2.
 func ExplicitCanvasVideoPlatform(model string) string {
+	if strings.EqualFold(strings.TrimSpace(model), "minimax-h3") {
+		return PlatformOpenAI
+	}
 	if _, ok := LeonardoVideoRouteFor(model); ok {
 		return PlatformLeonardo
 	}

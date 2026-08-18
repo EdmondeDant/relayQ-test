@@ -108,10 +108,11 @@ func TestCanvasRoutingCatalogUsesChannelPricingForCustomModels(t *testing.T) {
 
 	models, err := routing.Catalog(context.Background(), 1)
 	require.NoError(t, err)
-	// minimax-h3 is an explicit Leonardo video model, so it is filtered out of
-	// the OpenAI group catalog here (it belongs to the Leonardo platform group).
+	// flux-2-klein-9b-kv is an image model; minimax-h3 is an OpenAI-compatible
+	// video model routed to the OpenAI platform group (account 73).
 	require.Equal(t, []CanvasModel{
 		{ID: "flux-2-klein-9b-kv", Modality: "image", Platform: PlatformOpenAI, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}},
+		{ID: "minimax-h3", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
 	}, models)
 }
 
@@ -119,8 +120,8 @@ func TestCanvasRoutingUsesExplicitVideoModelPlatforms(t *testing.T) {
 	leonardoGroup := Group{ID: 4, Platform: PlatformLeonardo, Status: StatusActive, SortOrder: 10}
 	openAIGroup := Group{ID: 5, Platform: PlatformOpenAI, Status: StatusActive, SortOrder: 1}
 	accounts := canvasRoutingAccountRepoByGroup{accounts: map[int64][]Account{
-		4: {{Credentials: map[string]any{"model_mapping": map[string]any{"wan-2.7": "wan-2.7", "minimax-h3": "hailuo-03"}}}},
-		5: {{Credentials: map[string]any{"model_mapping": map[string]any{"wan-2.7": "wan-2.7"}}}},
+		4: {{Credentials: map[string]any{"model_mapping": map[string]any{"wan-2.7": "wan-2.7"}}}},
+		5: {{Credentials: map[string]any{"model_mapping": map[string]any{"minimax-h3": "minimax-h3"}}}},
 	}}
 	routing := NewCanvasRoutingService(canvasRoutingUserRepo{}, canvasRoutingGroupRepo{groups: []Group{leonardoGroup, openAIGroup}}, canvasRoutingSubscriptionRepo{}, accounts, nil, nil)
 
@@ -128,11 +129,15 @@ func TestCanvasRoutingUsesExplicitVideoModelPlatforms(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, PlatformLeonardo, wan.Platform)
 	require.Equal(t, int64(4), wan.Group.ID)
+	require.Equal(t, "wan-2.7", wan.Model)
 
+	// minimax-h3 is an in-house OpenAI-compatible model (account 73), so it must
+	// resolve to the OpenAI platform group, not Leonardo.
 	h3, err := routing.Resolve(context.Background(), CanvasRouteRequest{UserID: 1, APIKeyID: 7, Endpoint: "/v1/videos/generations", Model: "minimax-h3"})
 	require.NoError(t, err)
-	require.Equal(t, PlatformLeonardo, h3.Platform)
-	require.Equal(t, int64(4), h3.Group.ID)
+	require.Equal(t, PlatformOpenAI, h3.Platform)
+	require.Equal(t, int64(5), h3.Group.ID)
+	require.Equal(t, "minimax-h3", h3.Model)
 }
 
 func TestCanvasRoutingResolvesGenerationJobEntryGroup(t *testing.T) {

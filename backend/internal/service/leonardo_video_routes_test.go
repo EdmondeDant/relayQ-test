@@ -22,7 +22,6 @@ func TestLeonardoVideoRoutesMatchOfficialV2Capabilities(t *testing.T) {
 		{"seedance-2.0-fast", true, true, 4, 4},
 		{"seedance-2.0-mini", true, true, 4, 4},
 		{"wan-2.7", true, true, 6, 2},
-		{"minimax-h3", true, true, 5, 5},
 	}
 	for _, test := range tests {
 		t.Run(test.model, func(t *testing.T) {
@@ -52,13 +51,14 @@ func TestBuildLeonardoVideoV2RequestPreservesAllGuidances(t *testing.T) {
 	require.Len(t, guidances["image_reference"], 1)
 }
 
-func TestBuildLeonardoVideoV2RequestMapsMiniMaxAlias(t *testing.T) {
-	body, err := BuildLeonardoVideoV2Request("minimax-h3", "test", 5, 1376, 768, 1, false, LeonardoVideoV1References{})
-	require.NoError(t, err)
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(body, &decoded))
-	require.Equal(t, "minimax-h3", decoded["model"])
-	require.Equal(t, "hailuo-03", LeonardoVideoUpstreamModel("minimax-h3"))
+func TestBuildLeonardoVideoV2RequestRejectsMiniMax(t *testing.T) {
+	// minimax-h3 is an in-house OpenAI-compatible model (account 73); it must NOT
+	// be treated as a Leonardo model, so the Leonardo v2 builder must reject it.
+	_, ok := LeonardoVideoRouteFor("minimax-h3")
+	require.False(t, ok, "minimax-h3 must not be a Leonardo route")
+	require.Equal(t, PlatformOpenAI, ExplicitCanvasVideoPlatform("minimax-h3"))
+	_, err := BuildLeonardoVideoV2Request("minimax-h3", "test", 5, 1376, 768, 1, false, LeonardoVideoV1References{})
+	require.ErrorIs(t, err, ErrLeonardoMediaCreateInputInvalid)
 }
 
 func TestBuildLeonardoVideoV2RequestRejectsUnsupportedGuidance(t *testing.T) {
