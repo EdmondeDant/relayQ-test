@@ -23,6 +23,7 @@ var leonardoVideoRoutes = map[string]LeonardoVideoRoute{
 	"seedance-2.0":          {Model: "seedance-2.0", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
 	"seedance-2.0-fast":     {Model: "seedance-2.0-fast", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
 	"seedance-2.0-mini":     {Model: "seedance-2.0-mini", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
+	"wan-2.7":               {Model: "wan-2.7", Durations: integerRange(2, 10), StartFrame: true, EndFrame: true, MaxReferenceImages: 6},
 	"minimax-h3":            {Model: "minimax-h3", UpstreamModel: "hailuo-03", Durations: integerRange(5, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 5},
 }
 
