@@ -233,9 +233,14 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 			c.Request.Header.Set("Idempotency-Key", key)
 		}
 	}
-	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	mediaBody, err := json.Marshal(leonardoMediaCreateHTTPRequest{Model: req.Model, Modality: "video", Prompt: req.Prompt, Parameters: leonardoMediaImageParameters{Width: width, Height: height, Quantity: 1, Duration: req.Seconds}, V2Request: body})
+	if err != nil {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(mediaBody))
 	c.Request.Header.Set("Content-Type", "application/json")
-	h.leonardoRawVideoGenerations(c, body)
+	h.Create(c)
 }
 
 func (h *LeonardoMediaHandler) leonardoRawVideoGenerations(c *gin.Context, body []byte) {
