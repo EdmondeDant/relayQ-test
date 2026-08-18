@@ -160,8 +160,11 @@ func (s *PlaygroundService) executeImageJob(ctx context.Context, userID, taskID 
 		// #endregion
 		return err
 	}
-	requestID := firstNonEmptyJSON(body, "request_id", "id")
+	requestID := firstNonEmptyJSON(body, "request_id", "id", "task_id")
 	imageURL := extractImageURL(body)
+	if imageURL == "" && requestID != "" && isPlaygroundLeonardoImage(payload) {
+		return s.pollPlaygroundImageJob(ctx, userID, taskID, input, payload, requestID)
+	}
 	if imageURL == "" {
 		// #region debug-point L:backend-async-edit-empty-image
 		if input.Kind == "edit" {
@@ -189,6 +192,41 @@ func (s *PlaygroundService) executeImageJob(ctx context.Context, userID, taskID 
 		"progress_percent": 100,
 	})
 	return s.updateSucceededTask(context.Background(), userID, taskID, requestID, resultPayload)
+}
+
+func (s *PlaygroundService) pollPlaygroundImageJob(ctx context.Context, userID, taskID int64, input SubmitPlaygroundJobInput, payload playgroundJobPayload, requestID string) error {
+	for attempt := 0; ; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		body, _, err := doPlaygroundJSONRequest(ctx, input.InternalBaseURL, input.APIKey, http.MethodGet, "/v1/media/generations/"+requestID, nil)
+		if err != nil {
+			return err
+		}
+		status := strings.ToLower(strings.TrimSpace(firstNonEmptyJSON(body, "status")))
+		if IsTerminalMediaFailureStatus(status) {
+			return fmt.Errorf("image task failed: %s", status)
+		}
+		if imageURL := extractImageURL(body); imageURL != "" && IsTerminalMediaSuccessStatus(status) {
+			_, _ = s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{Status: "running", RequestID: requestID, ResultPayload: mustJSON(mergeStringAnyMaps(payload.Metadata, map[string]any{"status": "saving", "progress": 90, "progress_percent": 90}))})
+			if _, err := s.createTaskAsset(context.Background(), userID, taskID, input.InternalBaseURL, payload.AssetKind, payload.Title, imageURL, "image/png", mergePlaygroundAssetMetadata(nil, mergeStringAnyMaps(payload.Metadata, map[string]any{"request_id": requestID}))); err != nil {
+				return err
+			}
+			return s.updateSucceededTask(context.Background(), userID, taskID, requestID, mergeStringAnyMaps(payload.Metadata, map[string]any{"request_id": requestID, "url": imageURL, "progress": 100, "progress_percent": 100}))
+		}
+		progress := 10 + attempt*4
+		if progress > 88 {
+			progress = 88
+		}
+		_, _ = s.UpdateTask(context.Background(), userID, taskID, UpdatePlaygroundTaskInput{Status: "submitted", RequestID: requestID, ResultPayload: mustJSON(mergeStringAnyMaps(payload.Metadata, map[string]any{"status": playgroundFirstNonEmpty(status, "queued"), "progress": progress, "progress_percent": progress}))})
+		timer := time.NewTimer(3 * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func (s *PlaygroundService) executeBatchImageJob(ctx context.Context, userID, taskID int64, input SubmitPlaygroundJobInput, payload playgroundJobPayload) error {

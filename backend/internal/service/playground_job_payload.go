@@ -227,6 +227,10 @@ func (p playgroundJobPayload) buildImageRequest(kind, model string) (string, jso
 				body["quality"] = "low"
 			}
 			body["response_format"] = "url"
+			// Keep the browser-facing playground request asynchronous. Leonardo
+			// image generation can exceed Cloudflare's 120s proxy timeout; the
+			// playground worker polls the returned task below.
+			body["async"] = true
 		} else {
 			applyPlaygroundImageOptions(body, model, p, false)
 		}
