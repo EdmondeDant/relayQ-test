@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -122,4 +123,32 @@ func TestLeonardoVideoGenerationParametersMatchOfficialV2Schema(t *testing.T) {
 		_, err := LeonardoVideoGenerationParameters("seedance-1.0-pro", "hello", 5, 0, 0, 1)
 		require.Error(t, err, "seedance-1.0-pro only allows 4/6/8/10")
 	})
+}
+
+func TestAllVerifiedLeonardoVideoModelsHaveIndependentRoutes(t *testing.T) {
+	for _, model := range leonardo.ListVerifiedVideoModels() {
+		t.Run(model.RequestModelSlug, func(t *testing.T) {
+			route, ok := LeonardoVideoRouteFor(model.RequestModelSlug)
+			require.True(t, ok, "verified Leonardo video model must have an independent route")
+			require.Equal(t, model.RequestModelSlug, route.Model)
+			require.NotNil(t, route.BuildParameters)
+		})
+	}
+}
+
+func TestKling30CanvasSquareImageRequestUsesOfficialSizeAndStartFrame(t *testing.T) {
+	width, height, err := NormalizeLeonardoVideoRequestSize("kling-3.0", 768, 768)
+	require.NoError(t, err)
+	require.Equal(t, 960, width)
+	require.Equal(t, 960, height)
+
+	body, err := BuildLeonardoVideoV2Request("kling-3.0", "cow slowly turns its head", 3, width, height, 1, false, LeonardoVideoV1References{StartFrame: "data:image/png;base64,aGVsbG8="})
+	require.NoError(t, err)
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(body, &decoded))
+	parameters := decoded["parameters"].(map[string]any)
+	require.Equal(t, float64(960), parameters["width"])
+	require.Equal(t, float64(960), parameters["height"])
+	guidances := parameters["guidances"].(map[string]any)
+	require.Len(t, guidances["start_frame"], 1)
 }

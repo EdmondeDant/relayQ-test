@@ -7,23 +7,32 @@ import (
 )
 
 type LeonardoVideoRoute struct {
-	Model              string
-	UpstreamModel      string
-	Durations          []int
-	StartFrame         bool
-	EndFrame           bool
-	MaxReferenceImages int
+	Model                  string
+	Durations              []int
+	StartFrame             bool
+	EndFrame               bool
+	StartFrameRequired     bool
+	MaxReferenceImages     int
+	ReferenceImageStrength bool
+	BuildParameters        func(prompt string, duration, width, height, quantity int) (map[string]any, error)
 }
 
 var leonardoVideoRoutes = map[string]LeonardoVideoRoute{
-	"kling-video-o-3":       {Model: "kling-video-o-3", Durations: integerRange(3, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 7},
-	"motion_2.0-fast":       {Model: "motion_2.0-fast", StartFrame: true},
-	"seedance-1.0-pro":      {Model: "seedance-1.0-pro", Durations: []int{4, 6, 8, 10}, StartFrame: true, EndFrame: true},
-	"seedance-1.0-pro-fast": {Model: "seedance-1.0-pro-fast", Durations: []int{4, 6, 8, 10}, StartFrame: true},
-	"seedance-2.0":          {Model: "seedance-2.0", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
-	"seedance-2.0-fast":     {Model: "seedance-2.0-fast", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
-	"seedance-2.0-mini":     {Model: "seedance-2.0-mini", Durations: integerRange(4, 15), StartFrame: true, EndFrame: true, MaxReferenceImages: 4},
-	"wan-2.7":               {Model: "wan-2.7", Durations: integerRange(2, 10), StartFrame: true, EndFrame: true, MaxReferenceImages: 6},
+	kling21VideoRoute.Model:              kling21VideoRoute,
+	kling25VideoRoute.Model:              kling25VideoRoute,
+	kling25TurboStandardVideoRoute.Model: kling25TurboStandardVideoRoute,
+	kling26VideoRoute.Model:              kling26VideoRoute,
+	kling30VideoRoute.Model:              kling30VideoRoute,
+	kling30TurboVideoRoute.Model:         kling30TurboVideoRoute,
+	klingVideoO1Route.Model:              klingVideoO1Route,
+	klingVideoO3Route.Model:              klingVideoO3Route,
+	motion20FastVideoRoute.Model:         motion20FastVideoRoute,
+	seedance10ProVideoRoute.Model:        seedance10ProVideoRoute,
+	seedance10ProFastVideoRoute.Model:    seedance10ProFastVideoRoute,
+	seedance20VideoRoute.Model:           seedance20VideoRoute,
+	seedance20FastVideoRoute.Model:       seedance20FastVideoRoute,
+	seedance20MiniVideoRoute.Model:       seedance20MiniVideoRoute,
+	wan27VideoRoute.Model:                wan27VideoRoute,
 }
 
 func integerRange(first, last int) []int {
@@ -39,11 +48,36 @@ func LeonardoVideoRouteFor(model string) (LeonardoVideoRoute, bool) {
 	return route, ok
 }
 
-func LeonardoVideoUpstreamModel(model string) string {
+func NormalizeLeonardoVideoRequestSize(model string, width, height int) (int, int, error) {
 	route, ok := LeonardoVideoRouteFor(model)
-	if ok && route.UpstreamModel != "" {
-		return route.UpstreamModel
+	if !ok || route.BuildParameters == nil {
+		return 0, 0, ErrLeonardoMediaCreateInputInvalid
 	}
+	if width <= 0 || height <= 0 {
+		parameters, err := route.BuildParameters("size normalization", firstDuration(route), 0, 0, 1)
+		if err != nil {
+			return 0, 0, err
+		}
+		return parameters["width"].(int), parameters["height"].(int), nil
+	}
+	if spec := route.BuildParameters; spec != nil {
+		parameters, err := spec("size normalization", firstDuration(route), width, height, 1)
+		if err != nil {
+			return 0, 0, err
+		}
+		return parameters["width"].(int), parameters["height"].(int), nil
+	}
+	return width, height, nil
+}
+
+func firstDuration(route LeonardoVideoRoute) int {
+	if len(route.Durations) > 0 {
+		return route.Durations[0]
+	}
+	return 0
+}
+
+func LeonardoVideoUpstreamModel(model string) string {
 	return strings.TrimSpace(model)
 }
 
@@ -81,10 +115,13 @@ func BuildLeonardoVideoV2Request(model, prompt string, duration, width, height, 
 	if len(route.Durations) > 0 && !containsInt(route.Durations, duration) {
 		return nil, fmt.Errorf("%w: duration is not supported by %s", ErrLeonardoVideoParameterUnsupported, model)
 	}
-	if references.StartFrame != "" && !route.StartFrame || references.EndFrame != "" && !route.EndFrame || len(references.ReferenceImages) > route.MaxReferenceImages {
+	if route.StartFrameRequired && references.StartFrame == "" || references.StartFrame != "" && !route.StartFrame || references.EndFrame != "" && !route.EndFrame || len(references.ReferenceImages) > route.MaxReferenceImages {
 		return nil, fmt.Errorf("%w: requested guidance is not supported by %s", ErrLeonardoVideoParameterUnsupported, model)
 	}
-	parameters, err := LeonardoVideoGenerationParameters(model, prompt, duration, width, height, quantity)
+	if route.BuildParameters == nil {
+		return nil, ErrLeonardoMediaCreateInputInvalid
+	}
+	parameters, err := route.BuildParameters(prompt, duration, width, height, quantity)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +135,11 @@ func BuildLeonardoVideoV2Request(model, prompt string, duration, width, height, 
 	if len(references.ReferenceImages) > 0 {
 		items := make([]any, 0, len(references.ReferenceImages))
 		for index, source := range references.ReferenceImages {
-			item := leonardoVideoSourceReference(source, "MID")
+			strength := ""
+			if route.ReferenceImageStrength {
+				strength = "MID"
+			}
+			item := leonardoVideoSourceReference(source, strength)
 			item["order"] = index
 			items = append(items, item)
 		}

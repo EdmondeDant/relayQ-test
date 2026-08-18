@@ -201,6 +201,12 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
+	normalizedWidth, normalizedHeight, normalizeErr := service.NormalizeLeonardoVideoRequestSize(req.Model, width, height)
+	if normalizeErr != nil {
+		response.BadRequest(c, normalizeErr.Error())
+		return
+	}
+	width, height = normalizedWidth, normalizedHeight
 	references := service.LeonardoVideoV1References{}
 	if req.InputReference != nil {
 		references.StartFrame = strings.TrimSpace(req.InputReference.ImageURL)

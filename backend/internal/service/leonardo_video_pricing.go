@@ -224,90 +224,12 @@ func wanVideoResolution(width, height int) string {
 	}
 }
 
+// LeonardoVideoGenerationParameters delegates to the exact per-model REST v2
+// rule used by both the customer OpenAI v1 API and Infinite Canvas multipart.
 func LeonardoVideoGenerationParameters(model, prompt string, duration, width, height, quantity int) (map[string]any, error) {
-	model = strings.TrimSpace(model)
-	if strings.TrimSpace(prompt) == "" || quantity <= 0 {
-		return nil, ErrLeonardoVideoPricingEvidenceUnavailable
+	route, ok := LeonardoVideoRouteFor(model)
+	if !ok || route.BuildParameters == nil {
+		return nil, fmt.Errorf("%w: unsupported video model %s", ErrLeonardoVideoPricingEvidenceUnavailable, strings.TrimSpace(model))
 	}
-	base := map[string]any{"prompt": prompt, "quantity": quantity}
-
-	// Validate and build per official v2 docs (docs.leonardo.ai/reference/creategeneration-1).
-	switch model {
-	case "wan-2.7": // prompt req; duration 2-10; width/height -> 1280x720; resolution 720p/1080p; no audio
-		if duration < 2 || duration > 10 {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		if width == 0 || height == 0 {
-			width, height = 1280, 720
-		}
-		base["width"] = width
-		base["height"] = height
-		base["duration"] = duration
-		if resolution := wanVideoResolution(width, height); resolution != "" {
-			base["resolution"] = resolution
-		}
-		return base, nil
-
-	case "motion_2.0-fast": // prompt req; width/height required enum [512,768]; NO duration; mode deprecated; controls/elements optional
-		if width == 0 || height == 0 {
-			width, height = 512, 768
-		}
-		base["width"] = width
-		base["height"] = height
-		return base, nil
-
-	case "seedance-1.0-pro", "seedance-1.0-pro-fast": // duration enum 4/6/8/10; width/height default 1248x704; seed -1; quantity req
-		if !sliceContains(duration, []int{4, 6, 8, 10}) {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		if width == 0 || height == 0 {
-			width, height = 1248, 704
-		}
-		base["width"] = width
-		base["height"] = height
-		base["duration"] = duration
-		base["seed"] = -1
-		return base, nil
-
-	case "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini": // duration 4-15; width/height default 1280x720; motion_has_audio default true
-		if duration < 4 || duration > 15 {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		if width == 0 || height == 0 {
-			width, height = 1280, 720
-		}
-		base["width"] = width
-		base["height"] = height
-		base["duration"] = duration
-		base["seed"] = -1
-		return base, nil
-
-	case "kling-video-o-3": // prompt req; width/height default 1920x1080; duration 3-15; motion_has_audio default true
-		if duration < 3 || duration > 15 {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		if width == 0 || height == 0 {
-			width, height = 1920, 1080
-		}
-		base["width"] = width
-		base["height"] = height
-		base["duration"] = duration
-		return base, nil
-
-	case "minimax-h3": // official upstream identifier hailuo-03; prompt req(<=2000); duration 5-15; width/height default 1376x768; audio forced true
-		if duration < 5 || duration > 15 {
-			return nil, ErrLeonardoVideoPricingEvidenceUnavailable
-		}
-		if width == 0 || height == 0 {
-			width, height = 1376, 768
-		}
-		base["width"] = width
-		base["height"] = height
-		base["duration"] = duration
-		base["motion_has_audio"] = true
-		return base, nil
-
-	default:
-		return nil, fmt.Errorf("%w: unsupported video model %s", ErrLeonardoVideoPricingEvidenceUnavailable, model)
-	}
+	return route.BuildParameters(prompt, duration, width, height, quantity)
 }
