@@ -222,7 +222,8 @@ func TestLeonardoGenerationServiceStoresWhitelistedDiagnostics(t *testing.T) {
 			})}
 			job, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
 			require.NoError(t, err)
-			diagnostic := job.ResultPayload["submission_diagnostic"].(map[string]any)
+			diagnostic, ok := job.ResultPayload["submission_diagnostic"].(map[string]any)
+			require.True(t, ok, "submission_diagnostic must be an object")
 			wantClass := class
 			if !isLeonardoSubmissionUnknownClass(class) {
 				wantClass = "unclassified_after_submit"
@@ -252,7 +253,8 @@ func TestLeonardoGenerationServiceOmitsUnsafeRequestID(t *testing.T) {
 		client := &leonardoGenerationClientMock{err: &leonardo.LeonardoError{Class: leonardo.GenerationErrorClassUpstreamNon2xx, RequestID: requestID, SubmissionStatus: leonardo.SubmissionUnknown}}
 		job, err := NewLeonardoGenerationService(repository, client).CreateGeneration(context.Background(), leonardoGenerationJob(), leonardoGenerationRequestWithSecrets())
 		require.NoError(t, err)
-		diagnostic := job.ResultPayload["submission_diagnostic"].(map[string]any)
+		diagnostic, ok := job.ResultPayload["submission_diagnostic"].(map[string]any)
+		require.True(t, ok, "submission_diagnostic must be an object")
 		if value, ok := diagnostic["request_id"]; ok {
 			require.NotContains(t, fmt.Sprint(value), "auth-secret")
 		}

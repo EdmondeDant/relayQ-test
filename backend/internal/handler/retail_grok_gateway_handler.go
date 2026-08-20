@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -366,9 +365,4 @@ func logRetailGrokUsageError(key *service.RetailGrokKey, endpoint, model string,
 		zap.String("endpoint", endpoint),
 		zap.String("model", model),
 	).Error("retail_grok.record_usage_failed", zap.Error(err))
-}
-
-func isRetailUpstreamFailover(err error) bool {
-	var failoverErr *service.UpstreamFailoverError
-	return errors.As(err, &failoverErr)
 }

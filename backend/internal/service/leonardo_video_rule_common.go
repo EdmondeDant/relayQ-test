@@ -13,6 +13,7 @@ type leonardoVideoParameterSpec struct {
 	durationOptional   bool
 	seed               bool
 	motionHasAudio     *bool
+	mode               string
 	resolution         func(width, height int) string
 	normalizeSize      func(width, height int) (int, int)
 	startFrame         bool
@@ -54,6 +55,9 @@ func buildLeonardoVideoParameters(spec leonardoVideoParameterSpec, prompt string
 	}
 	if spec.motionHasAudio != nil {
 		parameters["motion_has_audio"] = *spec.motionHasAudio
+	}
+	if spec.mode != "" {
+		parameters["mode"] = spec.mode
 	}
 	if spec.resolution != nil {
 		if value := spec.resolution(width, height); value != "" {

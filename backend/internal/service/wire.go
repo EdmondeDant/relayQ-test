@@ -34,9 +34,9 @@ func ProvideAuthService(
 	defaultSubAssigner DefaultSubscriptionAssigner,
 	affiliateService *AffiliateService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	redisClient *redis.Client,
+	limiter SignupBonusIPLimiter,
 ) *AuthService {
-	return NewAuthService(entClient, userRepo, redeemRepo, refreshTokenCache, cfg, settingService, emailService, turnstileService, emailQueueService, promoService, defaultSubAssigner, affiliateService, userPlatformQuotaRepo, redisClient)
+	return NewAuthService(entClient, userRepo, redeemRepo, refreshTokenCache, cfg, settingService, emailService, turnstileService, emailQueueService, promoService, defaultSubAssigner, affiliateService, userPlatformQuotaRepo, limiter)
 }
 
 // ProvidePricingService creates and initializes PricingService
@@ -700,7 +700,6 @@ var ProviderSet = wire.NewSet(
 	ProvideLeonardoImageCreateFunds,
 	ProvideLeonardoImageTerminalFunds,
 	ProvideLeonardoImageAccountAdapterFactory,
-	NewLeonardoImageUploadCache,
 	NewLeonardoImageUploadService,
 	ProvideLeonardoImageCreateOrchestrator,
 	NewLeonardoMediaCreateService,

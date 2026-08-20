@@ -40,7 +40,7 @@ func (r *mediaProductRepository) List(ctx context.Context, offset, limit int, se
 	if err != nil {
 		return nil, 0, fmt.Errorf("list media products: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	products := []service.MediaCatalogProduct{}
 	for rows.Next() {
 		var product service.MediaCatalogProduct
@@ -64,7 +64,7 @@ func (r *mediaProductRepository) GetGroups(ctx context.Context, ids []int64) (ma
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var group service.MediaCatalogGroup
 		if err := rows.Scan(&group.ID, &group.Platform, &group.Status); err != nil {
@@ -129,7 +129,7 @@ func (r *mediaProductRepository) ListRuntimeModels(ctx context.Context, groupID 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	models := []string{}
 	for rows.Next() {
 		var model string
@@ -146,7 +146,7 @@ func (r *mediaProductRepository) ListRuntimeModelModalities(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	models := []service.MediaRuntimeModel{}
 	for rows.Next() {
 		var model service.MediaRuntimeModel
@@ -250,12 +250,12 @@ func (r *mediaProductRepository) loadDetails(ctx context.Context, q queryer, pro
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		product.GroupIDs = append(product.GroupIDs, id)
 	}
-	rows.Close()
+	_ = rows.Close()
 	rows, err = q.QueryContext(ctx, `SELECT id, operation, spec_key, unit_price_usd, currency, version, enabled FROM media_product_prices WHERE product_id=$1 ORDER BY id`, product.ID)
 	if err != nil {
 		return err
@@ -263,17 +263,17 @@ func (r *mediaProductRepository) loadDetails(ctx context.Context, q queryer, pro
 	for rows.Next() {
 		var p service.MediaCatalogPrice
 		if err := rows.Scan(&p.ID, &p.Operation, &p.SpecKey, &p.UnitPriceUSD, &p.Currency, &p.Version, &p.Enabled); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		product.Prices = append(product.Prices, p)
 	}
-	rows.Close()
+	_ = rows.Close()
 	rows, err = q.QueryContext(ctx, `SELECT id, provider, source_group_id, upstream_model, enabled, priority, operations, capabilities, cost_rules, cost_source, cost_version, verified_at, expires_at FROM media_offers WHERE product_id=$1 ORDER BY priority,id`, product.ID)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var o service.MediaCatalogOffer
 		var operationsJSON, capabilitiesJSON, costRulesJSON []byte

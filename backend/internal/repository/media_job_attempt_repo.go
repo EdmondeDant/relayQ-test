@@ -34,7 +34,7 @@ func (r *mediaJobAttemptRepository) ListByJobID(ctx context.Context, jobID int64
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	attempts := []service.MediaJobAttempt{}
 	for rows.Next() {
 		var attempt service.MediaJobAttempt

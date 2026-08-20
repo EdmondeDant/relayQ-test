@@ -58,14 +58,24 @@ func NormalizeLeonardoVideoRequestSize(model string, width, height int) (int, in
 		if err != nil {
 			return 0, 0, err
 		}
-		return parameters["width"].(int), parameters["height"].(int), nil
+		resolvedWidth, widthOK := parameters["width"].(int)
+		resolvedHeight, heightOK := parameters["height"].(int)
+		if !widthOK || !heightOK {
+			return 0, 0, ErrLeonardoMediaCreateInputInvalid
+		}
+		return resolvedWidth, resolvedHeight, nil
 	}
 	if spec := route.BuildParameters; spec != nil {
 		parameters, err := spec("size normalization", firstDuration(route), width, height, 1)
 		if err != nil {
 			return 0, 0, err
 		}
-		return parameters["width"].(int), parameters["height"].(int), nil
+		resolvedWidth, widthOK := parameters["width"].(int)
+		resolvedHeight, heightOK := parameters["height"].(int)
+		if !widthOK || !heightOK {
+			return 0, 0, fmt.Errorf("%w: route returned invalid dimensions", ErrLeonardoMediaCreateInputInvalid)
+		}
+		return resolvedWidth, resolvedHeight, nil
 	}
 	return width, height, nil
 }

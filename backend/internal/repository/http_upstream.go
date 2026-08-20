@@ -215,11 +215,11 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 	}
 	// #region debug-point B:do-request-input
 	reportProxyTestDebugEvent("B", "http_upstream.go:Do", "[DEBUG] upstream Do invoked", map[string]any{
-		"account_id":   accountID,
-		"profile":      string(profile),
-		"proxy_url":    proxyURL,
-		"target_url":   targetURL,
-		"concurrency":  accountConcurrency,
+		"account_id":  accountID,
+		"profile":     string(profile),
+		"proxy_url":   proxyURL,
+		"target_url":  targetURL,
+		"concurrency": accountConcurrency,
 	})
 	// #endregion
 
@@ -235,12 +235,12 @@ func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID i
 		s.recordOpenAIHTTP2Failure(profile, entry.protocolMode, entry.proxyKey, err)
 		// #region debug-point D:do-request-error
 		reportProxyTestDebugEvent("D", "http_upstream.go:Do", "[DEBUG] upstream Do failed", map[string]any{
-			"account_id":     accountID,
-			"profile":        string(profile),
-			"proxy_key":      entry.proxyKey,
-			"protocol_mode":  entry.protocolMode,
-			"target_url":     targetURL,
-			"error":          err.Error(),
+			"account_id":    accountID,
+			"profile":       string(profile),
+			"proxy_key":     entry.proxyKey,
+			"protocol_mode": entry.protocolMode,
+			"target_url":    targetURL,
+			"error":         err.Error(),
 		})
 		// #endregion
 		// 请求失败，立即减少计数
@@ -493,14 +493,14 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	}
 	// #region debug-point C:client-resolution
 	reportProxyTestDebugEvent("C", "http_upstream.go:getClientEntry", "[DEBUG] resolved upstream client settings", map[string]any{
-		"account_id":             accountID,
-		"profile":                string(profile),
-		"proxy_key":              proxyKey,
-		"parsed_proxy_scheme":    parsedScheme,
-		"protocol_mode":          protocolMode,
-		"proxy_fallback_active":  s.isOpenAIHTTP2FallbackActive(proxyKey),
-		"mark_in_flight":         markInFlight,
-		"enforce_limit":          enforceLimit,
+		"account_id":            accountID,
+		"profile":               string(profile),
+		"proxy_key":             proxyKey,
+		"parsed_proxy_scheme":   parsedScheme,
+		"protocol_mode":         protocolMode,
+		"proxy_fallback_active": s.isOpenAIHTTP2FallbackActive(proxyKey),
+		"mark_in_flight":        markInFlight,
+		"enforce_limit":         enforceLimit,
 	})
 	// #endregion
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)

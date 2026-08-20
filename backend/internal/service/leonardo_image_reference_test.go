@@ -17,7 +17,8 @@ func TestBuildLeonardoImageReferenceGuidance(t *testing.T) {
 
 	guidance, err := BuildLeonardoImageReferenceGuidance(references, capability)
 	require.NoError(t, err)
-	result := guidance["image_reference"].([]leonardo.ImageReference)
+	result, ok := guidance["image_reference"].([]leonardo.ImageReference)
+	require.True(t, ok)
 	require.Equal(t, "uploaded-1", result[0].Image.ID)
 	require.Equal(t, references[1], result[1])
 	require.Equal(t, " uploaded-1 ", references[0].Image.ID)
@@ -55,7 +56,9 @@ func TestLeonardoImageReferenceCapabilities(t *testing.T) {
 	require.True(t, nano.StrengthRequired)
 	guidance, err = BuildLeonardoImageReferenceGuidance([]leonardo.ImageReference{{Image: leonardo.ImageReferenceImage{ID: "uploaded", Type: "UPLOADED"}}}, nano)
 	require.NoError(t, err)
-	require.Equal(t, "MID", guidance["image_reference"].([]leonardo.ImageReference)[0].Strength)
+	result, ok := guidance["image_reference"].([]leonardo.ImageReference)
+	require.True(t, ok)
+	require.Equal(t, "MID", result[0].Strength)
 }
 
 func TestBuildLeonardoFluxGuidances(t *testing.T) {

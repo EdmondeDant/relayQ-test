@@ -190,6 +190,10 @@ func (h *LeonardoMediaHandler) openAIVideoGenerationRequest(c *gin.Context, req 
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 		return
 	}
+	if strings.TrimSpace(req.Model) == "motion_2.0-fast" && req.Seconds != 0 {
+		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+		return
+	}
 	sizeParts := strings.Split(req.Size, "x")
 	if len(sizeParts) != 2 {
 		response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
@@ -269,10 +273,30 @@ func (h *LeonardoMediaHandler) leonardoRawVideoGenerations(c *gin.Context, body 
 }
 
 func sameLeonardoRawVideoParameters(req leonardoRawVideoRequest, expected map[string]any) bool {
+	model := strings.TrimSpace(req.Model)
+	if model == "seedance-1.0-pro-fast" || model == "seedance-1.0-pro" {
+		return req.Parameters.Mode == "RESOLUTION_720" && req.Parameters.PromptEnhance == "OFF"
+	}
+	if model == "wan-2.7" {
+		return req.Parameters.Resolution == wanResolutionForRawDimensions(req.Parameters.Width, req.Parameters.Height)
+	}
+	if model == "motion_2.0-fast" || model == "kling-video-o-3" {
+		return req.Parameters.Mode == "RESOLUTION_720"
+	}
 	mode, _ := expected["mode"].(string)
 	resolution, _ := expected["resolution"].(string)
 	promptEnhance, _ := expected["prompt_enhance"].(string)
 	return req.Parameters.Mode == mode && req.Parameters.Resolution == resolution && req.Parameters.PromptEnhance == promptEnhance
+}
+
+func wanResolutionForRawDimensions(width, height int) string {
+	if width == 1920 && height == 1080 {
+		return "1080p"
+	}
+	if width == 1280 && height == 720 {
+		return "720p"
+	}
+	return ""
 }
 
 func (h *LeonardoMediaHandler) Get(c *gin.Context) {
@@ -588,7 +612,12 @@ func (h *LeonardoMediaHandler) OpenAIImagesEdits(c *gin.Context) {
 	width, height, sizeOK := leonardoOpenAIImageSize(size)
 	n := 1
 	if fields["n"] != "" {
-		n, err = strconv.Atoi(fields["n"])
+		parsedN, parseErr := strconv.Atoi(fields["n"])
+		if parseErr != nil {
+			n = 0
+		} else {
+			n = parsedN
+		}
 	}
 	if model == "" || prompt == "" || len(prompt) > 4000 || !sizeOK || n < 1 || n > 8 || (quality != "low" && quality != "medium" && quality != "high") || fields["mask"] != "" {
 		leonardoOpenAIError(c, http.StatusBadRequest, "invalid_request_error", "Unsupported Leonardo image edit request", "invalid_request")

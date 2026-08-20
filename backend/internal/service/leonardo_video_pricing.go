@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-var ErrLeonardoVideoPricingEvidenceUnavailable = errors.New("Leonardo video pricing evidence is unavailable")
+var ErrLeonardoVideoPricingEvidenceUnavailable = errors.New("leonardo video pricing evidence is unavailable")
 
 const LeonardoVideoPricingPolicyVersion = "leonardo-video-pricing-policy/2026-08-15-v7"
 
@@ -196,16 +196,6 @@ func SupportsLeonardoVideoStartFrame(model string) bool {
 // It returns the model's official model identifier via LeonardoVideoUpstreamModel
 // only when the caller needs it; here it always builds with the public model slug
 // (the v2 envelope `model` field is mapped separately by the orchestrator).
-// sliceContains reports whether value is present in the int slice.
-func sliceContains(value int, allowed []int) bool {
-	for _, v := range allowed {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
 // wanVideoResolution maps the official Wan 2.7 width/height enum to the matching
 // `resolution` tier (validation is silent otherwise). Returns "" when no known
 // combination matches, in which case the caller omits the resolution field.
@@ -227,6 +217,18 @@ func wanVideoResolution(width, height int) string {
 // LeonardoVideoGenerationParameters delegates to the exact per-model REST v2
 // rule used by both the customer OpenAI v1 API and Infinite Canvas multipart.
 func LeonardoVideoGenerationParameters(model, prompt string, duration, width, height, quantity int) (map[string]any, error) {
+	if strings.EqualFold(strings.TrimSpace(model), "minimax-h3") {
+		if strings.TrimSpace(prompt) == "" || duration < 5 || duration > 15 || quantity != 1 {
+			return nil, ErrLeonardoVideoParameterUnsupported
+		}
+		if width == 0 && height == 0 {
+			width, height = 1376, 768
+		}
+		if width != 1376 || height != 768 {
+			return nil, ErrLeonardoVideoParameterUnsupported
+		}
+		return map[string]any{"prompt": prompt, "duration": duration, "width": width, "height": height, "quantity": quantity, "motion_has_audio": true}, nil
+	}
 	route, ok := LeonardoVideoRouteFor(model)
 	if !ok || route.BuildParameters == nil {
 		return nil, fmt.Errorf("%w: unsupported video model %s", ErrLeonardoVideoPricingEvidenceUnavailable, strings.TrimSpace(model))

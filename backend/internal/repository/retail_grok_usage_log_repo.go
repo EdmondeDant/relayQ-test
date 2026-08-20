@@ -62,7 +62,7 @@ LIMIT $2`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	logs := make([]service.RetailGrokUsageLog, 0)
 	for rows.Next() {

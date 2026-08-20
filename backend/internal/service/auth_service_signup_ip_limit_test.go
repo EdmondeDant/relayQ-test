@@ -4,16 +4,21 @@ import (
 	"context"
 	"testing"
 
-	miniredis "github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"time"
 )
 
-func TestAuthServiceAllowSignupBalanceGiftForIPLimitsFirstTwoPerDay(t *testing.T) {
-	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { _ = rdb.Close() })
+type signupBonusIPLimiterFake struct{ counts map[string]int }
 
-	svc := &AuthService{redisClient: rdb}
+func (f *signupBonusIPLimiterFake) Allow(_ context.Context, ip string, _ time.Time) (bool, error) {
+	if f.counts == nil {
+		f.counts = map[string]int{}
+	}
+	f.counts[ip]++
+	return f.counts[ip] <= 2, nil
+}
+
+func TestAuthServiceAllowSignupBalanceGiftForIPLimitsFirstTwoPerDay(t *testing.T) {
+	svc := NewAuthService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &signupBonusIPLimiterFake{})
 	ctx := context.Background()
 
 	if !svc.allowSignupBalanceGiftForIP(ctx, "203.0.113.10") {
@@ -28,11 +33,7 @@ func TestAuthServiceAllowSignupBalanceGiftForIPLimitsFirstTwoPerDay(t *testing.T
 }
 
 func TestAuthServiceAllowSignupBalanceGiftForIPSeparatesIPs(t *testing.T) {
-	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { _ = rdb.Close() })
-
-	svc := &AuthService{redisClient: rdb}
+	svc := NewAuthService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &signupBonusIPLimiterFake{})
 	ctx := context.Background()
 
 	_ = svc.allowSignupBalanceGiftForIP(ctx, "203.0.113.10")
@@ -44,13 +45,13 @@ func TestAuthServiceAllowSignupBalanceGiftForIPSeparatesIPs(t *testing.T) {
 }
 
 func TestAuthServiceAllowSignupBalanceGiftForIPFailsOpenWithoutRedisOrIP(t *testing.T) {
-	svc := &AuthService{}
+	svc := NewAuthService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	if !svc.allowSignupBalanceGiftForIP(ctx, "203.0.113.10") {
 		t.Fatal("missing redis should fail open")
 	}
-	if !(&AuthService{redisClient: redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})}).allowSignupBalanceGiftForIP(ctx, "") {
+	if !NewAuthService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil).allowSignupBalanceGiftForIP(ctx, "") {
 		t.Fatal("missing IP should fail open")
 	}
 }

@@ -440,15 +440,15 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 	// #region debug-point M:auth-me-success
 	reportPlayground500HandlerDebugEvent("M", "auth_handler.go:GetCurrentUser", "[DEBUG] auth me success", map[string]any{
-		"user_id":              subject.UserID,
-		"user_email":           user.Email,
-		"user_status":          user.Status,
-		"user_role":            user.Role,
-		"email_bound":          identities.Email.Bound,
-		"linuxdo_bound":        identities.LinuxDo.Bound,
-		"oidc_bound":           identities.OIDC.Bound,
-		"wechat_bound":         identities.WeChat.Bound,
-		"dingtalk_bound":       identities.DingTalk.Bound,
+		"user_id":        subject.UserID,
+		"user_email":     user.Email,
+		"user_status":    user.Status,
+		"user_role":      user.Role,
+		"email_bound":    identities.Email.Bound,
+		"linuxdo_bound":  identities.LinuxDo.Bound,
+		"oidc_bound":     identities.OIDC.Bound,
+		"wechat_bound":   identities.WeChat.Bound,
+		"dingtalk_bound": identities.DingTalk.Bound,
 	})
 	// #endregion
 

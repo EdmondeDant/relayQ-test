@@ -11,8 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/mail"
 	"net/http"
+	"net/mail"
 	"os"
 	"strconv"
 	"strings"
@@ -25,7 +25,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -109,13 +108,9 @@ type JWTClaims struct {
 // signupBonusIPLimit is the number of signups per client IP per Asia/Shanghai day that may receive the signup balance gift.
 const signupBonusIPLimit = 2
 
-var signupBonusIPCounterScript = redis.NewScript(`
-local current = redis.call("INCR", KEYS[1])
-if current == 1 then
-  redis.call("PEXPIRE", KEYS[1], ARGV[1])
-end
-return current
-`)
+type SignupBonusIPLimiter interface {
+	Allow(context.Context, string, time.Time) (bool, error)
+}
 
 // AuthService 认证服务
 type AuthService struct {
@@ -123,7 +118,7 @@ type AuthService struct {
 	userRepo              UserRepository
 	redeemRepo            RedeemCodeRepository
 	refreshTokenCache     RefreshTokenCache
-	redisClient           *redis.Client
+	signupBonusIPLimiter  SignupBonusIPLimiter
 	cfg                   *config.Config
 	settingService        *SettingService
 	emailService          *EmailService
@@ -161,18 +156,18 @@ func NewAuthService(
 	defaultSubAssigner DefaultSubscriptionAssigner,
 	affiliateService *AffiliateService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	redisClients ...*redis.Client,
+	limiters ...SignupBonusIPLimiter,
 ) *AuthService {
-	var redisClient *redis.Client
-	if len(redisClients) > 0 {
-		redisClient = redisClients[0]
+	var limiter SignupBonusIPLimiter
+	if len(limiters) > 0 {
+		limiter = limiters[0]
 	}
 	return &AuthService{
 		entClient:             entClient,
 		userRepo:              userRepo,
 		redeemRepo:            redeemRepo,
 		refreshTokenCache:     refreshTokenCache,
-		redisClient:           redisClient,
+		signupBonusIPLimiter:  limiter,
 		cfg:                   cfg,
 		settingService:        settingService,
 		emailService:          emailService,
@@ -194,24 +189,20 @@ func (s *AuthService) EntClient() *dbent.Client {
 
 func (s *AuthService) allowSignupBalanceGiftForIP(ctx context.Context, clientIP string) bool {
 	clientIP = normalizeSignupIP(clientIP)
-	if s == nil || s.redisClient == nil || clientIP == "" {
+	if s == nil || s.signupBonusIPLimiter == nil || clientIP == "" {
 		// Fail open: registration gifts should not be blocked because IP/Redis is unavailable.
 		return true
 	}
 
-	now := time.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60))
-	key := fmt.Sprintf("signup_bonus_ip:%s:%s", now.Format("20060102"), clientIP)
-	expire := time.Until(time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()))
-	if expire <= 0 {
-		expire = 24 * time.Hour
-	}
-
-	count, err := signupBonusIPCounterScript.Run(ctx, s.redisClient, []string{key}, expire.Milliseconds()).Int64()
+	allowed, err := s.signupBonusIPLimiter.Allow(ctx, clientIP, time.Now())
 	if err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Signup balance gift IP limiter failed: ip=%s error=%v", maskSignupIPForLog(clientIP), err)
 		return true
 	}
-	return count <= signupBonusIPLimit
+	return allowed
+}
+func (s *AuthService) AllowSignupBalanceGiftForIPForTest(ctx context.Context, clientIP string) bool {
+	return s.allowSignupBalanceGiftForIP(ctx, clientIP)
 }
 
 func normalizeSignupIP(clientIP string) string {

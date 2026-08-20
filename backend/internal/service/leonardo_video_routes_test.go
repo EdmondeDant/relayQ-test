@@ -45,8 +45,10 @@ func TestBuildLeonardoVideoV2RequestPreservesAllGuidances(t *testing.T) {
 	require.NoError(t, err)
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal(body, &decoded))
-	parameters := decoded["parameters"].(map[string]any)
-	guidances := parameters["guidances"].(map[string]any)
+	parameters, ok := decoded["parameters"].(map[string]any)
+	require.True(t, ok)
+	guidances, ok := parameters["guidances"].(map[string]any)
+	require.True(t, ok)
 	require.Len(t, guidances["start_frame"], 1)
 	require.Len(t, guidances["end_frame"], 1)
 	require.Len(t, guidances["image_reference"], 1)
@@ -146,9 +148,11 @@ func TestKling30CanvasSquareImageRequestUsesOfficialSizeAndStartFrame(t *testing
 	require.NoError(t, err)
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal(body, &decoded))
-	parameters := decoded["parameters"].(map[string]any)
+	parameters, ok := decoded["parameters"].(map[string]any)
+	require.True(t, ok)
 	require.Equal(t, float64(960), parameters["width"])
 	require.Equal(t, float64(960), parameters["height"])
-	guidances := parameters["guidances"].(map[string]any)
+	guidances, ok := parameters["guidances"].(map[string]any)
+	require.True(t, ok)
 	require.Len(t, guidances["start_frame"], 1)
 }

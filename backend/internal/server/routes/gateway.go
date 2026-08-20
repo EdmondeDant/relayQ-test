@@ -390,11 +390,12 @@ func RegisterGatewayRoutes(
 	videoHandler := func(mode string) gin.HandlerFunc {
 		return func(c *gin.Context) {
 			operation := mode
-			if mode == "generation" {
+			switch mode {
+			case "generation":
 				operation = "generations"
-			} else if mode == "edit" {
+			case "edit":
 				operation = "edits"
-			} else if mode == "extension" {
+			case "extension":
 				operation = "extensions"
 			}
 			if h.Media != nil {

@@ -196,7 +196,8 @@ func TestLeonardoImageCreateOrchestratorBuildsFluxGuidances(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, GenerationJobStatusQueued, job.Status)
-	guidances := client.request.Parameters["guidances"].(map[string]any)
+	guidances, ok := client.request.Parameters["guidances"].(map[string]any)
+	require.True(t, ok, "guidances must be an object")
 	require.JSONEq(t, `[{"image":{"id":"content-1","type":"UPLOADED"},"strength":"HIGH"}]`, marshalLeonardoTestJSON(t, guidances["content"]))
 	require.JSONEq(t, `[{"image":{"id":"style-1","type":"GENERATED"},"strength":"MAX"}]`, marshalLeonardoTestJSON(t, guidances["style"]))
 	require.NotContains(t, guidances, "image_reference")

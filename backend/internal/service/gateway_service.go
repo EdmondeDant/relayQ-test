@@ -743,35 +743,6 @@ func (s *GatewayService) maybeRefreshXAIOAuthAccount(ctx context.Context, accoun
 	return account.GetCredential("access_token"), nil
 }
 
-func (s *GatewayService) forceRefreshXAIOAuthAccount(ctx context.Context, account *Account) (string, error) {
-	if s.xaiOAuthService == nil || account == nil || account.Platform != PlatformXAI || !account.IsOAuth() {
-		if account == nil {
-			return "", nil
-		}
-		return account.GetCredential("access_token"), nil
-	}
-	tokenInfo, err := s.xaiOAuthService.RefreshAccountToken(ctx, account)
-	if err != nil {
-		return "", err
-	}
-	newCredentials := s.xaiOAuthService.BuildAccountCredentials(tokenInfo)
-	for k, v := range account.Credentials {
-		if _, exists := newCredentials[k]; !exists {
-			newCredentials[k] = v
-		}
-	}
-	account.Credentials = newCredentials
-	if updateErr := s.accountRepo.Update(ctx, account); updateErr != nil {
-		return tokenInfo.AccessToken, nil
-	}
-	return account.GetCredential("access_token"), nil
-}
-
-func (s *GatewayService) isXAIBadCredentials(body []byte) bool {
-	text := strings.ToLower(string(body))
-	return strings.Contains(text, "bad-credentials") || strings.Contains(text, "access token could not be validated")
-}
-
 // GenerateSessionHash 从预解析请求计算粘性会话 hash
 func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 	if parsed == nil {

@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	openAIWSResponseAccountCachePrefix = "openai:response:"
+	openAIWSResponseAccountCachePrefix   = "openai:response:"
 	openAIVideoRequestAccountCachePrefix = "openai:video_request:"
-	openAIWSStateStoreCleanupInterval  = time.Minute
-	openAIWSStateStoreCleanupMaxPerMap = 512
-	openAIWSStateStoreMaxEntriesPerMap = 65536
-	openAIWSStateStoreRedisTimeout     = 3 * time.Second
+	openAIWSStateStoreCleanupInterval    = time.Minute
+	openAIWSStateStoreCleanupMaxPerMap   = 512
+	openAIWSStateStoreMaxEntriesPerMap   = 65536
+	openAIWSStateStoreRedisTimeout       = 3 * time.Second
 )
 
 type openAIWSAccountBinding struct {

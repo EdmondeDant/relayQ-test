@@ -16,10 +16,15 @@ type LeonardoInitImageClient interface {
 }
 
 type LeonardoImageUploadService struct {
-	cache *LeonardoImageUploadCache
+	cache LeonardoImageUploadCache
 }
 
-func NewLeonardoImageUploadService(cache *LeonardoImageUploadCache) *LeonardoImageUploadService {
+type LeonardoImageUploadCache interface {
+	Get(context.Context, int64, string) (string, bool, error)
+	Set(context.Context, int64, string, string) error
+}
+
+func NewLeonardoImageUploadService(cache LeonardoImageUploadCache) *LeonardoImageUploadService {
 	return &LeonardoImageUploadService{cache: cache}
 }
 
@@ -28,8 +33,10 @@ func (s *LeonardoImageUploadService) Upload(ctx context.Context, accountID int64
 		return "", ErrLeonardoImageUploadInvalid
 	}
 	hash := LeonardoImageSHA256(input.Data)
-	if uploadedID, found, err := s.cache.Get(ctx, accountID, hash); err == nil && found {
-		return uploadedID, nil
+	if s.cache != nil {
+		if uploadedID, found, err := s.cache.Get(ctx, accountID, hash); err == nil && found {
+			return uploadedID, nil
+		}
 	}
 	presigned, err := client.CreateInitImageUpload(ctx, input.Extension)
 	if err != nil {
@@ -45,6 +52,8 @@ func (s *LeonardoImageUploadService) Upload(ctx context.Context, accountID int64
 	if err := client.UploadInitImage(ctx, presigned, filename, input.Data); err != nil {
 		return "", err
 	}
-	_ = s.cache.Set(ctx, accountID, hash, presigned.ID)
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, accountID, hash, presigned.ID)
+	}
 	return presigned.ID, nil
 }

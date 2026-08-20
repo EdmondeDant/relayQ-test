@@ -128,7 +128,7 @@ func (s *OpenAIGatewayService) ForwardChatCompletionsImageBridge(
 		}
 	}
 	if len(imageURLs) == 0 {
-		return nil, fmt.Errorf("No images returned from upstream")
+		return nil, fmt.Errorf("no images returned from upstream")
 	}
 	var contentParts []string
 	for _, imageURL := range imageURLs {

@@ -121,7 +121,7 @@ LIMIT $1`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	keys := make([]service.RetailGrokKey, 0)
 	for rows.Next() {

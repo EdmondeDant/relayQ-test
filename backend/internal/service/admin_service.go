@@ -2715,15 +2715,15 @@ func validateLeonardoAccount(platform, accountType string, credentials map[strin
 		return credentials, nil
 	}
 	if accountType != AccountTypeAPIKey {
-		return nil, errors.New("Leonardo accounts require apikey type")
+		return nil, errors.New("leonardo accounts require apikey type")
 	}
 	account := &Account{Platform: platform, Type: accountType, Credentials: credentials}
 	if account.GetLeonardoAPIKey() == "" {
-		return nil, errors.New("Leonardo API key is required")
+		return nil, errors.New("leonardo API key is required")
 	}
 	for _, key := range []string{"pool_mode", "pool_mode_retry_count", "pool_mode_retry_status_codes", "custom_error_codes_enabled", "custom_error_codes"} {
 		if _, ok := credentials[key]; ok {
-			return nil, fmt.Errorf("Leonardo accounts do not support retry or pool credentials: %s", key)
+			return nil, fmt.Errorf("leonardo accounts do not support retry or pool credentials: %s", key)
 		}
 	}
 	normalizedBaseURL, err := urlvalidator.ValidateHTTPSURL(account.GetLeonardoBaseURL(), urlvalidator.ValidationOptions{AllowPrivate: false})
@@ -2771,7 +2771,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 		for _, account := range accounts {
 			if account != nil && account.IsLeonardo() {
-				return nil, errors.New("Leonardo credentials must be updated individually")
+				return nil, errors.New("leonardo credentials must be updated individually")
 			}
 		}
 	}

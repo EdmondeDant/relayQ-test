@@ -511,14 +511,6 @@ func mediaSubmissionJobStatus(status string) GenerationJobStatus {
 	}
 }
 
-func stringPointerOrNil(value string) *string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
 func mediaStringValue(value *string) string {
 	if value == nil {
 		return ""

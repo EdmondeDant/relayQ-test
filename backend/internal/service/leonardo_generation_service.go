@@ -240,14 +240,6 @@ func sanitizeLeonardoDiagnosticHeader(value string) string {
 	return value
 }
 
-func sanitizeLeonardoGenerationPayload(request leonardo.CreateGenerationRequest) map[string]any {
-	return logredact.RedactMap(map[string]any{
-		"model":      request.Model,
-		"public":     request.Public,
-		"parameters": request.Parameters,
-	}, "api_key", "apikey", "authorization", "cookie", "signature", "x-api-key", "x-amz-signature")
-}
-
 func sanitizeLeonardoGenerationRawPayload(request map[string]any) map[string]any {
 	return logredact.RedactMap(request, "api_key", "apikey", "authorization", "cookie", "signature", "x-api-key", "x-amz-signature")
 }

@@ -1272,10 +1272,6 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	})
 }
 
-func accountSupportsOpenAICapabilities(account *Account, requiredCapability OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability) bool {
-	return accountSupportsOpenAIEndpointCapabilitySet(account, normalizeRequiredOpenAIEndpointCapabilities(requiredCapability, nil), requiredImageCapability)
-}
-
 func accountSupportsOpenAIEndpointCapabilitySet(account *Account, requiredCapabilities []OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability) bool {
 	if account == nil {
 		return false

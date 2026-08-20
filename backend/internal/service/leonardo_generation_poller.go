@@ -110,21 +110,6 @@ func (p *LeonardoGenerationPoller) Poll(ctx context.Context, publicID string) (*
 	return &updated, pollErr
 }
 
-func requireLeonardoImageModality(modality string) error {
-	switch strings.ToLower(strings.TrimSpace(modality)) {
-	case "image":
-		return nil
-	case "video":
-		return ErrLeonardoVideoSchemaUnverified
-	case "audio":
-		return ErrLeonardoAudioSchemaUnverified
-	case "3d":
-		return ErrLeonardo3DSchemaUnverified
-	default:
-		return ErrLeonardoMediaModalityUnverified
-	}
-}
-
 func requireLeonardoSupportedModality(modality string) error {
 	switch strings.ToLower(strings.TrimSpace(modality)) {
 	case "image", "video":

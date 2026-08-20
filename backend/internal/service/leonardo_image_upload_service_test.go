@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/leonardo"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,22 +24,19 @@ func (f *leonardoInitImageClientFake) UploadInitImage(context.Context, *leonardo
 }
 
 func TestLeonardoImageUploadServiceUsesAccountScopedHashCache(t *testing.T) {
-	server := miniredis.RunT(t)
-	redisClient := redis.NewClient(&redis.Options{Addr: server.Addr()})
-	t.Cleanup(func() { _ = redisClient.Close() })
-	service := NewLeonardoImageUploadService(NewLeonardoImageUploadCache(redisClient))
+	uploadService := NewLeonardoImageUploadService(&leonardoImageUploadCacheFake{})
 	client := &leonardoInitImageClientFake{}
 	input := &LeonardoImageInput{Data: []byte("image"), Extension: "png", FileName: "image.png"}
 
-	first, err := service.Upload(context.Background(), 1, client, input)
+	first, err := uploadService.Upload(context.Background(), 1, client, input)
 	require.NoError(t, err)
-	second, err := service.Upload(context.Background(), 1, client, input)
+	second, err := uploadService.Upload(context.Background(), 1, client, input)
 	require.NoError(t, err)
 	require.Equal(t, first, second)
 	require.Equal(t, 1, client.createCalls)
 	require.Equal(t, 1, client.uploadCalls)
 
-	_, err = service.Upload(context.Background(), 2, client, input)
+	_, err = uploadService.Upload(context.Background(), 2, client, input)
 	require.NoError(t, err)
 	require.Equal(t, 2, client.createCalls)
 }

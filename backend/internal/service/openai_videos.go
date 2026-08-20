@@ -573,7 +573,10 @@ func ensureMiniMaxH3ReferencePrompt(prompt string, imageCount int) string {
 }
 
 // miniMaxH3Ratios are the ratio values the in-house H3 gateway accepts.
-var miniMaxH3Ratios = []struct{ ratio string; width, height float64 }{
+var miniMaxH3Ratios = []struct {
+	ratio         string
+	width, height float64
+}{
 	{"21:9", 21, 9}, {"16:9", 16, 9}, {"4:3", 4, 3},
 	{"1:1", 1, 1}, {"3:4", 3, 4}, {"9:16", 9, 16},
 }
@@ -617,6 +620,8 @@ func normalizeMiniMaxH3Ratio(value string) string {
 func normalizeMiniMaxH3Resolution(value string) string {
 	v := strings.ToLower(strings.TrimSpace(value))
 	switch v {
+	case "480", "480p", "sd":
+		return "480p"
 	case "768", "768p":
 		return "768P"
 	case "2k", "1080", "1080p", "fhd", "fullhd":

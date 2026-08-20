@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var ErrLeonardo3DPricingEvidenceUnavailable = errors.New("Leonardo 3d pricing evidence is unavailable")
+var ErrLeonardo3DPricingEvidenceUnavailable = errors.New("leonardo 3d pricing evidence is unavailable")
 
 const Leonardo3DPricingPolicyVersion = "leonardo-3d-pricing-policy/2026-08-05-v1"
 

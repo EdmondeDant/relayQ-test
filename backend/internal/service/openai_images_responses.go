@@ -1259,14 +1259,14 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 	}
 	// #region debug-point D:backend-edit-responses-request
 	reportImageEditDebugEvent("D", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit routed via responses", map[string]any{
-		"account_id":      account.ID,
-		"account_name":    account.Name,
-		"request_model":   requestModel,
-		"tool_model":      toolModel,
-		"endpoint":        parsed.Endpoint,
-		"parsed_stream":   parsed.Stream,
-		"input_images":    len(parsed.InputImageURLs) + len(parsed.Uploads),
-		"has_mask":        parsed.HasMask || parsed.MaskUpload != nil || strings.TrimSpace(parsed.MaskImageURL) != "",
+		"account_id":    account.ID,
+		"account_name":  account.Name,
+		"request_model": requestModel,
+		"tool_model":    toolModel,
+		"endpoint":      parsed.Endpoint,
+		"parsed_stream": parsed.Stream,
+		"input_images":  len(parsed.InputImageURLs) + len(parsed.Uploads),
+		"has_mask":      parsed.HasMask || parsed.MaskUpload != nil || strings.TrimSpace(parsed.MaskImageURL) != "",
 	})
 	// #endregion
 	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, parsed.Stream, parsed.StickySessionSeed(), false)
@@ -1299,11 +1299,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 	}
 	// #region debug-point E:backend-edit-upstream-headers
 	reportImageEditDebugEvent("E", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit upstream headers received", map[string]any{
-		"account_id":     account.ID,
-		"status":         resp.StatusCode,
-		"content_type":   resp.Header.Get("Content-Type"),
+		"account_id":      account.ID,
+		"status":          resp.StatusCode,
+		"content_type":    resp.Header.Get("Content-Type"),
 		"is_event_stream": isEventStreamResponse(resp.Header),
-		"request_id":     resp.Header.Get("x-request-id"),
+		"request_id":      resp.Header.Get("x-request-id"),
 	})
 	// #endregion
 	if resp.StatusCode >= 400 {
@@ -1372,13 +1372,13 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesResponses(
 	}
 	// #region debug-point F:backend-edit-complete
 	reportImageEditDebugEvent("F", "openai_images_responses.go:forwardOpenAIImagesResponses", "[DEBUG] backend image edit completed", map[string]any{
-		"account_id":       account.ID,
-		"request_model":    requestModel,
-		"tool_model":       toolModel,
-		"image_count":      imageCount,
-		"response_stream":  parsed.Stream,
+		"account_id":        account.ID,
+		"request_model":     requestModel,
+		"tool_model":        toolModel,
+		"image_count":       imageCount,
+		"response_stream":   parsed.Stream,
 		"output_size_count": len(imageOutputSizes),
-		"request_id":       resp.Header.Get("x-request-id"),
+		"request_id":        resp.Header.Get("x-request-id"),
 	})
 	// #endregion
 	return &OpenAIForwardResult{

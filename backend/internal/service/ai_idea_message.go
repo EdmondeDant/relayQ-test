@@ -15,8 +15,8 @@ const (
 )
 
 var (
-	ErrIdeaMessageNotFound = infraerrors.NotFound("IDEA_MESSAGE_NOT_FOUND", "idea message not found")
-	ErrIdeaMessageNilInput = infraerrors.BadRequest("IDEA_MESSAGE_INPUT_REQUIRED", "idea message input is required")
+	ErrIdeaMessageNotFound     = infraerrors.NotFound("IDEA_MESSAGE_NOT_FOUND", "idea message not found")
+	ErrIdeaMessageNilInput     = infraerrors.BadRequest("IDEA_MESSAGE_INPUT_REQUIRED", "idea message input is required")
 	ErrIdeaMessageTitleInvalid = infraerrors.BadRequest(
 		"IDEA_MESSAGE_TITLE_INVALID",
 		"title must be between 1 and 120 characters",

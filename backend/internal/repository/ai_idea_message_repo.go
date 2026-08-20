@@ -8,8 +8,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/ideamessage"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
-
-	entsql "entgo.io/ent/dialect/sql"
 )
 
 type ideaMessageRepository struct {
@@ -212,12 +210,5 @@ func ideaMessageEntityToService(item *dbent.IdeaMessage) *service.IdeaMessage {
 		CreatedAt:    item.CreatedAt,
 		UpdatedAt:    item.UpdatedAt,
 		DeletedAt:    item.DeletedAt,
-	}
-}
-
-func ideaMessageListOrder(_ pagination.PaginationParams) []func(*entsql.Selector) {
-	return []func(*entsql.Selector){
-		dbent.Desc(ideamessage.FieldCreatedAt),
-		dbent.Desc(ideamessage.FieldID),
 	}
 }

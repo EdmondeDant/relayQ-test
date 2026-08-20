@@ -129,43 +129,43 @@ type PlaygroundRepository interface {
 }
 
 type PlaygroundService struct {
-	repo          PlaygroundRepository
-	storage       *PlaygroundAssetStorage
-	stopCh        chan struct{}
-	mu            sync.Mutex
-	running       map[int64]context.CancelFunc
-	billingService *BillingService
-	resolver      *ModelPricingResolver
-	usageRepo     UsageLogRepository
-	usageBillingRepo UsageBillingRepository
-	userRepo      UserRepository
-	userSubRepo   UserSubscriptionRepository
-	accountRepo   AccountRepository
-	apiKeyRepo    APIKeyRepository
-	apiKeyService *APIKeyService
+	repo                PlaygroundRepository
+	storage             *PlaygroundAssetStorage
+	stopCh              chan struct{}
+	mu                  sync.Mutex
+	running             map[int64]context.CancelFunc
+	billingService      *BillingService
+	resolver            *ModelPricingResolver
+	usageRepo           UsageLogRepository
+	usageBillingRepo    UsageBillingRepository
+	userRepo            UserRepository
+	userSubRepo         UserSubscriptionRepository
+	accountRepo         AccountRepository
+	apiKeyRepo          APIKeyRepository
+	apiKeyService       *APIKeyService
 	billingCacheService *BillingCacheService
-	deferredService *DeferredService
-	cfg           *config.Config
+	deferredService     *DeferredService
+	cfg                 *config.Config
 }
 
 func NewPlaygroundService(repo PlaygroundRepository, billingService *BillingService, resolver *ModelPricingResolver, usageRepo UsageLogRepository, usageBillingRepo UsageBillingRepository, userRepo UserRepository, userSubRepo UserSubscriptionRepository, accountRepo AccountRepository, apiKeyRepo APIKeyRepository, apiKeyService *APIKeyService, billingCacheService *BillingCacheService, deferredService *DeferredService, cfg *config.Config) *PlaygroundService {
 	s := &PlaygroundService{
-		repo:    repo,
-		storage: NewPlaygroundAssetStorage(),
-		stopCh:  make(chan struct{}),
-		running: make(map[int64]context.CancelFunc),
-		billingService: billingService,
-		resolver: resolver,
-		usageRepo: usageRepo,
-		usageBillingRepo: usageBillingRepo,
-		userRepo: userRepo,
-		userSubRepo: userSubRepo,
-		accountRepo: accountRepo,
-		apiKeyRepo: apiKeyRepo,
-		apiKeyService: apiKeyService,
+		repo:                repo,
+		storage:             NewPlaygroundAssetStorage(),
+		stopCh:              make(chan struct{}),
+		running:             make(map[int64]context.CancelFunc),
+		billingService:      billingService,
+		resolver:            resolver,
+		usageRepo:           usageRepo,
+		usageBillingRepo:    usageBillingRepo,
+		userRepo:            userRepo,
+		userSubRepo:         userSubRepo,
+		accountRepo:         accountRepo,
+		apiKeyRepo:          apiKeyRepo,
+		apiKeyService:       apiKeyService,
 		billingCacheService: billingCacheService,
-		deferredService: deferredService,
-		cfg: cfg,
+		deferredService:     deferredService,
+		cfg:                 cfg,
 	}
 	s.Start()
 	return s
@@ -461,27 +461,6 @@ func (s *PlaygroundService) DeleteRecord(ctx context.Context, userID, id int64) 
 		}
 	}
 	return s.repo.DeleteTask(ctx, userID, id)
-}
-
-func pickPrimaryAsset(assets []PlaygroundAsset) *PlaygroundAsset {
-	if len(assets) == 0 {
-		return nil
-	}
-	priority := map[string]int{"image": 1, "video": 1, "audio": 2, "text": 3}
-	best := 0
-	bestScore := 99
-	for i, asset := range assets {
-		score, ok := priority[asset.Kind]
-		if !ok {
-			score = 50
-		}
-		if score < bestScore {
-			best = i
-			bestScore = score
-		}
-	}
-	item := assets[best]
-	return &item
 }
 
 func validPlaygroundStatus(status string) bool {

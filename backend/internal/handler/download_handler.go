@@ -235,7 +235,10 @@ func (h *DownloadHandler) cacheFilePath(asset DownloadAsset) string {
 
 func (h *DownloadHandler) getAssetLock(slug string) *sync.Mutex {
 	lock, _ := h.assetLocks.LoadOrStore(slug, &sync.Mutex{})
-	return lock.(*sync.Mutex)
+	if mutex, ok := lock.(*sync.Mutex); ok {
+		return mutex
+	}
+	return &sync.Mutex{}
 }
 
 func availableDownloads(catalog map[string]DownloadAsset) []DownloadAsset {

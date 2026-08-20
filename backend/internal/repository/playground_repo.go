@@ -79,7 +79,7 @@ func (r *playgroundRepository) ListTasks(ctx context.Context, userID int64, para
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]service.PlaygroundTask, 0)
 	for rows.Next() {
 		item, err := scanPlaygroundTask(rows)
@@ -157,7 +157,7 @@ func (r *playgroundRepository) ListRecords(ctx context.Context, userID int64, pa
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]service.PlaygroundRecord, 0)
 	for rows.Next() {
 		var item service.PlaygroundRecord
@@ -329,7 +329,7 @@ func (r *playgroundRepository) ListAssetsByTaskIDs(ctx context.Context, userID i
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]service.PlaygroundAsset, 0)
 	for rows.Next() {
 		item, err := scanPlaygroundAsset(rows)
@@ -388,7 +388,7 @@ func (r *playgroundRepository) ListAssets(ctx context.Context, userID int64, par
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]service.PlaygroundAsset, 0)
 	for rows.Next() {
 		item, err := scanPlaygroundAsset(rows)

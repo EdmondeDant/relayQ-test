@@ -191,7 +191,7 @@ func (h *MediaHandler) Lookup(c *gin.Context, content bool) bool {
 			mediaError(c, http.StatusBadGateway, "api_error", contentErr.Error())
 			return true
 		}
-		defer media.Body.Close()
+		defer func() { _ = media.Body.Close() }()
 		if media.ContentType != "" {
 			c.Header("Content-Type", media.ContentType)
 		}

@@ -1353,7 +1353,7 @@ func Load() (*Config, error) {
 
 // LoadForBootstrap 读取启动阶段配置。
 //
-// 启动阶段允许 jwt.secret 先留空，后续由数据库初始化流程补齐并再次完整校验。
+// 启动阶段在 jwt.secret 留空时生成临时随机密钥；后续可由数据库初始化流程持久化。
 func LoadForBootstrap() (*Config, error) {
 	return load(true)
 }
@@ -1484,18 +1484,16 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.Totp.EncryptionKeyConfigured = true
 	}
 
-	originalJWTSecret := cfg.JWT.Secret
-	if allowMissingJWTSecret && originalJWTSecret == "" {
-		// 启动阶段允许先无 JWT 密钥，后续在数据库初始化后补齐。
-		cfg.JWT.Secret = strings.Repeat("0", 32)
+	if allowMissingJWTSecret && cfg.JWT.Secret == "" {
+		secret, err := generateJWTSecret(32)
+		if err != nil {
+			return nil, fmt.Errorf("generate jwt secret error: %w", err)
+		}
+		cfg.JWT.Secret = secret
 	}
 
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config error: %w", err)
-	}
-
-	if allowMissingJWTSecret && originalJWTSecret == "" {
-		cfg.JWT.Secret = ""
 	}
 
 	if !cfg.Security.URLAllowlist.Enabled {
@@ -1678,7 +1676,7 @@ func setDefaults() {
 	viper.SetDefault("database.user", "postgres")
 	viper.SetDefault("database.password", "postgres")
 	viper.SetDefault("database.dbname", "sub2api")
-	viper.SetDefault("database.sslmode", "prefer")
+	viper.SetDefault("database.sslmode", "disable")
 	viper.SetDefault("database.max_open_conns", 256)
 	viper.SetDefault("database.max_idle_conns", 128)
 	viper.SetDefault("database.conn_max_lifetime_minutes", 30)

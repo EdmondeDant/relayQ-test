@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var ErrLeonardoAudioPricingEvidenceUnavailable = errors.New("Leonardo audio pricing evidence is unavailable")
+var ErrLeonardoAudioPricingEvidenceUnavailable = errors.New("leonardo audio pricing evidence is unavailable")
 
 const LeonardoAudioPricingPolicyVersion = "leonardo-audio-pricing-policy/2026-08-05-v1"
 

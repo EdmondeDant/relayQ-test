@@ -121,7 +121,7 @@ func DownloadRemoteVideoForFallback(ctx context.Context, videoURL string, opts V
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		return "", fmt.Errorf("video download redirect rejected: status %d", resp.StatusCode)
 	}
@@ -183,7 +183,7 @@ func BuildVideoFallbackChatParts(ctx context.Context, videoURL string, opts Vide
 	if err != nil {
 		return nil, err
 	}
-	defer os.Remove(localVideo)
+	defer func() { _ = os.Remove(localVideo) }()
 	frames, err := extractor.ExtractVideoFrames(ctx, localVideo, plan)
 	if err != nil {
 		return nil, err

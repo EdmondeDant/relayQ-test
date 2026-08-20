@@ -21,7 +21,7 @@ func RequireLeonardoVerifiedVideoModel(model string) error {
 
 var (
 	ErrLeonardoNoVerifiedVideoModels     = errors.New("no verified Leonardo video models are available")
-	ErrLeonardoVideoParameterUnsupported = errors.New("Leonardo video parameter is not supported by this model")
+	ErrLeonardoVideoParameterUnsupported = errors.New("leonardo video parameter is not supported by this model")
 )
 
 type LeonardoVideoParameters struct {
