@@ -140,6 +140,28 @@ func TestCanvasRoutingUsesExplicitVideoModelPlatforms(t *testing.T) {
 	require.Equal(t, "minimax-h3", h3.Model)
 }
 
+func TestCanvasRoutingClassifiesRelayQOpenAIMediaModels(t *testing.T) {
+	for _, test := range []struct {
+		model    string
+		modality string
+		protocol string
+		endpoint string
+	}{
+		{model: "Nano Banana 2", modality: "image", protocol: "openai", endpoint: "/v1/images/generations"},
+		{model: "Seedream 4.5", modality: "image", protocol: "openai", endpoint: "/v1/images/generations"},
+		{model: "seedance-2.0", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
+		{model: "kling-video-o-3", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
+		{model: "wan-2.7", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
+	} {
+		t.Run(test.model, func(t *testing.T) {
+			model := canvasModelForPlatform(test.model, PlatformOpenAI)
+			require.Equal(t, test.modality, model.Modality)
+			require.Equal(t, test.protocol, model.Protocol)
+			require.Contains(t, model.Endpoints, test.endpoint)
+		})
+	}
+}
+
 func TestCanvasRoutingResolvesGenerationJobEntryGroup(t *testing.T) {
 	groupID := int64(4)
 	group := Group{ID: groupID, Platform: PlatformOpenAI, Status: StatusActive}

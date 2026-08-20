@@ -30,6 +30,7 @@ type gatewayModelItemForTest struct {
 	Created   int64  `json:"created"`
 	OwnedBy   string `json:"owned_by"`
 	CreatedAt string `json:"created_at"`
+	Modality  string `json:"modality"`
 }
 
 func (s *gatewayModelsAccountRepoStub) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]service.Account, error) {
@@ -175,6 +176,39 @@ func TestGatewayModels_CustomModelsListDisabledKeepsOriginalModels(t *testing.T)
 	var got gatewayModelsResponseForTest
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	require.Equal(t, []string{"gpt-5.4", "gpt-5.5"}, modelIDsForTest(got.Data))
+}
+
+func TestGatewayModels_OpenAIMediaModelsIncludeModality(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(28)
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{byGroup: map[int64][]service.Account{
+		groupID: {{
+			ID:       78,
+			Platform: service.PlatformOpenAI,
+			Credentials: map[string]any{"model_mapping": map[string]any{
+				"Nano Banana 2": "Nano Banana 2",
+				"seedance-2.0":  "seedance-2.0",
+			}},
+		}},
+	}})
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI}})
+
+	h.Models(ctx)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var responseBody gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	modalities := map[string]string{}
+	for _, model := range responseBody.Data {
+		modalities[model.ID] = model.Modality
+	}
+	require.Equal(t, "image", modalities["Nano Banana 2"])
+	require.Equal(t, "video", modalities["seedance-2.0"])
 }
 
 func TestGatewayModels_CustomModelsListFiltersAndOrdersMappedModels(t *testing.T) {

@@ -134,6 +134,44 @@ func TestAccountHandlerGetAvailableModels_OpenAICompatibleImageIncludesModality(
 	require.Equal(t, "video", modalities["minimax-h3"])
 }
 
+func TestAccountHandlerGetAvailableModels_OpenAIAPIKeyPassthroughPreservesMappedMediaModalities(t *testing.T) {
+	svc := &availableModelsAdminService{
+		stubAdminService: newStubAdminService(),
+		account: service.Account{
+			ID:       78,
+			Platform: service.PlatformOpenAI,
+			Type:     service.AccountTypeAPIKey,
+			Status:   service.StatusActive,
+			Credentials: map[string]any{"model_mapping": map[string]any{
+				"Nano Banana 2": "Nano Banana 2",
+				"seedance-2.0":  "seedance-2.0",
+			}},
+			Extra: map[string]any{"openai_passthrough": true},
+		},
+	}
+	router := setupAvailableModelsRouter(svc)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/78/models", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var responseBody struct {
+		Data []struct {
+			ID       string `json:"id"`
+			Modality string `json:"modality"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	modalities := map[string]string{}
+	for _, model := range responseBody.Data {
+		modalities[model.ID] = model.Modality
+	}
+	require.Equal(t, map[string]string{
+		"Nano Banana 2": "image",
+		"seedance-2.0":  "video",
+	}, modalities)
+}
+
 func TestAccountHandlerGetAvailableModels_LeonardoUsesVerifiedModels(t *testing.T) {
 	svc := &availableModelsAdminService{
 		stubAdminService: newStubAdminService(),

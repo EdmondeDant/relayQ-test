@@ -1837,11 +1837,11 @@ func TestLoad_DefaultGatewayUsageRecordConfig(t *testing.T) {
 	if cfg.Gateway.UsageRecord.TaskTimeoutSeconds != 5 {
 		t.Fatalf("task_timeout_seconds = %d, want 5", cfg.Gateway.UsageRecord.TaskTimeoutSeconds)
 	}
-	if cfg.Gateway.UsageRecord.OverflowPolicy != UsageRecordOverflowPolicySample {
-		t.Fatalf("overflow_policy = %s, want %s", cfg.Gateway.UsageRecord.OverflowPolicy, UsageRecordOverflowPolicySample)
+	if cfg.Gateway.UsageRecord.OverflowPolicy != UsageRecordOverflowPolicySync {
+		t.Fatalf("overflow_policy = %s, want %s", cfg.Gateway.UsageRecord.OverflowPolicy, UsageRecordOverflowPolicySync)
 	}
-	if cfg.Gateway.UsageRecord.OverflowSamplePercent != 10 {
-		t.Fatalf("overflow_sample_percent = %d, want 10", cfg.Gateway.UsageRecord.OverflowSamplePercent)
+	if cfg.Gateway.UsageRecord.OverflowSamplePercent != 0 {
+		t.Fatalf("overflow_sample_percent = %d, want 0", cfg.Gateway.UsageRecord.OverflowSamplePercent)
 	}
 	if !cfg.Gateway.UsageRecord.AutoScaleEnabled {
 		t.Fatalf("auto_scale_enabled = false, want true")

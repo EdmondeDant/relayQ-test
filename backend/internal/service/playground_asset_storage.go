@@ -110,7 +110,7 @@ func (s *PlaygroundAssetStorage) persistRemoteURL(ctx context.Context, userID in
 	if err != nil {
 		return input, fmt.Errorf("build asset request: %w", err)
 	}
-	if token := playgroundAssetAuthToken(input); token != "" && (isLocalPlaygroundProtectedURL(rawURL) || isLocalPlaygroundProtectedURL(resolvedURL)) {
+	if token := strings.TrimSpace(input.AuthToken); token != "" && (isLocalPlaygroundProtectedURL(rawURL) || isLocalPlaygroundProtectedURL(resolvedURL)) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := s.httpClient.Do(req)
@@ -303,6 +303,9 @@ func buildPlaygroundAssetURL(storageKey string) string {
 }
 
 func playgroundAssetAuthToken(input CreatePlaygroundAssetInput) string {
+	if token := strings.TrimSpace(input.AuthToken); token != "" {
+		return token
+	}
 	if len(input.Metadata) == 0 {
 		return ""
 	}
@@ -318,6 +321,24 @@ func playgroundAssetAuthToken(input CreatePlaygroundAssetInput) string {
 		}
 	}
 	return ""
+}
+
+func sanitizePlaygroundAssetMetadata(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return raw
+	}
+	for _, key := range []string{"auth_token", "api_key", "bearer_token", "authorization"} {
+		delete(payload, key)
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return raw
+	}
+	return encoded
 }
 
 func mergePlaygroundAssetMetadata(raw json.RawMessage, extra map[string]any) json.RawMessage {

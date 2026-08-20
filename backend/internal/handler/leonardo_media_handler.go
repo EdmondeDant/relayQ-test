@@ -846,10 +846,15 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
 			return
 		}
+		parameters, parameterErr := mergeLeonardoVideoStartFrameParameters(req, startFrame)
+		if parameterErr != nil {
+			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
+			return
+		}
 		input.RawBody, err = json.Marshal(map[string]any{
 			"model":      req.Model,
 			"public":     req.Public,
-			"parameters": mergeLeonardoVideoStartFrameParameters(req, startFrame),
+			"parameters": parameters,
 		})
 		if err != nil {
 			response.ErrorFrom(c, service.ErrLeonardoMediaCreateInputInvalid)
@@ -866,10 +871,13 @@ func (h *LeonardoMediaHandler) Create(c *gin.Context) {
 	})
 }
 
-func mergeLeonardoVideoStartFrameParameters(req leonardoMediaCreateHTTPRequest, source string) map[string]any {
-	parameters, _ := service.LeonardoVideoGenerationParameters(req.Model, req.Prompt, req.Parameters.Duration, req.Parameters.Width, req.Parameters.Height, req.Parameters.Quantity)
+func mergeLeonardoVideoStartFrameParameters(req leonardoMediaCreateHTTPRequest, source string) (map[string]any, error) {
+	parameters, err := service.LeonardoVideoGenerationParameters(req.Model, req.Prompt, req.Parameters.Duration, req.Parameters.Width, req.Parameters.Height, req.Parameters.Quantity)
+	if err != nil || parameters == nil {
+		return nil, err
+	}
 	parameters["guidances"] = map[string]any{"start_frame": []map[string]any{{"image": map[string]any{"source": source}}}}
-	return parameters
+	return parameters, nil
 }
 
 func ensureLeonardoMediaJSONEOF(decoder *json.Decoder) error {

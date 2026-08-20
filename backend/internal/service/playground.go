@@ -87,6 +87,7 @@ type CreatePlaygroundAssetInput struct {
 	ContentType     string
 	ByteSize        *int64
 	Metadata        json.RawMessage
+	AuthToken       string
 }
 
 // PlaygroundRecord 统一创作记录：任务 + 关联产物
@@ -263,6 +264,8 @@ func (s *PlaygroundService) CreateAsset(ctx context.Context, userID int64, input
 	if len(input.Metadata) == 0 {
 		input.Metadata = json.RawMessage(`{}`)
 	}
+	input.AuthToken = playgroundAssetAuthToken(input)
+	input.Metadata = sanitizePlaygroundAssetMetadata(input.Metadata)
 	persisted, err := s.storage.Persist(ctx, userID, input)
 	if err != nil {
 		return nil, err

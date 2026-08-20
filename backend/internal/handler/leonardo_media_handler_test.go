@@ -58,6 +58,20 @@ func TestLeonardoMediaHandlerStrictJSON(t *testing.T) {
 	require.Error(t, ensureLeonardoMediaJSONEOF(decoder))
 }
 
+func TestMergeLeonardoVideoStartFrameParametersRejectsInvalidParametersWithoutPanic(t *testing.T) {
+	req := leonardoMediaCreateHTTPRequest{Model: "not-a-real-video-model", Prompt: "cat"}
+	req.Parameters.Duration = 4
+	req.Parameters.Width = 832
+	req.Parameters.Height = 480
+	req.Parameters.Quantity = 1
+
+	require.NotPanics(t, func() {
+		parameters, err := mergeLeonardoVideoStartFrameParameters(req, "https://example.com/start.png")
+		require.Error(t, err)
+		require.Nil(t, parameters)
+	})
+}
+
 func TestLeonardoOpenAIVideoValidatesOfficialSpecifications(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {

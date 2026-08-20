@@ -770,3 +770,20 @@ func TestSupportedModels_ExactMappingTargetMissingFromPricing(t *testing.T) {
 	require.Equal(t, "some-priced-model", got[1].Name)
 	require.NotNil(t, got[1].Pricing)
 }
+
+func TestSupportedModels_OpenAIMediaModalities(t *testing.T) {
+	channel := &Channel{ModelMapping: map[string]map[string]string{
+		PlatformOpenAI: {
+			"Nano Banana 2": "Nano Banana 2",
+			"seedance-2.0":  "seedance-2.0",
+		},
+	}}
+
+	models := channel.SupportedModels()
+	modalities := map[string]string{}
+	for _, model := range models {
+		modalities[model.Name] = model.Modality
+	}
+	require.Equal(t, "image", modalities["Nano Banana 2"])
+	require.Equal(t, "video", modalities["seedance-2.0"])
+}

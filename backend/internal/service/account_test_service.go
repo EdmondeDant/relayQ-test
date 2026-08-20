@@ -63,6 +63,9 @@ const (
 )
 
 func reportProxyTestDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("DEBUG_EVENT_REPORTING_ENABLED")), "true") {
+		return
+	}
 	apiURL := "http://127.0.0.1:7777/event"
 	sessionID := "proxy-test-failure"
 	if envBytes, err := os.ReadFile(".dbg/proxy-test-failure.env"); err == nil {

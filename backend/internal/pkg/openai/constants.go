@@ -19,11 +19,14 @@ type Model struct {
 
 func ModelModality(model string) string {
 	model = strings.ToLower(strings.TrimSpace(model))
-	if strings.HasPrefix(model, "gpt-image-") || model == "flux-2-klein-9b-kv" {
+	switch model {
+	case "gpt image-2", "nano banana", "nano banana 2", "nano banana pro", "seedream 4.5", "flux-2-klein-9b-kv":
 		return "image"
-	}
-	if model == "minimax-h3" {
+	case "minimax-h3", "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini", "kling-3.0", "kling-video-o-3", "wan-2.7":
 		return "video"
+	}
+	if strings.HasPrefix(model, "gpt-image-") {
+		return "image"
 	}
 	return ""
 }

@@ -1994,13 +1994,14 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 
 	// Handle OpenAI accounts
 	if account.IsOpenAI() {
-		// OpenAI 自动透传会绕过常规模型改写，测试/模型列表也应回落到默认模型集。
-		if account.IsOpenAIPassthroughEnabled() {
+		mapping := account.GetModelMapping()
+		// OpenAI OAuth 自动透传使用官方默认模型集；API-key 兼容上游即使开启
+		// passthrough，也必须保留显式 model_mapping，才能正确声明媒体模型能力。
+		if account.IsOpenAIPassthroughEnabled() && account.IsOAuth() {
 			response.Success(c, openai.DefaultModels)
 			return
 		}
 
-		mapping := account.GetModelMapping()
 		if len(mapping) == 0 {
 			response.Success(c, openai.DefaultModels)
 			return

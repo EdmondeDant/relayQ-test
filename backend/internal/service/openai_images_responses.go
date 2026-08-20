@@ -24,6 +24,9 @@ import (
 )
 
 func reportImageEditDebugEvent(hypothesisID, location, msg string, data map[string]any) {
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("DEBUG_EVENT_REPORTING_ENABLED")), "true") {
+		return
+	}
 	apiURL := "http://127.0.0.1:7777/event"
 	sessionID := "image-edit-failure"
 	if envBytes, err := os.ReadFile(".dbg/image-edit-failure.env"); err == nil {

@@ -339,10 +339,11 @@ func (s *PlaygroundService) executeAudioJob(ctx context.Context, userID, taskID 
 			"request_id": requestID,
 			"mode":       playgroundFirstNonEmpty(payload.Mode, playgroundFirstNonEmptyString(payload.Metadata["mode"])),
 		})
+		authToken := ""
 		if audioURL != "" {
-			metadata["auth_token"] = input.APIKey
+			authToken = input.APIKey
 		}
-		if _, err := s.createTaskAsset(context.Background(), userID, taskID, input.InternalBaseURL, "audio", payload.Title, playgroundFirstNonEmpty(dataURL, audioURL), contentType, mergePlaygroundAssetMetadata(nil, metadata)); err != nil {
+		if _, err := s.createTaskAssetWithAuth(context.Background(), userID, taskID, input.InternalBaseURL, "audio", payload.Title, playgroundFirstNonEmpty(dataURL, audioURL), contentType, mergePlaygroundAssetMetadata(nil, metadata), authToken); err != nil {
 			return err
 		}
 	}
@@ -408,10 +409,9 @@ func (s *PlaygroundService) executeVideoJob(ctx context.Context, userID, taskID 
 	if videoURL == "" {
 		videoURL = fmt.Sprintf("/v1/videos/%s/content", status.RequestID)
 	}
-	if _, err := s.createTaskAsset(context.Background(), userID, taskID, input.InternalBaseURL, "video", payload.Title, videoURL, "video/mp4", mergePlaygroundAssetMetadata(nil, mergeStringAnyMaps(payload.Metadata, map[string]any{
+	if _, err := s.createTaskAssetWithAuth(context.Background(), userID, taskID, input.InternalBaseURL, "video", payload.Title, videoURL, "video/mp4", mergePlaygroundAssetMetadata(nil, mergeStringAnyMaps(payload.Metadata, map[string]any{
 		"request_id": status.RequestID,
-		"auth_token": input.APIKey,
-	}))); err != nil {
+	})), input.APIKey); err != nil {
 		return err
 	}
 	if err := s.recordPlaygroundVideoUsage(context.Background(), userID, input, payload, status.RequestID); err != nil {
@@ -569,6 +569,10 @@ func (s *PlaygroundService) pollVideoJob(ctx context.Context, userID, taskID int
 }
 
 func (s *PlaygroundService) createTaskAsset(ctx context.Context, userID, taskID int64, baseURL, kind, title, source, contentType string, metadata json.RawMessage) (*PlaygroundAsset, error) {
+	return s.createTaskAssetWithAuth(ctx, userID, taskID, baseURL, kind, title, source, contentType, metadata, "")
+}
+
+func (s *PlaygroundService) createTaskAssetWithAuth(ctx context.Context, userID, taskID int64, baseURL, kind, title, source, contentType string, metadata json.RawMessage, authToken string) (*PlaygroundAsset, error) {
 	input := CreatePlaygroundAssetInput{
 		TaskID:          &taskID,
 		Kind:            normalizePlaygroundAssetKind(kind),
@@ -576,6 +580,7 @@ func (s *PlaygroundService) createTaskAsset(ctx context.Context, userID, taskID 
 		InternalBaseURL: baseURL,
 		ContentType:     contentType,
 		Metadata:        metadata,
+		AuthToken:       authToken,
 	}
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(source)), "data:") {
 		input.Content = source

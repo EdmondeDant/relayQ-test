@@ -534,11 +534,12 @@ func (c *Channel) SupportedModels() []SupportedModel {
 		}
 		seen[key] = struct{}{}
 		modality := ""
-		if platform == PlatformLeonardo {
+		switch platform {
+		case PlatformLeonardo:
 			if model, ok := leonardo.ResolveByRequestModelSlug(displayName); ok {
 				modality = string(model.Modality)
 			}
-		} else if platform == PlatformOpenAI {
+		case PlatformOpenAI:
 			modality = openai.ModelModality(displayName)
 		}
 		result = append(result, SupportedModel{
