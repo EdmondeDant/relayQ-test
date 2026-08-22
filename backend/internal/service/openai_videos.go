@@ -39,7 +39,10 @@ func IsOpenAICompatibleVideoModel(model string) bool {
 		return true
 	}
 	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "sora-2", "sora-2-pro":
+	case "sora-2", "sora-2-pro",
+		"kling-3.0", "kling-video-o-3",
+		"seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini",
+		"wan-2.7":
 		return true
 	default:
 		return IsXAIVideoModel(model)
@@ -252,7 +255,7 @@ func normalizeXAIVideoGenerationBody(body []byte) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("model is required")
 	}
 	if !IsOpenAICompatibleVideoModel(model) {
-		return nil, "", fmt.Errorf("videos endpoint requires an xAI-compatible video model, got %q", model)
+		return nil, "", fmt.Errorf("videos endpoint requires an OpenAI-compatible video model, got %q", model)
 	}
 	requestModel := NormalizeXAIVideoModel(model)
 

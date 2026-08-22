@@ -75,10 +75,30 @@ func TestNormalizeXAIVideoGenerationBodyConvertsReferenceImages(t *testing.T) {
 	require.False(t, gjson.GetBytes(forwardBody, "providerOptions").Exists())
 }
 
+func TestNormalizeXAIVideoGenerationBodyAcceptsConfiguredOpenAIVideoModels(t *testing.T) {
+	models := []string{
+		"kling-3.0",
+		"kling-video-o-3",
+		"seedance-2.0",
+		"seedance-2.0-fast",
+		"seedance-2.0-mini",
+		"wan-2.7",
+	}
+	for _, model := range models {
+		t.Run(model, func(t *testing.T) {
+			forwardBody, requestModel, err := NormalizeXAIVideoGenerationBodyForHandler([]byte(`{"model":"` + model + `","prompt":"city"}`))
+
+			require.NoError(t, err)
+			require.Equal(t, model, requestModel)
+			require.Equal(t, model, gjson.GetBytes(forwardBody, "model").String())
+		})
+	}
+}
+
 func TestNormalizeXAIVideoGenerationBodyRejectsUnknownModel(t *testing.T) {
 	_, _, err := NormalizeXAIVideoGenerationBodyForHandler([]byte(`{"model":"veo-3","prompt":"city"}`))
 
-	require.ErrorContains(t, err, "xAI-compatible video model")
+	require.ErrorContains(t, err, "OpenAI-compatible video model")
 }
 
 func TestCanvasVideoMultipartToJSONAcceptsInfiniteCanvasFields(t *testing.T) {
