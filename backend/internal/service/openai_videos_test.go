@@ -75,6 +75,24 @@ func TestNormalizeXAIVideoGenerationBodyConvertsReferenceImages(t *testing.T) {
 	require.False(t, gjson.GetBytes(forwardBody, "providerOptions").Exists())
 }
 
+func TestOpenAIVideoGenerationEndpointUsesAsyncRouteForLongRunningModels(t *testing.T) {
+	asyncModels := []string{
+		"kling-3.0",
+		"kling-video-o-3",
+		"seedance-2.0",
+		"seedance-2.0-fast",
+		"seedance-2.0-mini",
+		"wan-2.7",
+	}
+	for _, model := range asyncModels {
+		t.Run(model, func(t *testing.T) {
+			require.Equal(t, "/v1/videos", openAIVideoGenerationEndpoint(model))
+		})
+	}
+	require.Equal(t, xaiVideosGenerationsEndpoint, openAIVideoGenerationEndpoint("grok-imagine-video"))
+	require.Equal(t, xaiVideosGenerationsEndpoint, openAIVideoGenerationEndpoint("minimax-h3"))
+}
+
 func TestNormalizeXAIVideoGenerationBodyAcceptsConfiguredOpenAIVideoModels(t *testing.T) {
 	models := []string{
 		"kling-3.0",

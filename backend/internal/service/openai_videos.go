@@ -741,7 +741,18 @@ func (s *OpenAIGatewayService) buildXAIVideoURL(account *Account, suffix string)
 }
 
 func (s *OpenAIGatewayService) ForwardXAIVideoGeneration(ctx context.Context, c *gin.Context, account *Account, body []byte) error {
-	return s.forwardXAIVideoSubmit(ctx, c, account, body, xaiVideosGenerationsEndpoint)
+	return s.forwardXAIVideoSubmit(ctx, c, account, body, openAIVideoGenerationEndpoint(gjson.GetBytes(body, "model").String()))
+}
+
+func openAIVideoGenerationEndpoint(model string) string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "kling-3.0", "kling-video-o-3",
+		"seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini",
+		"wan-2.7":
+		return "/v1/videos"
+	default:
+		return xaiVideosGenerationsEndpoint
+	}
 }
 
 func (s *OpenAIGatewayService) ForwardXAIVideoEdit(ctx context.Context, c *gin.Context, account *Account, body []byte) error {
