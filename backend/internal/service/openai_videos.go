@@ -809,7 +809,7 @@ func (s *OpenAIGatewayService) ForwardXAIVideoContent(ctx context.Context, c *gi
 		targetURL += "/content"
 		return s.forwardXAIVideoRequest(ctx, c, account, http.MethodGet, targetURL, nil)
 	}
-	status, _, body, err := s.fetchXAIVideoResponse(ctx, account, http.MethodGet, targetURL, nil)
+	status, _, body, err := s.fetchXAIVideoResponse(ctx, account, http.MethodGet, targetURL, nil, "")
 	if err != nil {
 		return err
 	}
@@ -832,7 +832,11 @@ func (s *OpenAIGatewayService) ForwardXAIVideoContent(ctx context.Context, c *gi
 }
 
 func (s *OpenAIGatewayService) forwardXAIVideoRequest(ctx context.Context, c *gin.Context, account *Account, method, targetURL string, body []byte) error {
-	status, headers, respBody, err := s.fetchXAIVideoResponse(ctx, account, method, targetURL, body)
+	idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(c.GetHeader("X-Idempotency-Key"))
+	}
+	status, headers, respBody, err := s.fetchXAIVideoResponse(ctx, account, method, targetURL, body, idempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -847,7 +851,7 @@ func (s *OpenAIGatewayService) forwardXAIVideoRequest(ctx context.Context, c *gi
 	return nil
 }
 
-func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, account *Account, method, targetURL string, body []byte) (int, http.Header, []byte, error) {
+func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, account *Account, method, targetURL string, body []byte, idempotencyKey string) (int, http.Header, []byte, error) {
 	token := account.GetOpenAIAccessToken()
 	if account.Platform == PlatformOpenAI {
 		token = account.GetOpenAIApiKey()
@@ -859,7 +863,7 @@ func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, accoun
 		}
 		token = refreshedToken
 	}
-	resp, err := s.doXAIVideoRequest(ctx, account, method, targetURL, body, token)
+	resp, err := s.doXAIVideoRequest(ctx, account, method, targetURL, body, token, idempotencyKey)
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -871,7 +875,7 @@ func (s *OpenAIGatewayService) fetchXAIVideoResponse(ctx context.Context, accoun
 	if account.Platform == PlatformXAI && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && isXAIBadCredentials(respBody) {
 		refreshedToken, refreshErr := s.forceRefreshXAIOAuthAccount(ctx, account)
 		if refreshErr == nil && strings.TrimSpace(refreshedToken) != "" {
-			resp, err = s.doXAIVideoRequest(ctx, account, method, targetURL, body, refreshedToken)
+			resp, err = s.doXAIVideoRequest(ctx, account, method, targetURL, body, refreshedToken, idempotencyKey)
 			if err != nil {
 				return 0, nil, nil, err
 			}
@@ -942,7 +946,7 @@ func (s *OpenAIGatewayService) ResolveXAIVideoRequestAccount(ctx context.Context
 	return account, true
 }
 
-func (s *OpenAIGatewayService) doXAIVideoRequest(ctx context.Context, account *Account, method, targetURL string, body []byte, token string) (*http.Response, error) {
+func (s *OpenAIGatewayService) doXAIVideoRequest(ctx context.Context, account *Account, method, targetURL string, body []byte, token, idempotencyKey string) (*http.Response, error) {
 	var reader io.Reader
 	if len(body) > 0 {
 		reader = bytes.NewReader(body)
@@ -957,6 +961,10 @@ func (s *OpenAIGatewayService) doXAIVideoRequest(ctx context.Context, account *A
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if key := strings.TrimSpace(idempotencyKey); key != "" {
+		req.Header.Set("Idempotency-Key", key)
+	}
+
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()

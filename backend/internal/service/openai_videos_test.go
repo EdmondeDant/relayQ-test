@@ -2,14 +2,31 @@ package service
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+type videoHTTPUpstreamRecorder struct {
+	lastReq *http.Request
+}
+
+func (u *videoHTTPUpstreamRecorder) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+	u.lastReq = req
+	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+}
+
+func (u *videoHTTPUpstreamRecorder) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	return u.Do(req, proxyURL, accountID, accountConcurrency)
+}
 
 func TestBuildXAIVideoURLHandlesVersionedBaseURL(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}}
@@ -17,6 +34,18 @@ func TestBuildXAIVideoURLHandlesVersionedBaseURL(t *testing.T) {
 	got, err := svc.buildXAIVideoURL(account, "/v1/videos/generations")
 	require.NoError(t, err)
 	require.Equal(t, "https://video.example/v1/videos/generations", got)
+}
+
+func TestDoXAIVideoRequestForwardsIdempotencyKey(t *testing.T) {
+	upstream := &videoHTTPUpstreamRecorder{}
+	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "test-key"}}
+
+	resp, err := svc.doXAIVideoRequest(context.Background(), account, http.MethodPost, "https://video.example/v1/videos", []byte(`{"model":"kling-3.0"}`), "test-key", "request-123")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, "request-123", upstream.lastReq.Header.Get("Idempotency-Key"))
 }
 
 func TestNormalizeXAIVideoGenerationBodyAcceptsSoraAlias(t *testing.T) {
