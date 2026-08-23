@@ -24,6 +24,8 @@ func ModelModality(model string) string {
 		return "image"
 	case "minimax-h3", "seedance-2.0", "seedance-2.0-fast", "seedance-2.0-mini", "kling-3.0", "kling-video-o-3", "wan-2.7":
 		return "video"
+	case "mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts":
+		return "audio"
 	}
 	if strings.HasPrefix(model, "gpt-image-") {
 		return "image"

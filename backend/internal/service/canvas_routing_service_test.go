@@ -152,6 +152,11 @@ func TestCanvasRoutingClassifiesRelayQOpenAIMediaModels(t *testing.T) {
 		{model: "seedance-2.0", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
 		{model: "kling-video-o-3", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
 		{model: "wan-2.7", modality: "video", protocol: "openai-async", endpoint: "/v1/videos/generations"},
+		{model: "mimo-v2.5-tts", modality: "audio", protocol: "openai", endpoint: "/v1/chat/completions"},
+		{model: "mimo-v2.5-tts-voiceclone", modality: "audio", protocol: "openai", endpoint: "/v1/chat/completions"},
+		{model: "mimo-v2.5-tts-voicedesign", modality: "audio", protocol: "openai", endpoint: "/v1/chat/completions"},
+		{model: "mimo-v2-tts", modality: "audio", protocol: "openai", endpoint: "/v1/chat/completions"},
+		{model: "mimo-v2.5-asr", modality: "text", protocol: "openai", endpoint: "/v1/chat/completions"},
 	} {
 		t.Run(test.model, func(t *testing.T) {
 			model := canvasModelForPlatform(test.model, PlatformOpenAI)

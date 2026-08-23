@@ -491,8 +491,15 @@ func TestSupportedModels_ExactKeysAndPricing(t *testing.T) {
 
 func TestSupportedModels_OpenAIMediaModalities(t *testing.T) {
 	ch := &Channel{ModelMapping: map[string]map[string]string{PlatformOpenAI: {
-		"flux-2-klein-9b-kv": "flux-2-klein-9b-kv",
-		"minimax-h3":         "minimax-h3",
+		"Nano Banana 2":             "Nano Banana 2",
+		"seedance-2.0":              "seedance-2.0",
+		"flux-2-klein-9b-kv":        "flux-2-klein-9b-kv",
+		"minimax-h3":                "minimax-h3",
+		"mimo-v2.5-tts":             "mimo-v2.5-tts",
+		"mimo-v2.5-tts-voiceclone":  "mimo-v2.5-tts-voiceclone",
+		"mimo-v2.5-tts-voicedesign": "mimo-v2.5-tts-voicedesign",
+		"mimo-v2-tts":               "mimo-v2-tts",
+		"mimo-v2.5-asr":             "mimo-v2.5-asr",
 	}}}
 	got := ch.SupportedModels()
 	modalities := map[string]string{}
@@ -501,6 +508,12 @@ func TestSupportedModels_OpenAIMediaModalities(t *testing.T) {
 	}
 	require.Equal(t, "image", modalities["flux-2-klein-9b-kv"])
 	require.Equal(t, "video", modalities["minimax-h3"])
+	require.Equal(t, "image", modalities["Nano Banana 2"])
+	require.Equal(t, "video", modalities["seedance-2.0"])
+	for _, model := range []string{"mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts"} {
+		require.Equal(t, "audio", modalities[model])
+	}
+	require.NotEqual(t, "audio", modalities["mimo-v2.5-asr"])
 }
 
 func TestSupportedModels_WildcardExpandedFromPricing(t *testing.T) {
@@ -769,21 +782,4 @@ func TestSupportedModels_ExactMappingTargetMissingFromPricing(t *testing.T) {
 	require.Nil(t, got[0].Pricing, "target 在渠道定价中缺失时不虚假填充，留给 ListAvailable 走 LiteLLM 回落")
 	require.Equal(t, "some-priced-model", got[1].Name)
 	require.NotNil(t, got[1].Pricing)
-}
-
-func TestSupportedModels_OpenAIMediaModalities(t *testing.T) {
-	channel := &Channel{ModelMapping: map[string]map[string]string{
-		PlatformOpenAI: {
-			"Nano Banana 2": "Nano Banana 2",
-			"seedance-2.0":  "seedance-2.0",
-		},
-	}}
-
-	models := channel.SupportedModels()
-	modalities := map[string]string{}
-	for _, model := range models {
-		modalities[model.Name] = model.Modality
-	}
-	require.Equal(t, "image", modalities["Nano Banana 2"])
-	require.Equal(t, "video", modalities["seedance-2.0"])
 }

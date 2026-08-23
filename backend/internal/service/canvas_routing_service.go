@@ -447,6 +447,9 @@ func canvasModelForPlatform(model, platform string) CanvasModel {
 		return CanvasModel{ID: model, Modality: modality, Platform: platform, Protocol: "openai", Endpoints: []string{"/v1/images/generations", "/v1/images/edits"}}
 	}
 	lower := strings.ToLower(model)
+	if lower == "mimo-v2.5-tts" || lower == "mimo-v2.5-tts-voiceclone" || lower == "mimo-v2.5-tts-voicedesign" || lower == "mimo-v2-tts" {
+		return CanvasModel{ID: model, Modality: "audio", Platform: platform, Protocol: "openai", Endpoints: []string{"/v1/chat/completions"}}
+	}
 	if strings.Contains(lower, "video") || strings.Contains(lower, "sora") {
 		return CanvasModel{ID: model, Modality: "video", Platform: platform, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}}
 	}
