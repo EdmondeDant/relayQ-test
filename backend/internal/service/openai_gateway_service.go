@@ -88,6 +88,15 @@ var openaiPassthroughAllowedHeaders = map[string]bool{
 	"x-codex-turn-metadata": true,
 }
 
+// Image requests use a deliberately narrower header policy than text requests.
+// Client SDK/browser fingerprint headers can trigger upstream Cloudflare rules.
+var openaiImagesPassthroughAllowedHeaders = map[string]bool{
+	"accept":       true,
+	"content-type": true,
+}
+
+const openaiImagesDefaultUserAgent = "RelayQ-Images/1.0"
+
 // codex_cli_only 拒绝时记录的请求头白名单（仅用于诊断日志，不参与上游透传）
 var codexCLIOnlyDebugHeaderWhitelist = []string{
 	"User-Agent",
