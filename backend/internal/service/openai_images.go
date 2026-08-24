@@ -1133,7 +1133,8 @@ func shouldInlineRemoteImageURL(imageURL string) bool {
 		strings.Contains(lower, "oaidalleapiprodscus") ||
 		strings.Contains(lower, "blob.core.windows.net") ||
 		strings.Contains(lower, "image.codesonline.dev") ||
-		strings.Contains(lower, "codesonline.dev/p/img")
+		strings.Contains(lower, "codesonline.dev/p/img") ||
+		strings.Contains(lower, "cdn.leonardo.ai")
 }
 
 func (s *OpenAIGatewayService) fetchImageAsDataURL(imageURL, proxyURL string) (string, error) {

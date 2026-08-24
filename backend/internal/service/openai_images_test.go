@@ -62,6 +62,7 @@ func TestShouldInlineRemoteImageURL(t *testing.T) {
 	require.True(t, shouldInlineRemoteImageURL("https://imgen.x.ai/foo.png"))
 	require.True(t, shouldInlineRemoteImageURL("https://image.codesonline.dev/p/img/img_abc/0?exp=1&sig=2"))
 	require.True(t, shouldInlineRemoteImageURL("https://cdn.codesonline.dev/p/img/img_abc/0"))
+	require.True(t, shouldInlineRemoteImageURL("https://cdn.leonardo.ai/users/example/image.png"))
 	require.False(t, shouldInlineRemoteImageURL("data:image/png;base64,abc"))
 	require.False(t, shouldInlineRemoteImageURL("https://example.com/ok.png"))
 }
