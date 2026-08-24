@@ -1158,6 +1158,50 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyEditUsesConfiguredV1BaseURL(t *
 	require.Equal(t, "ZWRpdGVk", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIKeyEditsUsesNativeEndpointWhenResponsesUnsupported(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "replace background"))
+	part, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = part.Write(testPNGBytes)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("User-Agent", "OpenAI/Python 2.0.0")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1710000008,"data":[{"b64_json":"ZWRpdGVk"}]}`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+	account := &Account{
+		ID: 78, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Extra: map[string]any{"openai_responses_supported": false},
+		Credentials: map[string]any{
+			"api_key": "***", "base_url": "https://image-upstream.example/v1/",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "https://image-upstream.example/v1/images/edits", upstream.lastReq.URL.String())
+	require.Contains(t, upstream.lastReq.Header.Get("Content-Type"), "multipart/form-data")
+	require.Equal(t, openaiImagesDefaultUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+	require.True(t, strings.HasPrefix(gjson.Get(rec.Body.String(), "data.0.url").String(), "data:image/"))
+}
+
 func TestOpenAIGatewayServiceForwardImages_APIKeyEditsMultipartUsesResponsesAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

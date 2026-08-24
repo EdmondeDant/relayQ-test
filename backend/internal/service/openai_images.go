@@ -670,6 +670,14 @@ func (s *OpenAIGatewayService) ForwardImages(
 	}
 }
 
+func accountUsesNativeOpenAIImageEdits(account *Account) bool {
+	if account == nil || account.Type != AccountTypeAPIKey || account.Extra == nil {
+		return false
+	}
+	supported, known := account.Extra["openai_responses_supported"].(bool)
+	return known && !supported
+}
+
 func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	ctx context.Context,
 	c *gin.Context,
@@ -695,12 +703,20 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		parsed.Endpoint,
 		account.Type,
 	)
-	// OpenAI 官方 edits 走 Responses；xAI Grok Imagine 官方是 /v1/images/edits JSON，
-	// 不能误转 Responses，否则上游会 422 并被映射成 502。
-	if parsed.IsEdits() && !isGrokImagineImageModel(upstreamModel) {
+	// OpenAI-compatible providers differ on image edits: OpenAI uses Responses,
+	// while some API-key upstreams expose a native /v1/images/edits endpoint.
+	nativeEdits := parsed.IsEdits() && accountUsesNativeOpenAIImageEdits(account)
+	if parsed.IsEdits() && !isGrokImagineImageModel(upstreamModel) && !nativeEdits {
 		return s.forwardOpenAIImagesResponses(ctx, c, account, parsed, requestModel, upstreamModel)
 	}
-	forwardBody, forwardContentType, err := buildOpenAIImagesForwardBody(body, parsed, upstreamModel)
+	var forwardBody []byte
+	var forwardContentType string
+	var err error
+	if nativeEdits {
+		forwardBody, forwardContentType, err = rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
+	} else {
+		forwardBody, forwardContentType, err = buildOpenAIImagesForwardBody(body, parsed, upstreamModel)
+	}
 	if err != nil {
 		return nil, err
 	}
