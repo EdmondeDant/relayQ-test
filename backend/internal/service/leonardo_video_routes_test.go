@@ -60,6 +60,9 @@ func TestBuildLeonardoVideoV2RequestRejectsMiniMax(t *testing.T) {
 	_, ok := LeonardoVideoRouteFor("minimax-h3")
 	require.False(t, ok, "minimax-h3 must not be a Leonardo route")
 	require.Equal(t, PlatformOpenAI, ExplicitCanvasVideoPlatform("minimax-h3"))
+	require.Empty(t, ExplicitCanvasVideoPlatform("kling-3.0"), "provider-compatible video slugs must follow their configured account group")
+	require.Empty(t, ExplicitCanvasVideoPlatform("seedance-2.0"), "provider-compatible video slugs must follow their configured account group")
+	require.Empty(t, ExplicitCanvasVideoPlatform("wan-2.7"), "provider-compatible video slugs must follow their configured account group")
 	_, err := BuildLeonardoVideoV2Request("minimax-h3", "test", 5, 1376, 768, 1, false, LeonardoVideoV1References{})
 	require.ErrorIs(t, err, ErrLeonardoMediaCreateInputInvalid)
 }

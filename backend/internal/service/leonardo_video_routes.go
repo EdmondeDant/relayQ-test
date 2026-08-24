@@ -97,16 +97,13 @@ func IsExplicitCanvasVideoModel(model string) bool {
 	return ExplicitCanvasVideoPlatform(model) != ""
 }
 
-// ExplicitCanvasVideoPlatform returns the platform a video model must be routed
-// to. minimax-h3 is served in-house over the OpenAI-compatible video API
-// (account 73, local kai gateway), so it routes to PlatformOpenAI; all other
-// explicit video models route to Leonardo REST v2.
+// ExplicitCanvasVideoPlatform returns a platform only for video models whose
+// provider is intrinsic to the model name. Leonardo-capable slugs can also be
+// served by an OpenAI-compatible account, so their configured account group
+// decides the platform instead of forcing them to PlatformLeonardo.
 func ExplicitCanvasVideoPlatform(model string) string {
 	if strings.EqualFold(strings.TrimSpace(model), "minimax-h3") {
 		return PlatformOpenAI
-	}
-	if _, ok := LeonardoVideoRouteFor(model); ok {
-		return PlatformLeonardo
 	}
 	return ""
 }

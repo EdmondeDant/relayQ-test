@@ -140,6 +140,35 @@ func TestCanvasRoutingUsesExplicitVideoModelPlatforms(t *testing.T) {
 	require.Equal(t, "minimax-h3", h3.Model)
 }
 
+func TestCanvasRoutingCatalogKeepsProviderCompatibleVideoModelsInOpenAIGroup(t *testing.T) {
+	price := 1.0
+	group := Group{ID: 16, Platform: PlatformOpenAI, Status: StatusActive}
+	accounts := canvasRoutingAccountRepoWithModels{accounts: []Account{{Credentials: map[string]any{"model_mapping": map[string]any{
+		"kling-3.0":       "kling-3.0",
+		"kling-video-o-3": "kling-video-o-3",
+		"wan-2.7":         "wan-2.7",
+	}}}}}
+	channelRepo := &mockChannelRepository{
+		getModelPricingFn: func(_ context.Context, groupID int64, model string) (*ChannelModelPricing, error) {
+			require.Equal(t, group.ID, groupID)
+			return &ChannelModelPricing{Models: []string{model}, PerRequestPrice: &price}, nil
+		},
+		getGroupPlatformsFn: func(context.Context, []int64) (map[int64]string, error) {
+			return map[int64]string{group.ID: PlatformOpenAI}, nil
+		},
+	}
+	routing := NewCanvasRoutingService(canvasRoutingUserRepo{}, canvasRoutingGroupRepo{groups: []Group{group}}, canvasRoutingSubscriptionRepo{}, accounts, nil, nil)
+	routing.SetChannelService(NewChannelService(channelRepo, nil, nil, nil))
+
+	models, err := routing.Catalog(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, []CanvasModel{
+		{ID: "kling-3.0", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
+		{ID: "kling-video-o-3", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
+		{ID: "wan-2.7", Modality: "video", Platform: PlatformOpenAI, Protocol: "openai-async", Endpoints: []string{"/v1/videos/generations"}},
+	}, models)
+}
+
 func TestCanvasRoutingClassifiesRelayQOpenAIMediaModels(t *testing.T) {
 	for _, test := range []struct {
 		model    string
