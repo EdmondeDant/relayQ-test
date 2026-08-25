@@ -1,6 +1,6 @@
 FROM alpine/git:2.49.1 AS source
 
-ARG INFINITE_CANVAS_COMMIT=b66936d891b82c2b51c1ed05e1a6eae3e31d4ca3
+ARG INFINITE_CANVAS_COMMIT=9414048f9d0a099386aa15d81bedb5376b79ee61
 WORKDIR /src
 RUN git clone https://github.com/basketikun/infinite-canvas.git . && git checkout "${INFINITE_CANVAS_COMMIT}"
 COPY infinite-canvas-base.patch /tmp/infinite-canvas-base.patch
