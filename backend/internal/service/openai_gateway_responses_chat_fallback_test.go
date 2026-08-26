@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	xaipkg "github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
+	xaipkg "github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -249,6 +249,17 @@ func TestForwardResponses_XAIOAuthStreamingToolArgsDedupedThroughChatFallback(t 
 	require.Equal(t, 7, result.Usage.InputTokens)
 	require.Equal(t, 3, result.Usage.OutputTokens)
 	require.True(t, result.Stream)
+}
+
+func TestAccountRequiresLeadingSystemMessage_IsOptIn(t *testing.T) {
+	require.False(t, accountRequiresLeadingSystemMessage(nil))
+	require.False(t, accountRequiresLeadingSystemMessage(&Account{Extra: map[string]any{}}))
+	require.False(t, accountRequiresLeadingSystemMessage(&Account{Extra: map[string]any{
+		openAIChatLeadingSystemCompatKey: false,
+	}}))
+	require.True(t, accountRequiresLeadingSystemMessage(&Account{Extra: map[string]any{
+		openAIChatLeadingSystemCompatKey: true,
+	}}))
 }
 
 func forceChatResponsesFallbackAccount() *Account {

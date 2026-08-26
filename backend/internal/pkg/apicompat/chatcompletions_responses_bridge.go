@@ -11,11 +11,24 @@ import (
 // Chat Completions request for upstreams that only implement
 // /v1/chat/completions.
 func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsRequest, error) {
+	return ResponsesToChatCompletionsRequestWithOptions(req, ResponsesToChatCompletionsOptions{})
+}
+
+// ResponsesToChatCompletionsOptions enables narrowly-scoped compatibility
+// behavior for chat-only upstreams. Zero values preserve the historical bridge
+// output.
+type ResponsesToChatCompletionsOptions struct {
+	HoistAndMergeSystemMessages bool
+}
+
+// ResponsesToChatCompletionsRequestWithOptions converts a Responses request
+// while applying only the explicitly enabled upstream compatibility behavior.
+func ResponsesToChatCompletionsRequestWithOptions(req *ResponsesRequest, options ResponsesToChatCompletionsOptions) (*ChatCompletionsRequest, error) {
 	if req == nil {
 		return nil, fmt.Errorf("responses request is nil")
 	}
 
-	messages, err := responsesInputToChatMessages(req.Instructions, req.Input)
+	messages, err := responsesInputToChatMessagesWithOptions(req.Instructions, req.Input, options)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +69,10 @@ func ResponsesToChatCompletionsRequest(req *ResponsesRequest) (*ChatCompletionsR
 // scattered across per-item cases, and makes unknown future codex item types
 // fail safe instead of leaking into the upstream request.
 func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage) ([]ChatMessage, error) {
+	return responsesInputToChatMessagesWithOptions(instructions, inputRaw, ResponsesToChatCompletionsOptions{})
+}
+
+func responsesInputToChatMessagesWithOptions(instructions string, inputRaw json.RawMessage, options ResponsesToChatCompletionsOptions) ([]ChatMessage, error) {
 	var messages []ChatMessage
 	if strings.TrimSpace(instructions) != "" {
 		content, _ := json.Marshal(instructions)
@@ -84,7 +101,7 @@ func responsesInputToChatMessages(instructions string, inputRaw json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
-	return normalizeChatMessages(built), nil
+	return normalizeChatMessages(built, options), nil
 }
 
 // buildChatMessagesFromItems walks the Responses input items and appends the
@@ -256,8 +273,10 @@ func hoistAndMergeSystemMessages(messages []ChatMessage) []ChatMessage {
 // tool replies and intervening messages are emitted in their natural position
 // but never between an assistant tool_calls message and its replies.
 
-func normalizeChatMessages(messages []ChatMessage) []ChatMessage {
-	messages = hoistAndMergeSystemMessages(messages)
+func normalizeChatMessages(messages []ChatMessage, options ResponsesToChatCompletionsOptions) []ChatMessage {
+	if options.HoistAndMergeSystemMessages {
+		messages = hoistAndMergeSystemMessages(messages)
+	}
 	// Index every tool reply by its tool_call_id (last wins on duplicates).
 	replies := make(map[string]ChatMessage)
 	for _, m := range messages {

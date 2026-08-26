@@ -21,6 +21,12 @@ import (
 
 // forwardResponsesViaRawChatCompletions serves /v1/responses clients through an
 // upstream that only supports /v1/chat/completions.
+const openAIChatLeadingSystemCompatKey = "openai_chat_leading_system_compat"
+
+func accountRequiresLeadingSystemMessage(account *Account) bool {
+	return account != nil && resolveAccountExtraBool(account.Extra, openAIChatLeadingSystemCompatKey)
+}
+
 func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	ctx context.Context,
 	c *gin.Context,
@@ -55,7 +61,9 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	serviceTier := extractOpenAIServiceTierFromBody(body)
 	xaiToolSessionKey := s.xaiToolArgumentSessionKey(c, body)
 
-	chatReq, err := apicompat.ResponsesToChatCompletionsRequest(&responsesReq)
+	chatReq, err := apicompat.ResponsesToChatCompletionsRequestWithOptions(&responsesReq, apicompat.ResponsesToChatCompletionsOptions{
+		HoistAndMergeSystemMessages: accountRequiresLeadingSystemMessage(account),
+	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
