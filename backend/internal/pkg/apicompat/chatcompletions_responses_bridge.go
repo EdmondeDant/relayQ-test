@@ -209,6 +209,34 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 	return messages, nil
 }
 
+// hoistAndMergeSystemMessages keeps compatibility with chat backends that only
+// accept one leading system message. Responses histories may contain developer
+// or system messages after prior turns, so collect their text and move it to a
+// single message at the beginning while preserving all non-system ordering.
+func hoistAndMergeSystemMessages(messages []ChatMessage) []ChatMessage {
+	var systemParts []string
+	others := make([]ChatMessage, 0, len(messages))
+	for _, message := range messages {
+		if message.Role != "system" {
+			others = append(others, message)
+			continue
+		}
+
+		var text string
+		if err := json.Unmarshal(message.Content, &text); err == nil {
+			if text = strings.TrimSpace(text); text != "" {
+				systemParts = append(systemParts, text)
+			}
+		}
+	}
+	if len(systemParts) == 0 {
+		return others
+	}
+
+	content, _ := json.Marshal(strings.Join(systemParts, "\n\n"))
+	return append([]ChatMessage{{Role: "system", Content: content}}, others...)
+}
+
 // normalizeChatMessages is the single place that enforces the tool-call
 // invariant the DeepSeek / OpenAI Chat Completions schema requires: an assistant
 // message with tool_calls must be immediately followed by one tool message per
@@ -227,7 +255,9 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 // (and an assistant left with neither tool_calls nor content is dropped); orphan
 // tool replies and intervening messages are emitted in their natural position
 // but never between an assistant tool_calls message and its replies.
+
 func normalizeChatMessages(messages []ChatMessage) []ChatMessage {
+	messages = hoistAndMergeSystemMessages(messages)
 	// Index every tool reply by its tool_call_id (last wins on duplicates).
 	replies := make(map[string]ChatMessage)
 	for _, m := range messages {
