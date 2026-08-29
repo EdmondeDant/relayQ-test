@@ -273,7 +273,24 @@ func (s *CanvasRoutingService) Catalog(ctx context.Context, userID int64) ([]Can
 					}
 				}
 			}
-		} else if len(groupModels) == 0 && len(accounts) > 0 {
+		}
+		if groups[i].Platform == PlatformOpenAI && len(accounts) > 0 {
+			// An account model_mapping is normally an allowlist. Keep the
+			// audio models visible when the account supports them even if the
+			// same account also has an explicit mapping for image/video/text.
+			for _, model := range openai.DefaultModelIDs() {
+				if canvasModelForPlatform(model, PlatformOpenAI).Modality != "audio" {
+					continue
+				}
+				for j := range accounts {
+					if accounts[j].IsModelSupported(model) {
+						groupModels[model] = struct{}{}
+						break
+					}
+				}
+			}
+		}
+		if len(groupModels) == 0 && len(accounts) > 0 {
 			for _, model := range canvasDefaultModels(groups[i].Platform) {
 				groupModels[model] = struct{}{}
 			}
