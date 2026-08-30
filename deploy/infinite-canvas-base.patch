@@ -247,7 +247,7 @@ new file mode 100644
 index 0000000..33592ee
 --- /dev/null
 +++ b/web/src/lib/relayq-mimo-audio.ts
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,54 @@
 +import type { ChannelModel, ModelCapability } from "@/stores/use-config-store";
 +
 +const MIMO_AUDIO_MODELS = new Set(["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts"]);
