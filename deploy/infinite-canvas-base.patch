@@ -109,7 +109,7 @@ index 576d387..64a781a 100644
      useEffect(() => {
 +        const migratedChannels = config.channels.map((channel) => ({
 +            ...channel,
-+            models: channel.models.map((model) => withRelayQModelScript(model)),
++            models: channel.models.map((model) => ({ ...model, ...withRelayQModelScript({ id: model.name, modality: model.capability }) })),
 +        }));
 +        const hasStaleMimoScript = config.channels.some((channel) => channel.models.some((model) =>
 +            ["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign"].includes(model.name) && !model.script?.includes("http.post(\"/chat/completions\"")
@@ -271,7 +271,7 @@ index 0000000..33592ee
 +    { role: "assistant", content: params.text || prompt },
 +  ],
 +  stream: false,
-+}).then(data => "data:audio/wav;base64," + data.choices[0].message.audio.data)
++}).then(data => data?.choices?.[0]?.message?.audio?.data || data?.audio?.data || "")
 +`.trim();
 +
 +export function withRelayQModelScript(model: { id: string; modality: ModelCapability }): ChannelModel {
