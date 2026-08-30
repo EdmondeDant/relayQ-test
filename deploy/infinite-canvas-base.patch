@@ -104,7 +104,7 @@ index 576d387..64a781a 100644
  
  export function ClientRootInit({ children }: { children: ReactNode }) {
      const { message } = App.useApp();
-@@ -18,9 +19,33 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
+@@ -18,9 +19,32 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
  
      useEffect(() => {
 +        const migratedChannels = config.channels.map((channel) => ({
@@ -112,7 +112,7 @@ index 576d387..64a781a 100644
 +            models: channel.models.map((model) => ({ ...model, ...withRelayQModelScript({ id: model.name, modality: model.capability }) })),
 +        }));
 +        const hasStaleMimoScript = config.channels.some((channel) => channel.models.some((model) =>
-+            ["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign"].includes(model.name) && !model.script?.includes("http.post(\"/chat/completions\"")
++            ["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign"].includes(model.name) && (model.script?.includes("function audioSource") || model.script?.includes("const audio =") || !model.script)
 +        ));
 +        if (hasStaleMimoScript) updateConfig("channels", migratedChannels);
          if (handledConfigParams.current) return;
