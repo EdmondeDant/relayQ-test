@@ -247,56 +247,23 @@ new file mode 100644
 index 0000000..33592ee
 --- /dev/null
 +++ b/web/src/lib/relayq-mimo-audio.ts
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,21 @@
 +import type { ChannelModel, ModelCapability } from "@/stores/use-config-store";
 +
 +const MIMO_AUDIO_MODELS = new Set(["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts"]);
 +
 +const RELAYQ_MIMO_AUDIO_SCRIPT = `
-+(async () => {
-+const audio = model === "mimo-v2.5-tts-voicedesign"
-+  ? { format: params.format || "wav", optimize_text_preview: true }
-+  : model === "mimo-v2.5-tts-voiceclone"
-+    ? { format: params.format || "wav", voice: params.reference_audio || params.referenceAudio || params.voice }
-+    : { format: params.format || "wav", voice: params.voice && params.voice !== "alloy" ? params.voice : "mimo_default" };
-+const data = await http.post("/chat/completions", {
++http.post("/chat/completions", {
 +  model,
-+  audio,
++  audio: model === "mimo-v2.5-tts-voicedesign"
++    ? { format: params.format || "wav", optimize_text_preview: true }
++    : { format: params.format || "wav", voice: model === "mimo-v2.5-tts-voiceclone" ? (params.reference_audio || params.referenceAudio || params.voice) : (params.voice && params.voice !== "alloy" ? params.voice : "mimo_default") },
 +  messages: [
 +    { role: "user", content: params.instructions || (model === "mimo-v2.5-tts-voicedesign" ? prompt : "请用自然讲述风格朗读。") },
 +    { role: "assistant", content: params.text || prompt },
 +  ],
 +  stream: false,
-+});
-+
-+const validUrl = (value) => typeof value === "string" && (/^https?:\/\//i.test(value) || /^data:audio\//i.test(value)) ? value : "";
-+const audioSource = (value, base64 = false) => {
-+  if (typeof value === "string") return validUrl(value) || (base64 && value ? "data:audio/wav;base64," + value : "");
-+  if (Array.isArray(value)) {
-+    for (const item of value) {
-+      const source = audioSource(item);
-+      if (source) return source;
-+    }
-+    return "";
-+  }
-+  if (!value || typeof value !== "object") return "";
-+  for (const key of ["url", "audio_url"]) {
-+    const source = validUrl(value[key]);
-+    if (source) return source;
-+  }
-+  for (const key of ["b64_json", "audio_base64", "base64", "data"]) {
-+    const source = audioSource(value[key], true);
-+    if (source) return source;
-+  }
-+  for (const key of ["audio", "output_audio", "choices", "message", "content"]) {
-+    const source = audioSource(value[key]);
-+    if (source) return source;
-+  }
-+  return "";
-+};
-+
-+return audioSource(data);
-+})()
++}).then(data => "data:audio/wav;base64," + data.choices[0].message.audio.data)
 +`.trim();
 +
 +export function withRelayQModelScript(model: { id: string; modality: ModelCapability }): ChannelModel {
