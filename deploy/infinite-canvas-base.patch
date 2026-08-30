@@ -112,7 +112,7 @@ index 576d387..64a781a 100644
 +            models: channel.models.map((model) => ({ ...model, ...withRelayQModelScript({ id: model.name, modality: model.capability }) })),
 +        }));
 +        const hasStaleMimoScript = config.channels.some((channel) => channel.models.some((model) =>
-+            ["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign"].includes(model.name) && (model.script?.includes("function audioSource") || model.script?.includes("const audio =") || !model.script)
++            ["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign"].includes(model.name) && (model.script?.includes("function audioSource") || model.script?.includes("const audio =") || !model.script?.includes("return http.post"))
 +        ));
 +        if (hasStaleMimoScript) updateConfig("channels", migratedChannels);
          if (handledConfigParams.current) return;
@@ -261,7 +261,7 @@ index 0000000..33592ee
 +const MIMO_AUDIO_MODELS = new Set(["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts"]);
 +
 +const RELAYQ_MIMO_AUDIO_SCRIPT = `
-+http.post("/chat/completions", {
++return http.post("/chat/completions", {
 +  model,
 +  audio: model === "mimo-v2.5-tts-voicedesign"
 +    ? { format: params.format || "wav", optimize_text_preview: true }
