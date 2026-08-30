@@ -247,7 +247,7 @@ new file mode 100644
 index 0000000..33592ee
 --- /dev/null
 +++ b/web/src/lib/relayq-mimo-audio.ts
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,52 @@
 +import type { ChannelModel, ModelCapability } from "@/stores/use-config-store";
 +
 +const MIMO_AUDIO_MODELS = new Set(["mimo-v2.5-tts", "mimo-v2.5-tts-voiceclone", "mimo-v2.5-tts-voicedesign", "mimo-v2-tts"]);
@@ -255,20 +255,22 @@ index 0000000..33592ee
 +const RELAYQ_MIMO_AUDIO_SCRIPT = `
 +const audio = model === "mimo-v2.5-tts-voicedesign"
 +  ? { format: params.format || "wav", optimize_text_preview: true }
-+  : { format: params.format || "wav", voice: params.voice && params.voice !== "alloy" ? params.voice : "mimo_default" };
++  : model === "mimo-v2.5-tts-voiceclone"
++    ? { format: params.format || "wav", voice: params.reference_audio || params.referenceAudio || params.voice }
++    : { format: params.format || "wav", voice: params.voice && params.voice !== "alloy" ? params.voice : "mimo_default" };
 +const data = await http.post("/chat/completions", {
 +  model,
 +  audio,
 +  messages: [
-+    { role: "user", content: params.instructions || "请用自然讲述风格朗读。" },
-+    { role: "assistant", content: prompt },
++    { role: "user", content: params.instructions || (model === "mimo-v2.5-tts-voicedesign" ? prompt : "请用自然讲述风格朗读。") },
++    { role: "assistant", content: params.text || prompt },
 +  ],
 +  stream: false,
 +});
 +
 +const validUrl = (value) => typeof value === "string" && (/^https?:\/\//i.test(value) || /^data:audio\//i.test(value)) ? value : "";
-+function audioSource(value, base64 = false) {
-+  if (typeof value === "string") return validUrl(value) || (base64 ? value : "");
++const audioSource = (value, base64 = false) => {
++  if (typeof value === "string") return validUrl(value) || (base64 && value ? "data:audio/wav;base64," + value : "");
 +  if (Array.isArray(value)) {
 +    for (const item of value) {
 +      const source = audioSource(item);
@@ -290,7 +292,7 @@ index 0000000..33592ee
 +    if (source) return source;
 +  }
 +  return "";
-+}
++};
 +
 +return audioSource(data);
 +`.trim();
