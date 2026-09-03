@@ -5263,7 +5263,45 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
 			return nil, fmt.Errorf("upstream request failed: %s", safeErr)
 		}
 
-		// 透传分支禁止 400 请求体降级重试（该重试会改写请求体）
+		// Some Anthropic-compatible API-key upstreams reject historical thinking/tool
+		// blocks as a malformed request. Retry once with those signature-sensitive
+		// blocks downgraded, but only for the explicit malformed-body response; do
+		// not mask ordinary 400s or rotate the same invalid body across accounts.
+		if resp.StatusCode == http.StatusBadRequest {
+			respBody, readErr := s.readUpstreamErrorBody(resp)
+			if readErr == nil {
+				_ = resp.Body.Close()
+				resp = &http.Response{StatusCode: http.StatusBadRequest, Header: resp.Header.Clone(), Body: io.NopCloser(bytes.NewReader(respBody))}
+				if isAnthropicMalformedRequestBody(respBody) {
+					filteredBody := FilterSignatureSensitiveBlocksForRetry(input.Body)
+					if !bytes.Equal(filteredBody, input.Body) && time.Since(retryStart) < maxRetryElapsed {
+						logger.LegacyPrintf("service.gateway", "Anthropic passthrough account %d: malformed body, retrying with sanitized message blocks", account.ID)
+						retryCtx, releaseRetryCtx := detachStreamUpstreamContext(ctx, input.RequestStream)
+						retryReq, retryWireBody, buildErr := s.buildUpstreamRequestAnthropicAPIKeyPassthrough(retryCtx, c, account, filteredBody, token)
+						releaseRetryCtx()
+						if buildErr == nil {
+							retryResp, retryErr := s.httpUpstream.DoWithTLS(retryReq, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
+							if retryErr == nil {
+								if retryResp.StatusCode < 400 {
+									if input.Parsed != nil {
+										if err := input.Parsed.ReplaceBody(retryWireBody); err != nil {
+											_ = retryResp.Body.Close()
+											return nil, err
+										}
+									}
+									input.Body = retryWireBody
+									resp = retryResp
+									break
+								}
+								_ = retryResp.Body.Close()
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 透传分支对其他 400 不做请求体降级重试；该重试会改写请求体。
 		if resp.StatusCode >= 400 && resp.StatusCode != 400 && s.shouldRetryUpstreamError(account, resp.StatusCode) {
 			if attempt < maxRetryAttempts {
 				elapsed := time.Since(retryStart)

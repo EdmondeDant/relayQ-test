@@ -1050,6 +1050,15 @@ func FilterSignatureSensitiveBlocksForRetry(body []byte) []byte {
 	return newBody
 }
 
+// isAnthropicMalformedRequestBody identifies the narrow upstream error that can
+// be repaired by removing incompatible historical message blocks. Other 400s
+// must remain client-visible and must not trigger a cross-account retry.
+func isAnthropicMalformedRequestBody(body []byte) bool {
+	message := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(body)))
+	return strings.Contains(message, "invalid request body") &&
+		strings.Contains(message, "malformed")
+}
+
 // filterThinkingBlocksInternal removes invalid thinking blocks from request
 // 策略：
 //   - 当 thinking.type 不是 "enabled"/"adaptive"：移除所有 thinking 相关块
