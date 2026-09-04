@@ -128,6 +128,13 @@ func (m *mockChannelRepository) GetGroupPlatforms(ctx context.Context, groupIDs 
 	return nil, nil
 }
 
+func (m *mockChannelRepository) GetModelPricing(ctx context.Context, groupID int64, model string) (*ChannelModelPricing, error) {
+	if m.getModelPricingFn != nil {
+		return m.getModelPricingFn(ctx, groupID, model)
+	}
+	return nil, nil
+}
+
 func (m *mockChannelRepository) ListModelPricing(ctx context.Context, channelID int64) ([]ChannelModelPricing, error) {
 	if m.listModelPricingFn != nil {
 		return m.listModelPricingFn(ctx, channelID)

@@ -149,9 +149,8 @@ func TestCanvasRoutingCatalogKeepsProviderCompatibleVideoModelsInOpenAIGroup(t *
 		"wan-2.7":         "wan-2.7",
 	}}}}}
 	channelRepo := &mockChannelRepository{
-		getModelPricingFn: func(_ context.Context, groupID int64, model string) (*ChannelModelPricing, error) {
-			require.Equal(t, group.ID, groupID)
-			return &ChannelModelPricing{Models: []string{model}, PerRequestPrice: &price}, nil
+		listAllFn: func(context.Context) ([]Channel, error) {
+			return []Channel{{ID: 1, Status: StatusActive, GroupIDs: []int64{group.ID}, ModelPricing: []ChannelModelPricing{{Platform: PlatformOpenAI, Models: []string{"kling-3.0", "kling-video-o-3", "wan-2.7"}, PerRequestPrice: &price}}}}, nil
 		},
 		getGroupPlatformsFn: func(context.Context, []int64) (map[int64]string, error) {
 			return map[int64]string{group.ID: PlatformOpenAI}, nil
