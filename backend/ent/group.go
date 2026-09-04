@@ -59,6 +59,14 @@ type Group struct {
 	ImagePrice2k *float64 `json:"image_price_2k,omitempty"`
 	// ImagePrice4k holds the value of the "image_price_4k" field.
 	ImagePrice4k *float64 `json:"image_price_4k,omitempty"`
+	// 搜索工具价格 per 1000 calls（web_search 等）
+	SearchPricePer1k *float64 `json:"search_price_per_1k,omitempty"`
+	// Voice realtime 每分钟价格（USD）
+	AudioRealtimePricePerMin *float64 `json:"audio_realtime_price_per_min,omitempty"`
+	// TTS 每百万字符价格（USD）
+	AudioTtsPricePerMillionChars *float64 `json:"audio_tts_price_per_million_chars,omitempty"`
+	// STT 每小时价格（USD）
+	AudioSttPricePerHour *float64 `json:"audio_stt_price_per_hour,omitempty"`
 	// 是否仅允许 Claude Code 客户端
 	ClaudeCodeOnly bool `json:"claude_code_only,omitempty"`
 	// 非 Claude Code 请求降级使用的分组 ID
@@ -221,7 +229,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
 			values[i] = new(sql.NullBool)
-		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
+		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k, group.FieldSearchPricePer1k, group.FieldAudioRealtimePricePerMin, group.FieldAudioTtsPricePerMillionChars, group.FieldAudioSttPricePerHour:
 			values[i] = new(sql.NullFloat64)
 		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
@@ -377,6 +385,34 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ImagePrice4k = new(float64)
 				*_m.ImagePrice4k = value.Float64
+			}
+		case group.FieldSearchPricePer1k:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field search_price_per_1k", values[i])
+			} else if value.Valid {
+				_m.SearchPricePer1k = new(float64)
+				*_m.SearchPricePer1k = value.Float64
+			}
+		case group.FieldAudioRealtimePricePerMin:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field audio_realtime_price_per_min", values[i])
+			} else if value.Valid {
+				_m.AudioRealtimePricePerMin = new(float64)
+				*_m.AudioRealtimePricePerMin = value.Float64
+			}
+		case group.FieldAudioTtsPricePerMillionChars:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field audio_tts_price_per_million_chars", values[i])
+			} else if value.Valid {
+				_m.AudioTtsPricePerMillionChars = new(float64)
+				*_m.AudioTtsPricePerMillionChars = value.Float64
+			}
+		case group.FieldAudioSttPricePerHour:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field audio_stt_price_per_hour", values[i])
+			} else if value.Valid {
+				_m.AudioSttPricePerHour = new(float64)
+				*_m.AudioSttPricePerHour = value.Float64
 			}
 		case group.FieldClaudeCodeOnly:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -637,6 +673,26 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	if v := _m.ImagePrice4k; v != nil {
 		builder.WriteString("image_price_4k=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.SearchPricePer1k; v != nil {
+		builder.WriteString("search_price_per_1k=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AudioRealtimePricePerMin; v != nil {
+		builder.WriteString("audio_realtime_price_per_min=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AudioTtsPricePerMillionChars; v != nil {
+		builder.WriteString("audio_tts_price_per_million_chars=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AudioSttPricePerHour; v != nil {
+		builder.WriteString("audio_stt_price_per_hour=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

@@ -33,6 +33,11 @@ type Group struct {
 	ImagePrice1K         *float64
 	ImagePrice2K         *float64
 	ImagePrice4K         *float64
+	// 搜索/音频显式定价；nil 使用默认价，显式 0 表示免费。
+	SearchPricePer1k             *float64
+	AudioRealtimePricePerMin     *float64
+	AudioTTSPricePerMillionChars *float64
+	AudioSTTPricePerHour         *float64
 
 	// Claude Code 客户端限制
 	ClaudeCodeOnly  bool

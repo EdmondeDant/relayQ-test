@@ -56,6 +56,14 @@ const (
 	FieldImagePrice2k = "image_price_2k"
 	// FieldImagePrice4k holds the string denoting the image_price_4k field in the database.
 	FieldImagePrice4k = "image_price_4k"
+	// FieldSearchPricePer1k holds the string denoting the search_price_per_1k field in the database.
+	FieldSearchPricePer1k = "search_price_per_1k"
+	// FieldAudioRealtimePricePerMin holds the string denoting the audio_realtime_price_per_min field in the database.
+	FieldAudioRealtimePricePerMin = "audio_realtime_price_per_min"
+	// FieldAudioTtsPricePerMillionChars holds the string denoting the audio_tts_price_per_million_chars field in the database.
+	FieldAudioTtsPricePerMillionChars = "audio_tts_price_per_million_chars"
+	// FieldAudioSttPricePerHour holds the string denoting the audio_stt_price_per_hour field in the database.
+	FieldAudioSttPricePerHour = "audio_stt_price_per_hour"
 	// FieldClaudeCodeOnly holds the string denoting the claude_code_only field in the database.
 	FieldClaudeCodeOnly = "claude_code_only"
 	// FieldFallbackGroupID holds the string denoting the fallback_group_id field in the database.
@@ -197,6 +205,10 @@ var Columns = []string{
 	FieldImagePrice1k,
 	FieldImagePrice2k,
 	FieldImagePrice4k,
+	FieldSearchPricePer1k,
+	FieldAudioRealtimePricePerMin,
+	FieldAudioTtsPricePerMillionChars,
+	FieldAudioSttPricePerHour,
 	FieldClaudeCodeOnly,
 	FieldFallbackGroupID,
 	FieldFallbackGroupIDOnInvalidRequest,
@@ -276,6 +288,14 @@ var (
 	DefaultImageRateIndependent bool
 	// DefaultImageRateMultiplier holds the default value on creation for the "image_rate_multiplier" field.
 	DefaultImageRateMultiplier float64
+	// SearchPricePer1kValidator is a validator for the "search_price_per_1k" field. It is called by the builders before save.
+	SearchPricePer1kValidator func(float64) error
+	// AudioRealtimePricePerMinValidator is a validator for the "audio_realtime_price_per_min" field. It is called by the builders before save.
+	AudioRealtimePricePerMinValidator func(float64) error
+	// AudioTtsPricePerMillionCharsValidator is a validator for the "audio_tts_price_per_million_chars" field. It is called by the builders before save.
+	AudioTtsPricePerMillionCharsValidator func(float64) error
+	// AudioSttPricePerHourValidator is a validator for the "audio_stt_price_per_hour" field. It is called by the builders before save.
+	AudioSttPricePerHourValidator func(float64) error
 	// DefaultClaudeCodeOnly holds the default value on creation for the "claude_code_only" field.
 	DefaultClaudeCodeOnly bool
 	// DefaultModelRoutingEnabled holds the default value on creation for the "model_routing_enabled" field.
@@ -410,6 +430,26 @@ func ByImagePrice2k(opts ...sql.OrderTermOption) OrderOption {
 // ByImagePrice4k orders the results by the image_price_4k field.
 func ByImagePrice4k(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldImagePrice4k, opts...).ToFunc()
+}
+
+// BySearchPricePer1k orders the results by the search_price_per_1k field.
+func BySearchPricePer1k(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSearchPricePer1k, opts...).ToFunc()
+}
+
+// ByAudioRealtimePricePerMin orders the results by the audio_realtime_price_per_min field.
+func ByAudioRealtimePricePerMin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioRealtimePricePerMin, opts...).ToFunc()
+}
+
+// ByAudioTtsPricePerMillionChars orders the results by the audio_tts_price_per_million_chars field.
+func ByAudioTtsPricePerMillionChars(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioTtsPricePerMillionChars, opts...).ToFunc()
+}
+
+// ByAudioSttPricePerHour orders the results by the audio_stt_price_per_hour field.
+func ByAudioSttPricePerHour(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioSttPricePerHour, opts...).ToFunc()
 }
 
 // ByClaudeCodeOnly orders the results by the claude_code_only field.

@@ -11,7 +11,13 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
-// APIKeyRateLimitCacheData holds rate limit usage data cached in Redis.
+const (
+	defaultSearchPricePer1k             = 10.0
+	defaultAudioRealtimePricePerMin     = 0.10
+	defaultAudioTTSPricePerMillionChars = 15.0
+	defaultAudioSTTPricePerHour         = 0.36
+)
+
 type APIKeyRateLimitCacheData struct {
 	Usage5h  float64 `json:"usage_5h"`
 	Usage1d  float64 `json:"usage_1d"`
@@ -874,6 +880,70 @@ type ImagePriceConfig struct {
 	Price1K *float64 // 1K 尺寸价格（nil 表示使用默认值）
 	Price2K *float64 // 2K 尺寸价格（nil 表示使用默认值）
 	Price4K *float64 // 4K 尺寸价格（nil 表示使用默认值）
+}
+
+// CalculateSearchCost bills search/tool invocations per 1k calls.
+// nil uses the non-zero default; explicit zero is free; negative prices are rejected as free.
+func (s *BillingService) CalculateSearchCost(numCalls int, groupPricePer1k *float64, rateMultiplier float64) *CostBreakdown {
+	if numCalls <= 0 {
+		return &CostBreakdown{}
+	}
+	price := defaultSearchPricePer1k
+	if groupPricePer1k != nil {
+		if *groupPricePer1k < 0 {
+			return &CostBreakdown{}
+		}
+		price = *groupPricePer1k
+	}
+	if price == 0 {
+		return &CostBreakdown{}
+	}
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
+	}
+	total := price * float64(numCalls) / 1000
+	return &CostBreakdown{TotalCost: total, ActualCost: total * rateMultiplier, BillingMode: string(BillingModePerRequest)}
+}
+
+type audioPriceConfig struct {
+	RealtimePerMin *float64
+	TTSPerMChars   *float64
+	STTPerHour     *float64
+}
+
+// CalculateAudioCost bills realtime minutes, TTS million-character units, or STT hours.
+func (s *BillingService) CalculateAudioCost(mode string, units float64, cfg *audioPriceConfig, rateMultiplier float64) *CostBreakdown {
+	if units <= 0 {
+		return &CostBreakdown{}
+	}
+	price := 0.0
+	switch strings.ToLower(mode) {
+	case "realtime":
+		price = defaultAudioRealtimePricePerMin
+		if cfg != nil && cfg.RealtimePerMin != nil {
+			price = *cfg.RealtimePerMin
+		}
+	case "tts":
+		price = defaultAudioTTSPricePerMillionChars
+		if cfg != nil && cfg.TTSPerMChars != nil {
+			price = *cfg.TTSPerMChars
+		}
+	case "stt":
+		price = defaultAudioSTTPricePerHour
+		if cfg != nil && cfg.STTPerHour != nil {
+			price = *cfg.STTPerHour
+		}
+	default:
+		return &CostBreakdown{}
+	}
+	if price < 0 || price == 0 {
+		return &CostBreakdown{}
+	}
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
+	}
+	total := price * units
+	return &CostBreakdown{TotalCost: total, ActualCost: total * rateMultiplier, BillingMode: string(BillingModePerRequest)}
 }
 
 // CalculateImageCost 计算图片生成费用
