@@ -9053,11 +9053,48 @@ func (s *GatewayService) calculateRecordUsageCost(
 ) (*CostBreakdown, error) {
 	// 图片生成计费
 	if result.ImageCount > 0 {
-		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
+		var imageCost *CostBreakdown
+		var err error
+		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil && resolved.Mode == BillingModeToken {
+			imageCost, err = s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+		} else {
+			imageCost, err = s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if result.SearchCount > 0 {
+			searchCost := s.billingService.CalculateSearchCost(result.SearchCount, groupSearchPricePer1kFromAPIKey(apiKey), multiplier)
+			imageCost.TotalCost += searchCost.TotalCost
+			imageCost.ActualCost += searchCost.ActualCost
+		}
+		return imageCost, nil
 	}
 
-	// Token 计费
-	return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+	// Voice audio is mode-priced and must not fall through to token pricing.
+	if result.AudioUsage != nil {
+		return s.billingService.CalculateAudioCost(result.AudioUsage.Mode, result.AudioUsage.DurationOrUnits,
+			groupAudioPriceConfigFromAPIKey(apiKey), multiplier), nil
+	}
+
+	// SearchCount is an additive surcharge. A search-only request may be billed
+	// without a token model, but a token pricing error must remain visible.
+	searchCost := (*CostBreakdown)(nil)
+	if result.SearchCount > 0 {
+		searchCost = s.billingService.CalculateSearchCost(result.SearchCount, groupSearchPricePer1kFromAPIKey(apiKey), multiplier)
+	}
+	tokenCost, err := s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+	if err != nil {
+		if result.SearchCount > 0 && strings.TrimSpace(billingModel) == "" {
+			return searchCost, nil
+		}
+		return nil, err
+	}
+	if searchCost != nil {
+		tokenCost.TotalCost += searchCost.TotalCost
+		tokenCost.ActualCost += searchCost.ActualCost
+	}
+	return tokenCost, nil
 }
 
 // resolveChannelPricing 检查指定模型是否存在渠道级别定价。

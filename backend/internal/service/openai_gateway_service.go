@@ -6060,10 +6060,28 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	serviceTier string,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
+	if result != nil && result.AudioUsage != nil {
+		return s.billingService.CalculateAudioCost(result.AudioUsage.Mode, result.AudioUsage.DurationOrUnits,
+			groupAudioPriceConfigFromAPIKey(apiKey), multiplier), nil
+	}
 	if result != nil && result.ImageCount > 0 {
-		return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
+		cost := s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier)
+		if result.SearchCount > 0 {
+			searchCost := s.billingService.CalculateSearchCost(result.SearchCount, groupSearchPricePer1kFromAPIKey(apiKey), multiplier)
+			cost.TotalCost += searchCost.TotalCost
+			cost.ActualCost += searchCost.ActualCost
+		}
+		return cost, nil
+	}
+
+	var searchCost *CostBreakdown
+	if result != nil && result.SearchCount > 0 {
+		searchCost = s.billingService.CalculateSearchCost(result.SearchCount, groupSearchPricePer1kFromAPIKey(apiKey), multiplier)
 	}
 	if len(billingModels) == 0 || billingModel == "" {
+		if searchCost != nil {
+			return searchCost, nil
+		}
 		return nil, errors.New("openai usage billing model is empty")
 	}
 	var lastErr error
@@ -6074,6 +6092,10 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		}
 		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier)
 		if err == nil {
+			if searchCost != nil {
+				cost.TotalCost += searchCost.TotalCost
+				cost.ActualCost += searchCost.ActualCost
+			}
 			return cost, nil
 		}
 		lastErr = err
