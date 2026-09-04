@@ -34,7 +34,50 @@ func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
 	require.InDelta(t, 5e-6, pricing.InputCostPerTokenPriority, 1e-12)
 	require.InDelta(t, 3e-5, pricing.OutputCostPerTokenPriority, 1e-12)
 	require.InDelta(t, 5e-7, pricing.CacheReadInputTokenCostPriority, 1e-12)
+	require.InDelta(t, 2.5e-6, pricing.CacheCreationInputTokenCost, 1e-12)
 	require.True(t, pricing.SupportsServiceTier)
+}
+
+func TestParsePricingData_ParsesImageInputPriceFields(t *testing.T) {
+	data, err := (&PricingService{}).parsePricingData([]byte(`{
+		"gpt-image-2": {
+			"input_cost_per_image": 0.0011,
+			"input_cost_per_image_token": 0.000008,
+			"output_cost_per_image": 0.134,
+			"output_cost_per_image_token": 0.00003,
+			"mode": "image_generation"
+		}
+	}`))
+	require.NoError(t, err)
+	pricing := data["gpt-image-2"]
+	require.NotNil(t, pricing)
+	require.InDelta(t, 0.0011, pricing.InputCostPerImage, 1e-12)
+	require.InDelta(t, 8e-6, pricing.InputCostPerImageToken, 1e-12)
+	require.InDelta(t, 0.134, pricing.OutputCostPerImage, 1e-12)
+}
+
+func TestDefaultCatalogIncludesUpstreamModelPrices(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+	data, err := (&PricingService{}).parsePricingData(body)
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		model               string
+		input, output, read float64
+	}{
+		{"claude-opus-5", 5e-6, 25e-6, 0.5e-6},
+		{"deepseek-v4-flash", 0.22e-6, 0.66e-6, 0.007e-6},
+		{"deepseek-v4-pro", 0.66e-6, 1.98e-6, 0.022e-6},
+		{"gemini-3.6-flash", 1.5e-6, 7.5e-6, 0.15e-6},
+		{"gpt-5.6-sol", 5e-6, 30e-6, 0.5e-6},
+	} {
+		pricing := data[tt.model]
+		require.NotNil(t, pricing, tt.model)
+		require.InDelta(t, tt.input, pricing.InputCostPerToken, 1e-15, tt.model)
+		require.InDelta(t, tt.output, pricing.OutputCostPerToken, 1e-15, tt.model)
+		require.InDelta(t, tt.read, pricing.CacheReadInputTokenCost, 1e-15, tt.model)
+	}
 }
 
 func TestGetModelPricing_Gpt53CodexSparkUsesGpt51CodexPricing(t *testing.T) {
