@@ -2611,7 +2611,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 
 	instructions := gjson.GetBytes(body, "instructions")
 	instructionsEmpty := !instructions.Exists() || instructions.Type != gjson.String || strings.TrimSpace(instructions.String()) == ""
-	if instructionsEmpty && !compatMessagesBridge {
+	if instructionsEmpty && isCodexCLI && !compatMessagesBridge {
 		markPatchSet("instructions", "You are a helpful coding assistant.")
 	}
 

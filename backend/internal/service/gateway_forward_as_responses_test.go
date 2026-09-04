@@ -3,6 +3,7 @@
 package service
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAppendRawJSON_EmptyObjectPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	fragment := `{"query":"status"}`
+	require.JSONEq(t, fragment, string(appendRawJSON(json.RawMessage("{ \n\t }"), fragment)))
+	require.Equal(t, `{"existing":true}{"query":"status"}`, string(appendRawJSON(json.RawMessage(`{"existing":true}`), fragment)))
+}
 
 func TestExtractResponsesReasoningEffortFromBody(t *testing.T) {
 	t.Parallel()
