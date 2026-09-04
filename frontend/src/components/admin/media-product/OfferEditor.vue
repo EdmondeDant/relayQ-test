@@ -47,7 +47,10 @@ function add() {
   emit('update:modelValue', [...props.modelValue, { provider: 'openai', source_group_id: 0, upstream_model: '', enabled: true, priority: 100, operations: ['generations'], capabilities: {}, cost_rules: {}, cost_source: '', cost_version: 'v1', verified_at: now.toISOString(), expires_at: new Date(now.getTime() + 30 * 86400000).toISOString() }])
 }
 function remove(index: number) { emit('update:modelValue', props.modelValue.filter((_, itemIndex) => itemIndex !== index)) }
-function syncOperations(index: number) { props.modelValue[index].operations = operationText.value[index].split(',').map(value => value.trim()).filter(Boolean) }
+function syncOperations(index: number) {
+  const operations = operationText.value[index].split(',').map(value => value.trim()).filter(Boolean)
+  emit('update:modelValue', props.modelValue.map((offer, offerIndex) => offerIndex === index ? { ...offer, operations } : offer))
+}
 function setJSON(offer: MediaOffer, key: 'capabilities' | 'cost_rules', event: Event) { try { offer[key] = JSON.parse((event.target as HTMLTextAreaElement).value) } catch { emit('error', t('admin.mediaProducts.invalidJSON')) } }
 function setDate(offer: MediaOffer, key: 'verified_at' | 'expires_at', event: Event) { offer[key] = new Date((event.target as HTMLInputElement).value).toISOString() }
 </script>

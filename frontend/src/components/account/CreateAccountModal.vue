@@ -4704,9 +4704,9 @@ const handleSubmit = async () => {
   }
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）
-  if (!isOpenAIModelRestrictionDisabled.value) {
+  if (form.platform !== 'leonardo' && !isOpenAIModelRestrictionDisabled.value) {
 		const models = allowedModels.value
-    const modelMapping = buildModelMappingObject(form.platform === 'leonardo' ? 'whitelist' : modelRestrictionMode.value, models, modelMappings.value)
+    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, models, modelMappings.value)
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     }
