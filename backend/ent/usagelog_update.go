@@ -1019,6 +1019,74 @@ func (_u *UsageLogUpdate) ClearImageSizeBreakdown() *UsageLogUpdate {
 	return _u
 }
 
+// SetSearchCount sets the "search_count" field.
+func (_u *UsageLogUpdate) SetSearchCount(v int) *UsageLogUpdate {
+	_u.mutation.ResetSearchCount()
+	_u.mutation.SetSearchCount(v)
+	return _u
+}
+
+// SetNillableSearchCount sets the "search_count" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableSearchCount(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetSearchCount(*v)
+	}
+	return _u
+}
+
+// AddSearchCount adds value to the "search_count" field.
+func (_u *UsageLogUpdate) AddSearchCount(v int) *UsageLogUpdate {
+	_u.mutation.AddSearchCount(v)
+	return _u
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (_u *UsageLogUpdate) SetAudioMode(v string) *UsageLogUpdate {
+	_u.mutation.SetAudioMode(v)
+	return _u
+}
+
+// SetNillableAudioMode sets the "audio_mode" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableAudioMode(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetAudioMode(*v)
+	}
+	return _u
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (_u *UsageLogUpdate) ClearAudioMode() *UsageLogUpdate {
+	_u.mutation.ClearAudioMode()
+	return _u
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (_u *UsageLogUpdate) SetAudioUnits(v float64) *UsageLogUpdate {
+	_u.mutation.ResetAudioUnits()
+	_u.mutation.SetAudioUnits(v)
+	return _u
+}
+
+// SetNillableAudioUnits sets the "audio_units" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableAudioUnits(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetAudioUnits(*v)
+	}
+	return _u
+}
+
+// AddAudioUnits adds value to the "audio_units" field.
+func (_u *UsageLogUpdate) AddAudioUnits(v float64) *UsageLogUpdate {
+	_u.mutation.AddAudioUnits(v)
+	return _u
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (_u *UsageLogUpdate) ClearAudioUnits() *UsageLogUpdate {
+	_u.mutation.ClearAudioUnits()
+	return _u
+}
+
 // SetCacheTTLOverridden sets the "cache_ttl_overridden" field.
 func (_u *UsageLogUpdate) SetCacheTTLOverridden(v bool) *UsageLogUpdate {
 	_u.mutation.SetCacheTTLOverridden(v)
@@ -1210,6 +1278,11 @@ func (_u *UsageLogUpdate) check() error {
 	if v, ok := _u.mutation.ImageSizeSource(); ok {
 		if err := usagelog.ImageSizeSourceValidator(v); err != nil {
 			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AudioMode(); ok {
+		if err := usagelog.AudioModeValidator(v); err != nil {
+			return &ValidationError{Name: "audio_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.audio_mode": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
@@ -1508,6 +1581,27 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ImageSizeBreakdownCleared() {
 		_spec.ClearField(usagelog.FieldImageSizeBreakdown, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.SearchCount(); ok {
+		_spec.SetField(usagelog.FieldSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSearchCount(); ok {
+		_spec.AddField(usagelog.FieldSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AudioMode(); ok {
+		_spec.SetField(usagelog.FieldAudioMode, field.TypeString, value)
+	}
+	if _u.mutation.AudioModeCleared() {
+		_spec.ClearField(usagelog.FieldAudioMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.AudioUnits(); ok {
+		_spec.SetField(usagelog.FieldAudioUnits, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioUnits(); ok {
+		_spec.AddField(usagelog.FieldAudioUnits, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioUnitsCleared() {
+		_spec.ClearField(usagelog.FieldAudioUnits, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)
@@ -2664,6 +2758,74 @@ func (_u *UsageLogUpdateOne) ClearImageSizeBreakdown() *UsageLogUpdateOne {
 	return _u
 }
 
+// SetSearchCount sets the "search_count" field.
+func (_u *UsageLogUpdateOne) SetSearchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetSearchCount()
+	_u.mutation.SetSearchCount(v)
+	return _u
+}
+
+// SetNillableSearchCount sets the "search_count" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableSearchCount(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetSearchCount(*v)
+	}
+	return _u
+}
+
+// AddSearchCount adds value to the "search_count" field.
+func (_u *UsageLogUpdateOne) AddSearchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.AddSearchCount(v)
+	return _u
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (_u *UsageLogUpdateOne) SetAudioMode(v string) *UsageLogUpdateOne {
+	_u.mutation.SetAudioMode(v)
+	return _u
+}
+
+// SetNillableAudioMode sets the "audio_mode" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableAudioMode(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetAudioMode(*v)
+	}
+	return _u
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (_u *UsageLogUpdateOne) ClearAudioMode() *UsageLogUpdateOne {
+	_u.mutation.ClearAudioMode()
+	return _u
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (_u *UsageLogUpdateOne) SetAudioUnits(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetAudioUnits()
+	_u.mutation.SetAudioUnits(v)
+	return _u
+}
+
+// SetNillableAudioUnits sets the "audio_units" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableAudioUnits(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetAudioUnits(*v)
+	}
+	return _u
+}
+
+// AddAudioUnits adds value to the "audio_units" field.
+func (_u *UsageLogUpdateOne) AddAudioUnits(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddAudioUnits(v)
+	return _u
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (_u *UsageLogUpdateOne) ClearAudioUnits() *UsageLogUpdateOne {
+	_u.mutation.ClearAudioUnits()
+	return _u
+}
+
 // SetCacheTTLOverridden sets the "cache_ttl_overridden" field.
 func (_u *UsageLogUpdateOne) SetCacheTTLOverridden(v bool) *UsageLogUpdateOne {
 	_u.mutation.SetCacheTTLOverridden(v)
@@ -2868,6 +3030,11 @@ func (_u *UsageLogUpdateOne) check() error {
 	if v, ok := _u.mutation.ImageSizeSource(); ok {
 		if err := usagelog.ImageSizeSourceValidator(v); err != nil {
 			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AudioMode(); ok {
+		if err := usagelog.AudioModeValidator(v); err != nil {
+			return &ValidationError{Name: "audio_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.audio_mode": %w`, err)}
 		}
 	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
@@ -3183,6 +3350,27 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.ImageSizeBreakdownCleared() {
 		_spec.ClearField(usagelog.FieldImageSizeBreakdown, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.SearchCount(); ok {
+		_spec.SetField(usagelog.FieldSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSearchCount(); ok {
+		_spec.AddField(usagelog.FieldSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AudioMode(); ok {
+		_spec.SetField(usagelog.FieldAudioMode, field.TypeString, value)
+	}
+	if _u.mutation.AudioModeCleared() {
+		_spec.ClearField(usagelog.FieldAudioMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.AudioUnits(); ok {
+		_spec.SetField(usagelog.FieldAudioUnits, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioUnits(); ok {
+		_spec.AddField(usagelog.FieldAudioUnits, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioUnitsCleared() {
+		_spec.ClearField(usagelog.FieldAudioUnits, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)

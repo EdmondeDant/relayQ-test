@@ -110,6 +110,12 @@ const (
 	FieldImageSizeSource = "image_size_source"
 	// FieldImageSizeBreakdown holds the string denoting the image_size_breakdown field in the database.
 	FieldImageSizeBreakdown = "image_size_breakdown"
+	// FieldSearchCount holds the string denoting the search_count field in the database.
+	FieldSearchCount = "search_count"
+	// FieldAudioMode holds the string denoting the audio_mode field in the database.
+	FieldAudioMode = "audio_mode"
+	// FieldAudioUnits holds the string denoting the audio_units field in the database.
+	FieldAudioUnits = "audio_units"
 	// FieldCacheTTLOverridden holds the string denoting the cache_ttl_overridden field in the database.
 	FieldCacheTTLOverridden = "cache_ttl_overridden"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -214,6 +220,9 @@ var Columns = []string{
 	FieldImageOutputSize,
 	FieldImageSizeSource,
 	FieldImageSizeBreakdown,
+	FieldSearchCount,
+	FieldAudioMode,
+	FieldAudioUnits,
 	FieldCacheTTLOverridden,
 	FieldCreatedAt,
 }
@@ -297,6 +306,10 @@ var (
 	ImageOutputSizeValidator func(string) error
 	// ImageSizeSourceValidator is a validator for the "image_size_source" field. It is called by the builders before save.
 	ImageSizeSourceValidator func(string) error
+	// DefaultSearchCount holds the default value on creation for the "search_count" field.
+	DefaultSearchCount int
+	// AudioModeValidator is a validator for the "audio_mode" field. It is called by the builders before save.
+	AudioModeValidator func(string) error
 	// DefaultCacheTTLOverridden holds the default value on creation for the "cache_ttl_overridden" field.
 	DefaultCacheTTLOverridden bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -544,6 +557,21 @@ func ByImageOutputSize(opts ...sql.OrderTermOption) OrderOption {
 // ByImageSizeSource orders the results by the image_size_source field.
 func ByImageSizeSource(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldImageSizeSource, opts...).ToFunc()
+}
+
+// BySearchCount orders the results by the search_count field.
+func BySearchCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSearchCount, opts...).ToFunc()
+}
+
+// ByAudioMode orders the results by the audio_mode field.
+func ByAudioMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioMode, opts...).ToFunc()
+}
+
+// ByAudioUnits orders the results by the audio_units field.
+func ByAudioUnits(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioUnits, opts...).ToFunc()
 }
 
 // ByCacheTTLOverridden orders the results by the cache_ttl_overridden field.

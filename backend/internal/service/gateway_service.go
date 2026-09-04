@@ -532,6 +532,12 @@ type ClaudeUsage struct {
 	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
 }
 
+// AudioUsage carries mode-specific Voice usage units.
+type AudioUsage struct {
+	Mode            string
+	DurationOrUnits float64
+}
+
 // ForwardResult 转发结果
 type ForwardResult struct {
 	RequestID string
@@ -554,6 +560,8 @@ type ForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
+	SearchCount        int
+	AudioUsage         *AudioUsage
 }
 
 // UpstreamFailoverError indicates an upstream error that should trigger account failover.
@@ -9218,6 +9226,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		ImageOutputSize:       optionalTrimmedStringPtr(result.ImageOutputSize),
 		ImageSizeSource:       optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:    result.ImageSizeBreakdown,
+		SearchCount:           result.SearchCount,
 		CacheTTLOverridden:    cacheTTLOverridden,
 		ChannelID:             optionalInt64Ptr(input.ChannelID),
 		ModelMappingChain:     optionalTrimmedStringPtr(input.ModelMappingChain),
@@ -9226,6 +9235,10 @@ func (s *GatewayService) buildRecordUsageLog(
 		GroupID:               apiKey.GroupID,
 		SubscriptionID:        optionalSubscriptionID(subscription),
 		CreatedAt:             time.Now(),
+	}
+	if result.AudioUsage != nil {
+		usageLog.AudioMode = optionalTrimmedStringPtr(result.AudioUsage.Mode)
+		usageLog.AudioUnits = &result.AudioUsage.DurationOrUnits
 	}
 	if result.ImageCount > 0 {
 		usageLog.RateMultiplier = imageMultiplier

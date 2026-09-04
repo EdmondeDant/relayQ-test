@@ -290,6 +290,21 @@ func ImageSizeSource(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldImageSizeSource, v))
 }
 
+// SearchCount applies equality check predicate on the "search_count" field. It's identical to SearchCountEQ.
+func SearchCount(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSearchCount, v))
+}
+
+// AudioMode applies equality check predicate on the "audio_mode" field. It's identical to AudioModeEQ.
+func AudioMode(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldAudioMode, v))
+}
+
+// AudioUnits applies equality check predicate on the "audio_units" field. It's identical to AudioUnitsEQ.
+func AudioUnits(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldAudioUnits, v))
+}
+
 // CacheTTLOverridden applies equality check predicate on the "cache_ttl_overridden" field. It's identical to CacheTTLOverriddenEQ.
 func CacheTTLOverridden(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldCacheTTLOverridden, v))
@@ -2768,6 +2783,171 @@ func ImageSizeBreakdownIsNil() predicate.UsageLog {
 // ImageSizeBreakdownNotNil applies the NotNil predicate on the "image_size_breakdown" field.
 func ImageSizeBreakdownNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldImageSizeBreakdown))
+}
+
+// SearchCountEQ applies the EQ predicate on the "search_count" field.
+func SearchCountEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSearchCount, v))
+}
+
+// SearchCountNEQ applies the NEQ predicate on the "search_count" field.
+func SearchCountNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldSearchCount, v))
+}
+
+// SearchCountIn applies the In predicate on the "search_count" field.
+func SearchCountIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldSearchCount, vs...))
+}
+
+// SearchCountNotIn applies the NotIn predicate on the "search_count" field.
+func SearchCountNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldSearchCount, vs...))
+}
+
+// SearchCountGT applies the GT predicate on the "search_count" field.
+func SearchCountGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldSearchCount, v))
+}
+
+// SearchCountGTE applies the GTE predicate on the "search_count" field.
+func SearchCountGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldSearchCount, v))
+}
+
+// SearchCountLT applies the LT predicate on the "search_count" field.
+func SearchCountLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldSearchCount, v))
+}
+
+// SearchCountLTE applies the LTE predicate on the "search_count" field.
+func SearchCountLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldSearchCount, v))
+}
+
+// AudioModeEQ applies the EQ predicate on the "audio_mode" field.
+func AudioModeEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldAudioMode, v))
+}
+
+// AudioModeNEQ applies the NEQ predicate on the "audio_mode" field.
+func AudioModeNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldAudioMode, v))
+}
+
+// AudioModeIn applies the In predicate on the "audio_mode" field.
+func AudioModeIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldAudioMode, vs...))
+}
+
+// AudioModeNotIn applies the NotIn predicate on the "audio_mode" field.
+func AudioModeNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldAudioMode, vs...))
+}
+
+// AudioModeGT applies the GT predicate on the "audio_mode" field.
+func AudioModeGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldAudioMode, v))
+}
+
+// AudioModeGTE applies the GTE predicate on the "audio_mode" field.
+func AudioModeGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldAudioMode, v))
+}
+
+// AudioModeLT applies the LT predicate on the "audio_mode" field.
+func AudioModeLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldAudioMode, v))
+}
+
+// AudioModeLTE applies the LTE predicate on the "audio_mode" field.
+func AudioModeLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldAudioMode, v))
+}
+
+// AudioModeContains applies the Contains predicate on the "audio_mode" field.
+func AudioModeContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldAudioMode, v))
+}
+
+// AudioModeHasPrefix applies the HasPrefix predicate on the "audio_mode" field.
+func AudioModeHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldAudioMode, v))
+}
+
+// AudioModeHasSuffix applies the HasSuffix predicate on the "audio_mode" field.
+func AudioModeHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldAudioMode, v))
+}
+
+// AudioModeIsNil applies the IsNil predicate on the "audio_mode" field.
+func AudioModeIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldAudioMode))
+}
+
+// AudioModeNotNil applies the NotNil predicate on the "audio_mode" field.
+func AudioModeNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldAudioMode))
+}
+
+// AudioModeEqualFold applies the EqualFold predicate on the "audio_mode" field.
+func AudioModeEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldAudioMode, v))
+}
+
+// AudioModeContainsFold applies the ContainsFold predicate on the "audio_mode" field.
+func AudioModeContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldAudioMode, v))
+}
+
+// AudioUnitsEQ applies the EQ predicate on the "audio_units" field.
+func AudioUnitsEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldAudioUnits, v))
+}
+
+// AudioUnitsNEQ applies the NEQ predicate on the "audio_units" field.
+func AudioUnitsNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldAudioUnits, v))
+}
+
+// AudioUnitsIn applies the In predicate on the "audio_units" field.
+func AudioUnitsIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldAudioUnits, vs...))
+}
+
+// AudioUnitsNotIn applies the NotIn predicate on the "audio_units" field.
+func AudioUnitsNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldAudioUnits, vs...))
+}
+
+// AudioUnitsGT applies the GT predicate on the "audio_units" field.
+func AudioUnitsGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldAudioUnits, v))
+}
+
+// AudioUnitsGTE applies the GTE predicate on the "audio_units" field.
+func AudioUnitsGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldAudioUnits, v))
+}
+
+// AudioUnitsLT applies the LT predicate on the "audio_units" field.
+func AudioUnitsLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldAudioUnits, v))
+}
+
+// AudioUnitsLTE applies the LTE predicate on the "audio_units" field.
+func AudioUnitsLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldAudioUnits, v))
+}
+
+// AudioUnitsIsNil applies the IsNil predicate on the "audio_units" field.
+func AudioUnitsIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldAudioUnits))
+}
+
+// AudioUnitsNotNil applies the NotNil predicate on the "audio_units" field.
+func AudioUnitsNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldAudioUnits))
 }
 
 // CacheTTLOverriddenEQ applies the EQ predicate on the "cache_ttl_overridden" field.

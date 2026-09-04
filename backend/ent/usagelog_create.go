@@ -651,6 +651,48 @@ func (_c *UsageLogCreate) SetImageSizeBreakdown(v map[string]int) *UsageLogCreat
 	return _c
 }
 
+// SetSearchCount sets the "search_count" field.
+func (_c *UsageLogCreate) SetSearchCount(v int) *UsageLogCreate {
+	_c.mutation.SetSearchCount(v)
+	return _c
+}
+
+// SetNillableSearchCount sets the "search_count" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableSearchCount(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetSearchCount(*v)
+	}
+	return _c
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (_c *UsageLogCreate) SetAudioMode(v string) *UsageLogCreate {
+	_c.mutation.SetAudioMode(v)
+	return _c
+}
+
+// SetNillableAudioMode sets the "audio_mode" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAudioMode(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetAudioMode(*v)
+	}
+	return _c
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (_c *UsageLogCreate) SetAudioUnits(v float64) *UsageLogCreate {
+	_c.mutation.SetAudioUnits(v)
+	return _c
+}
+
+// SetNillableAudioUnits sets the "audio_units" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAudioUnits(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetAudioUnits(*v)
+	}
+	return _c
+}
+
 // SetCacheTTLOverridden sets the "cache_ttl_overridden" field.
 func (_c *UsageLogCreate) SetCacheTTLOverridden(v bool) *UsageLogCreate {
 	_c.mutation.SetCacheTTLOverridden(v)
@@ -802,6 +844,10 @@ func (_c *UsageLogCreate) defaults() {
 	if _, ok := _c.mutation.ImageCount(); !ok {
 		v := usagelog.DefaultImageCount
 		_c.mutation.SetImageCount(v)
+	}
+	if _, ok := _c.mutation.SearchCount(); !ok {
+		v := usagelog.DefaultSearchCount
+		_c.mutation.SetSearchCount(v)
 	}
 	if _, ok := _c.mutation.CacheTTLOverridden(); !ok {
 		v := usagelog.DefaultCacheTTLOverridden
@@ -966,6 +1012,14 @@ func (_c *UsageLogCreate) check() error {
 	if v, ok := _c.mutation.ImageSizeSource(); ok {
 		if err := usagelog.ImageSizeSourceValidator(v); err != nil {
 			return &ValidationError{Name: "image_size_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.image_size_source": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SearchCount(); !ok {
+		return &ValidationError{Name: "search_count", err: errors.New(`ent: missing required field "UsageLog.search_count"`)}
+	}
+	if v, ok := _c.mutation.AudioMode(); ok {
+		if err := usagelog.AudioModeValidator(v); err != nil {
+			return &ValidationError{Name: "audio_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.audio_mode": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CacheTTLOverridden(); !ok {
@@ -1181,6 +1235,18 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ImageSizeBreakdown(); ok {
 		_spec.SetField(usagelog.FieldImageSizeBreakdown, field.TypeJSON, value)
 		_node.ImageSizeBreakdown = value
+	}
+	if value, ok := _c.mutation.SearchCount(); ok {
+		_spec.SetField(usagelog.FieldSearchCount, field.TypeInt, value)
+		_node.SearchCount = value
+	}
+	if value, ok := _c.mutation.AudioMode(); ok {
+		_spec.SetField(usagelog.FieldAudioMode, field.TypeString, value)
+		_node.AudioMode = &value
+	}
+	if value, ok := _c.mutation.AudioUnits(); ok {
+		_spec.SetField(usagelog.FieldAudioUnits, field.TypeFloat64, value)
+		_node.AudioUnits = &value
 	}
 	if value, ok := _c.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)
@@ -2200,6 +2266,66 @@ func (u *UsageLogUpsert) UpdateImageSizeBreakdown() *UsageLogUpsert {
 // ClearImageSizeBreakdown clears the value of the "image_size_breakdown" field.
 func (u *UsageLogUpsert) ClearImageSizeBreakdown() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldImageSizeBreakdown)
+	return u
+}
+
+// SetSearchCount sets the "search_count" field.
+func (u *UsageLogUpsert) SetSearchCount(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldSearchCount, v)
+	return u
+}
+
+// UpdateSearchCount sets the "search_count" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateSearchCount() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldSearchCount)
+	return u
+}
+
+// AddSearchCount adds v to the "search_count" field.
+func (u *UsageLogUpsert) AddSearchCount(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldSearchCount, v)
+	return u
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (u *UsageLogUpsert) SetAudioMode(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldAudioMode, v)
+	return u
+}
+
+// UpdateAudioMode sets the "audio_mode" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateAudioMode() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldAudioMode)
+	return u
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (u *UsageLogUpsert) ClearAudioMode() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldAudioMode)
+	return u
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (u *UsageLogUpsert) SetAudioUnits(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldAudioUnits, v)
+	return u
+}
+
+// UpdateAudioUnits sets the "audio_units" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateAudioUnits() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldAudioUnits)
+	return u
+}
+
+// AddAudioUnits adds v to the "audio_units" field.
+func (u *UsageLogUpsert) AddAudioUnits(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldAudioUnits, v)
+	return u
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (u *UsageLogUpsert) ClearAudioUnits() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldAudioUnits)
 	return u
 }
 
@@ -3279,6 +3405,76 @@ func (u *UsageLogUpsertOne) UpdateImageSizeBreakdown() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearImageSizeBreakdown() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearImageSizeBreakdown()
+	})
+}
+
+// SetSearchCount sets the "search_count" field.
+func (u *UsageLogUpsertOne) SetSearchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSearchCount(v)
+	})
+}
+
+// AddSearchCount adds v to the "search_count" field.
+func (u *UsageLogUpsertOne) AddSearchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddSearchCount(v)
+	})
+}
+
+// UpdateSearchCount sets the "search_count" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateSearchCount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSearchCount()
+	})
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (u *UsageLogUpsertOne) SetAudioMode(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAudioMode(v)
+	})
+}
+
+// UpdateAudioMode sets the "audio_mode" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateAudioMode() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAudioMode()
+	})
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (u *UsageLogUpsertOne) ClearAudioMode() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAudioMode()
+	})
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (u *UsageLogUpsertOne) SetAudioUnits(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAudioUnits(v)
+	})
+}
+
+// AddAudioUnits adds v to the "audio_units" field.
+func (u *UsageLogUpsertOne) AddAudioUnits(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddAudioUnits(v)
+	})
+}
+
+// UpdateAudioUnits sets the "audio_units" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateAudioUnits() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAudioUnits()
+	})
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (u *UsageLogUpsertOne) ClearAudioUnits() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAudioUnits()
 	})
 }
 
@@ -4526,6 +4722,76 @@ func (u *UsageLogUpsertBulk) UpdateImageSizeBreakdown() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearImageSizeBreakdown() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearImageSizeBreakdown()
+	})
+}
+
+// SetSearchCount sets the "search_count" field.
+func (u *UsageLogUpsertBulk) SetSearchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSearchCount(v)
+	})
+}
+
+// AddSearchCount adds v to the "search_count" field.
+func (u *UsageLogUpsertBulk) AddSearchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddSearchCount(v)
+	})
+}
+
+// UpdateSearchCount sets the "search_count" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateSearchCount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSearchCount()
+	})
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (u *UsageLogUpsertBulk) SetAudioMode(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAudioMode(v)
+	})
+}
+
+// UpdateAudioMode sets the "audio_mode" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateAudioMode() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAudioMode()
+	})
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (u *UsageLogUpsertBulk) ClearAudioMode() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAudioMode()
+	})
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (u *UsageLogUpsertBulk) SetAudioUnits(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAudioUnits(v)
+	})
+}
+
+// AddAudioUnits adds v to the "audio_units" field.
+func (u *UsageLogUpsertBulk) AddAudioUnits(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddAudioUnits(v)
+	})
+}
+
+// UpdateAudioUnits sets the "audio_units" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateAudioUnits() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAudioUnits()
+	})
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (u *UsageLogUpsertBulk) ClearAudioUnits() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAudioUnits()
 	})
 }
 

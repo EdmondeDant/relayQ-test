@@ -265,6 +265,8 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
+	SearchCount        int
+	AudioUsage         *AudioUsage
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool
@@ -5950,6 +5952,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageOutputSize:     optionalTrimmedStringPtr(result.ImageOutputSize),
 		ImageSizeSource:     optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:  result.ImageSizeBreakdown,
+		SearchCount:         result.SearchCount,
+	}
+	if result.AudioUsage != nil {
+		usageLog.AudioMode = optionalTrimmedStringPtr(result.AudioUsage.Mode)
+		usageLog.AudioUnits = &result.AudioUsage.DurationOrUnits
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost

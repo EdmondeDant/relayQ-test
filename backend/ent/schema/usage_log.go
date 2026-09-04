@@ -158,6 +158,16 @@ func (UsageLog) Fields() []ent.Field {
 		field.JSON("image_size_breakdown", map[string]int{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.Int("search_count").
+			Default(0),
+		field.String("audio_mode").
+			MaxLen(16).
+			Optional().
+			Nillable(),
+		field.Float("audio_units").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 		// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 		field.Bool("cache_ttl_overridden").
 			Default(false),

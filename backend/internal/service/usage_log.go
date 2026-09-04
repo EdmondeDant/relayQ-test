@@ -179,6 +179,13 @@ type UsageLog struct {
 	ImageSizeBreakdown map[string]int
 	MediaType          *string
 
+	// SearchCount records successful native web search calls for this request.
+	SearchCount int
+	// AudioMode identifies Voice usage (realtime, tts, or stt).
+	AudioMode *string
+	// AudioUnits stores the mode-specific billable units (minutes, million characters, or hours).
+	AudioUnits *float64
+
 	CreatedAt time.Time
 
 	User         *User

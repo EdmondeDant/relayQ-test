@@ -42709,6 +42709,11 @@ type UsageLogMutation struct {
 	image_output_size           *string
 	image_size_source           *string
 	image_size_breakdown        *map[string]int
+	search_count                *int
+	addsearch_count             *int
+	audio_mode                  *string
+	audio_units                 *float64
+	addaudio_units              *float64
 	cache_ttl_overridden        *bool
 	created_at                  *time.Time
 	clearedFields               map[string]struct{}
@@ -45372,6 +45377,181 @@ func (m *UsageLogMutation) ResetImageSizeBreakdown() {
 	delete(m.clearedFields, usagelog.FieldImageSizeBreakdown)
 }
 
+// SetSearchCount sets the "search_count" field.
+func (m *UsageLogMutation) SetSearchCount(i int) {
+	m.search_count = &i
+	m.addsearch_count = nil
+}
+
+// SearchCount returns the value of the "search_count" field in the mutation.
+func (m *UsageLogMutation) SearchCount() (r int, exists bool) {
+	v := m.search_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSearchCount returns the old "search_count" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldSearchCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSearchCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSearchCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSearchCount: %w", err)
+	}
+	return oldValue.SearchCount, nil
+}
+
+// AddSearchCount adds i to the "search_count" field.
+func (m *UsageLogMutation) AddSearchCount(i int) {
+	if m.addsearch_count != nil {
+		*m.addsearch_count += i
+	} else {
+		m.addsearch_count = &i
+	}
+}
+
+// AddedSearchCount returns the value that was added to the "search_count" field in this mutation.
+func (m *UsageLogMutation) AddedSearchCount() (r int, exists bool) {
+	v := m.addsearch_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSearchCount resets all changes to the "search_count" field.
+func (m *UsageLogMutation) ResetSearchCount() {
+	m.search_count = nil
+	m.addsearch_count = nil
+}
+
+// SetAudioMode sets the "audio_mode" field.
+func (m *UsageLogMutation) SetAudioMode(s string) {
+	m.audio_mode = &s
+}
+
+// AudioMode returns the value of the "audio_mode" field in the mutation.
+func (m *UsageLogMutation) AudioMode() (r string, exists bool) {
+	v := m.audio_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudioMode returns the old "audio_mode" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldAudioMode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudioMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudioMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudioMode: %w", err)
+	}
+	return oldValue.AudioMode, nil
+}
+
+// ClearAudioMode clears the value of the "audio_mode" field.
+func (m *UsageLogMutation) ClearAudioMode() {
+	m.audio_mode = nil
+	m.clearedFields[usagelog.FieldAudioMode] = struct{}{}
+}
+
+// AudioModeCleared returns if the "audio_mode" field was cleared in this mutation.
+func (m *UsageLogMutation) AudioModeCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldAudioMode]
+	return ok
+}
+
+// ResetAudioMode resets all changes to the "audio_mode" field.
+func (m *UsageLogMutation) ResetAudioMode() {
+	m.audio_mode = nil
+	delete(m.clearedFields, usagelog.FieldAudioMode)
+}
+
+// SetAudioUnits sets the "audio_units" field.
+func (m *UsageLogMutation) SetAudioUnits(f float64) {
+	m.audio_units = &f
+	m.addaudio_units = nil
+}
+
+// AudioUnits returns the value of the "audio_units" field in the mutation.
+func (m *UsageLogMutation) AudioUnits() (r float64, exists bool) {
+	v := m.audio_units
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudioUnits returns the old "audio_units" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldAudioUnits(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudioUnits is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudioUnits requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudioUnits: %w", err)
+	}
+	return oldValue.AudioUnits, nil
+}
+
+// AddAudioUnits adds f to the "audio_units" field.
+func (m *UsageLogMutation) AddAudioUnits(f float64) {
+	if m.addaudio_units != nil {
+		*m.addaudio_units += f
+	} else {
+		m.addaudio_units = &f
+	}
+}
+
+// AddedAudioUnits returns the value that was added to the "audio_units" field in this mutation.
+func (m *UsageLogMutation) AddedAudioUnits() (r float64, exists bool) {
+	v := m.addaudio_units
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAudioUnits clears the value of the "audio_units" field.
+func (m *UsageLogMutation) ClearAudioUnits() {
+	m.audio_units = nil
+	m.addaudio_units = nil
+	m.clearedFields[usagelog.FieldAudioUnits] = struct{}{}
+}
+
+// AudioUnitsCleared returns if the "audio_units" field was cleared in this mutation.
+func (m *UsageLogMutation) AudioUnitsCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldAudioUnits]
+	return ok
+}
+
+// ResetAudioUnits resets all changes to the "audio_units" field.
+func (m *UsageLogMutation) ResetAudioUnits() {
+	m.audio_units = nil
+	m.addaudio_units = nil
+	delete(m.clearedFields, usagelog.FieldAudioUnits)
+}
+
 // SetCacheTTLOverridden sets the "cache_ttl_overridden" field.
 func (m *UsageLogMutation) SetCacheTTLOverridden(b bool) {
 	m.cache_ttl_overridden = &b
@@ -45613,7 +45793,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 50)
+	fields := make([]string, 0, 53)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -45758,6 +45938,15 @@ func (m *UsageLogMutation) Fields() []string {
 	if m.image_size_breakdown != nil {
 		fields = append(fields, usagelog.FieldImageSizeBreakdown)
 	}
+	if m.search_count != nil {
+		fields = append(fields, usagelog.FieldSearchCount)
+	}
+	if m.audio_mode != nil {
+		fields = append(fields, usagelog.FieldAudioMode)
+	}
+	if m.audio_units != nil {
+		fields = append(fields, usagelog.FieldAudioUnits)
+	}
 	if m.cache_ttl_overridden != nil {
 		fields = append(fields, usagelog.FieldCacheTTLOverridden)
 	}
@@ -45868,6 +46057,12 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ImageSizeSource()
 	case usagelog.FieldImageSizeBreakdown:
 		return m.ImageSizeBreakdown()
+	case usagelog.FieldSearchCount:
+		return m.SearchCount()
+	case usagelog.FieldAudioMode:
+		return m.AudioMode()
+	case usagelog.FieldAudioUnits:
+		return m.AudioUnits()
 	case usagelog.FieldCacheTTLOverridden:
 		return m.CacheTTLOverridden()
 	case usagelog.FieldCreatedAt:
@@ -45977,6 +46172,12 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldImageSizeSource(ctx)
 	case usagelog.FieldImageSizeBreakdown:
 		return m.OldImageSizeBreakdown(ctx)
+	case usagelog.FieldSearchCount:
+		return m.OldSearchCount(ctx)
+	case usagelog.FieldAudioMode:
+		return m.OldAudioMode(ctx)
+	case usagelog.FieldAudioUnits:
+		return m.OldAudioUnits(ctx)
 	case usagelog.FieldCacheTTLOverridden:
 		return m.OldCacheTTLOverridden(ctx)
 	case usagelog.FieldCreatedAt:
@@ -46326,6 +46527,27 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetImageSizeBreakdown(v)
 		return nil
+	case usagelog.FieldSearchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSearchCount(v)
+		return nil
+	case usagelog.FieldAudioMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudioMode(v)
+		return nil
+	case usagelog.FieldAudioUnits:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudioUnits(v)
+		return nil
 	case usagelog.FieldCacheTTLOverridden:
 		v, ok := value.(bool)
 		if !ok {
@@ -46417,6 +46639,12 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addimage_count != nil {
 		fields = append(fields, usagelog.FieldImageCount)
 	}
+	if m.addsearch_count != nil {
+		fields = append(fields, usagelog.FieldSearchCount)
+	}
+	if m.addaudio_units != nil {
+		fields = append(fields, usagelog.FieldAudioUnits)
+	}
 	return fields
 }
 
@@ -46471,6 +46699,10 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFirstTokenMs()
 	case usagelog.FieldImageCount:
 		return m.AddedImageCount()
+	case usagelog.FieldSearchCount:
+		return m.AddedSearchCount()
+	case usagelog.FieldAudioUnits:
+		return m.AddedAudioUnits()
 	}
 	return nil, false
 }
@@ -46641,6 +46873,20 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddImageCount(v)
 		return nil
+	case usagelog.FieldSearchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSearchCount(v)
+		return nil
+	case usagelog.FieldAudioUnits:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAudioUnits(v)
+		return nil
 	}
 	return fmt.Errorf("unknown UsageLog numeric field %s", name)
 }
@@ -46729,6 +46975,12 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(usagelog.FieldImageSizeBreakdown) {
 		fields = append(fields, usagelog.FieldImageSizeBreakdown)
+	}
+	if m.FieldCleared(usagelog.FieldAudioMode) {
+		fields = append(fields, usagelog.FieldAudioMode)
+	}
+	if m.FieldCleared(usagelog.FieldAudioUnits) {
+		fields = append(fields, usagelog.FieldAudioUnits)
 	}
 	return fields
 }
@@ -46824,6 +47076,12 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldImageSizeBreakdown:
 		m.ClearImageSizeBreakdown()
+		return nil
+	case usagelog.FieldAudioMode:
+		m.ClearAudioMode()
+		return nil
+	case usagelog.FieldAudioUnits:
+		m.ClearAudioUnits()
 		return nil
 	}
 	return fmt.Errorf("unknown UsageLog nullable field %s", name)
@@ -46976,6 +47234,15 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldImageSizeBreakdown:
 		m.ResetImageSizeBreakdown()
+		return nil
+	case usagelog.FieldSearchCount:
+		m.ResetSearchCount()
+		return nil
+	case usagelog.FieldAudioMode:
+		m.ResetAudioMode()
+		return nil
+	case usagelog.FieldAudioUnits:
+		m.ResetAudioUnits()
 		return nil
 	case usagelog.FieldCacheTTLOverridden:
 		m.ResetCacheTTLOverridden()

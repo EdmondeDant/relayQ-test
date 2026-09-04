@@ -80,6 +80,9 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // image_output_size
 			sqlmock.AnyArg(), // image_size_source
 			sqlmock.AnyArg(), // image_size_breakdown
+			log.SearchCount,
+			sqlmock.AnyArg(), // audio_mode
+			sqlmock.AnyArg(), // audio_units
 			sqlmock.AnyArg(), // service_tier
 			sqlmock.AnyArg(), // reasoning_effort
 			sqlmock.AnyArg(), // inbound_endpoint
@@ -163,6 +166,9 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // image_output_size
 			sqlmock.AnyArg(), // image_size_source
 			sqlmock.AnyArg(), // image_size_breakdown
+			0,                // search_count
+			sqlmock.AnyArg(), // audio_mode
+			sqlmock.AnyArg(), // audio_units
 			serviceTier,
 			sqlmock.AnyArg(),
 			sqlmock.AnyArg(),
@@ -630,6 +636,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{Valid: true, String: "3840x2160"},
 			sql.NullString{Valid: true, String: "output"},
 			sql.NullString{Valid: true, String: `{"4K":2}`},
+			0,
+			sql.NullString{},
+			sql.NullFloat64{},
 			sql.NullString{},
 			sql.NullString{},
 			sql.NullString{},
@@ -698,6 +707,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{}, // image_output_size
 			sql.NullString{}, // image_size_source
 			sql.NullString{}, // image_size_breakdown
+			0,
+			sql.NullString{},
+			sql.NullFloat64{},
 			sql.NullString{Valid: true, String: "priority"},
 			sql.NullString{},
 			sql.NullString{},
@@ -750,6 +762,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{}, // image_output_size
 			sql.NullString{}, // image_size_source
 			sql.NullString{}, // image_size_breakdown
+			0,
+			sql.NullString{},
+			sql.NullFloat64{},
 			sql.NullString{Valid: true, String: "flex"},
 			sql.NullString{},
 			sql.NullString{},
@@ -802,6 +817,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{}, // image_output_size
 			sql.NullString{}, // image_size_source
 			sql.NullString{}, // image_size_breakdown
+			0,
+			sql.NullString{},
+			sql.NullFloat64{},
 			sql.NullString{Valid: true, String: "priority"},
 			sql.NullString{},
 			sql.NullString{},
@@ -819,4 +837,24 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 		require.Equal(t, "priority", *log.ServiceTier)
 	})
 
+}
+
+func TestPrepareUsageLogInsert_PersistsSearchAudioUsage(t *testing.T) {
+	audioMode := "tts"
+	audioUnits := 1.25
+	prepared := prepareUsageLogInsert(&service.UsageLog{
+		UserID:      1,
+		APIKeyID:    2,
+		AccountID:   3,
+		RequestID:   "req-search-audio",
+		Model:       "grok-voice",
+		SearchCount: 2,
+		AudioMode:   &audioMode,
+		AudioUnits:  &audioUnits,
+		CreatedAt:   time.Date(2025, 1, 7, 12, 0, 0, 0, time.UTC),
+	})
+
+	require.Equal(t, 2, prepared.args[39])
+	require.Equal(t, sql.NullString{String: audioMode, Valid: true}, prepared.args[40])
+	require.Equal(t, audioUnits, *prepared.args[41].(*float64))
 }
