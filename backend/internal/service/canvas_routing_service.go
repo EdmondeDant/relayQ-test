@@ -394,6 +394,9 @@ func (s *CanvasRoutingService) pricingAvailable(ctx context.Context, groupID int
 	if s.channels != nil && canvasChannelPricingAvailable(s.channels.GetChannelModelPricing(ctx, groupID, model)) {
 		return true
 	}
+	if s.billing == nil {
+		return false
+	}
 	pricing, err := s.billing.GetModelPricing(model)
 	return err == nil && pricing != nil
 }

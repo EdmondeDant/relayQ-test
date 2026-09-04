@@ -18,6 +18,7 @@ import (
 type mockChannelRepository struct {
 	listAllFn                  func(ctx context.Context) ([]Channel, error)
 	getGroupPlatformsFn        func(ctx context.Context, groupIDs []int64) (map[int64]string, error)
+	getModelPricingFn          func(ctx context.Context, groupID int64, model string) (*ChannelModelPricing, error)
 	createFn                   func(ctx context.Context, channel *Channel) error
 	getByIDFn                  func(ctx context.Context, id int64) (*Channel, error)
 	updateFn                   func(ctx context.Context, channel *Channel) error

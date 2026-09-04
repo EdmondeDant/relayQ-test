@@ -36,7 +36,7 @@ func NewLeonardoGenerationAdapter(account *Account, upstream HTTPUpstream, cfg *
 	}
 	apiKey := account.GetLeonardoAPIKey()
 	if apiKey == "" {
-		return nil, errors.New("leonardo API key is required")
+		return nil, errors.New("Leonardo API key is required")
 	}
 	baseURL := strings.TrimSpace(account.GetLeonardoBaseURL())
 	if baseURL == "" {
